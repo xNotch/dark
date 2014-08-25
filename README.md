@@ -3,7 +3,7 @@ dark
 
 Dart / WebGL Doom level renderer
 
-I am very well aware this code could be cleaned up a lot. That's not the point.
+I am very well aware this code could be cleaned up a lot. Make more issues about this.
 
 Enjoy!
 
