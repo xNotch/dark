@@ -41,7 +41,7 @@ class WadFile {
       else if (lump.name == "S_END") foundSprites = false;
       else if (foundSprites) {
         WAD_Image sprite = new WAD_Image.parse(lump.getByteData(data), palette.palettes[0]);
-        spriteMap[lump.name] = sprite;
+        spriteMap[lump.name.substring(0, 4)] = sprite;
         spriteList.add(sprite);
       }
     }
@@ -205,7 +205,14 @@ class Level {
       Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
       Sector sector = bsp.findSector(spritePos.xz);
       spritePos.y = sector.floorHeight.toDouble();
-      addSprite(spriteMap["SUITA0"].createSprite(spritePos));
+      
+      WAD_Image img = spriteMap[thing.getImageName()]; 
+      
+      if (img == null) {
+        print("Can't find an image for thing ${thing.type}");
+      } else {
+        addSprite(img.createSprite(spritePos));
+      }
     }
     
     for (int i=0; i<segs.length; i++) {
@@ -294,6 +301,130 @@ class Thing {
       thing.options = data.getInt16(i*10+8, Endianness.LITTLE_ENDIAN);
     }
     return things;
+  }
+  
+  String getImageName() {
+    switch (type) {
+      case    1: return "PLAY";
+      case    2: return "PLAY";
+      case    3: return "PLAY";
+      case    4: return "PLAY";
+      case 3004: return "POSS";
+      case   84: return "SSWV";
+      case    9: return "SPOS";
+      case   65: return "CPOS";
+      case 3001: return "TROO";
+      case 3002: return "SARG";
+      case   58: return "SARG";
+      case 3006: return "SKUL";
+      case 3005: return "HEAD";
+      case   69: return "BOS2";
+      case 3003: return "BOSS";
+      case   68: return "BSPI";
+      case   71: return "PAIN";
+      case   66: return "SKEL";
+      case   67: return "FATT";
+      case   64: return "VILE";
+      case    7: return "SPID";
+      case   16: return "CYBR";
+      case   88: return "BBRN";
+      case 2005: return "CSAW";
+      case 2001: return "SHOT";
+      case   82: return "SGN2";
+      case 2002: return "MGUN";
+      case 2003: return "LAUN";
+      case 2004: return "PLAS";
+      case 2006: return "BFUG";
+      case 2007: return "CLIP";
+      case 2008: return "SHEL";
+      case 2010: return "ROCK";
+      case 2047: return "CELL";
+      case 2048: return "AMMO";
+      case 2049: return "SBOX";
+      case 2046: return "BROK";
+      case   17: return "CELP";
+      case    8: return "BPAK";
+      case 2011: return "STIM";
+      case 2012: return "MEDI";
+      case 2014: return "BON1";
+      case 2015: return "BON2";
+      case 2018: return "ARM1";
+      case 2019: return "ARM2";
+      case   83: return "MEGA";
+      case 2013: return "SOUL";
+      case 2022: return "PINV";
+      case 2023: return "PSTR";
+      case 2024: return "PINS";
+      case 2025: return "SUIT";
+      case 2026: return "PMAP";
+      case 2045: return "PVIS";
+      case    5: return "BKEY";
+      case   40: return "BSKU";
+      case   13: return "RKEY";
+      case   38: return "RSKU";
+      case    6: return "YKEY";
+      case   39: return "YSKU";
+      case 2035: return "BAR1";
+      case   72: return "KEEN";
+      case   48: return "ELEC";
+      case   30: return "COL1";
+      case   32: return "COL3";
+      case   31: return "COL2";
+      case   36: return "COL5";
+      case   33: return "COL4";
+      case   37: return "COL6";
+      case   47: return "SMIT";
+      case   43: return "TRE1";
+      case   54: return "TRE2";
+      case 2028: return "COLU";
+      case   85: return "TLMP";
+      case   86: return "TLP2";
+      case   34: return "CAND";
+      case   35: return "CBRA";
+      case   44: return "TBLU";
+      case   45: return "TGRE";
+      case   46: return "TRED";
+      case   55: return "SMBT";
+      case   56: return "SMGT";
+      case   57: return "SMRT";
+      case   70: return "FCAN";
+      case   41: return "CEYE";
+      case   42: return "FSKU";
+      case   49: return "GOR1";
+      case   63: return "GOR1";
+      case   50: return "GOR2";
+      case   59: return "GOR2";
+      case   52: return "GOR4";
+      case   60: return "GOR4";
+      case   51: return "GOR3";
+      case   61: return "GOR3";
+      case   53: return "GOR5";
+      case   62: return "GOR5";
+      case   73: return "HDB1";
+      case   74: return "HDB2";
+      case   75: return "HDB3";
+      case   76: return "HDB4";
+      case   77: return "HDB5";
+      case   78: return "HDB6";
+      case   25: return "POL1";
+      case   26: return "POL6";
+      case   27: return "POL4";
+      case   28: return "POL2";
+      case   29: return "POL3";
+      case   10: return "PLAY";
+      case   12: return "PLAY";
+      case   24: return "POL5";
+      case   79: return "POB1";
+      case   80: return "POB2";
+      case   81: return "BRS1";
+      case   15: return "PLAY";
+      case   18: return "POSS";
+      case   19: return "SPOS";
+      case   20: return "TROO";
+      case   21: return "SARG";
+      case   22: return "HEAD";
+      case   23: return "SKUL";
+    }
   }
 }
 
