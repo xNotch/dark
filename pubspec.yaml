@@ -1,0 +1,6 @@
+name: Dark
+description: A sample web application
+dependencies:
+  browser: any
+  http: any
+  vector_math: any

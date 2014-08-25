@@ -1,0 +1,15 @@
+body {
+  background-color: #000000;
+  color: #eeeeee;
+}
+
+a {
+  color: #8080ff;
+  }
+
+#game {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  background-color: #404040;
+}
