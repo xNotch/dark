@@ -1,4 +1,4 @@
-dark
+dark :rage1::rage2::rage3::rage4::rage1::rage2::rage3::rage4::rage1::rage2::rage3::rage4:
 ====
 
 Dart / WebGL Doom level renderer
@@ -9,3 +9,4 @@ Enjoy!
 
 
 (No doom.wad is provided)
+
