@@ -9,3 +9,8 @@ Enjoy!
 
 
 (No doom.wad is provided)
+
+License
+---
+
+`dark` is released under the [WTFPL license](http://www.wtfpl.net/)
