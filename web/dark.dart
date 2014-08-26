@@ -20,7 +20,7 @@ part "wad.dart";
 bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
 
 
-bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
+bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = true; // Original doom was 4:3.
 bool GAME_ORIGINAL_PIXEL_ASPECT_RATIO = true; // Original doom used slightly vertically stretched pixels (320x200 pixels in 4:3)
 
 double GAME_MIN_ASPECT_RATIO = 4/3; // Letterbox if aspect ratio is lower than this
@@ -172,7 +172,8 @@ Matrix4 modelMatrix;
 Matrix4 viewMatrix;
 Matrix4 projectionMatrix;
 
-Vector3 playerPos = new Vector3(1075.8603515625,-50.0,-3237.50537109375);
+//Vector3 playerPos = new Vector3(1075.8603515625,-50.0,-3237.50537109375);
+Vector3 playerPos = new Vector3(-2090.5009765625,169.0,1060.5748291015625);
 double playerRot = 0.0;
 
 Framebuffer indexColorBuffer;
@@ -279,6 +280,7 @@ void updateGameLogic(double passedTime) {
   if (keys[83]) iY-=1.0;
   
   playerRot-=iRot*passedTime*3;
+  
   playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
   playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
   

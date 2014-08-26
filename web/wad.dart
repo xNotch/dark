@@ -82,7 +82,7 @@ class WadFile {
     bool foundLevel = false;
     for (int i=0; i<header.lumpInfos.length; i++) {
       LumpInfo lump = header.lumpInfos[i];
-      if (lump.name == "E1M1") loadLevel(lump.name, i);
+      if (lump.name == "E1M2") loadLevel(lump.name, i);
     }    
   }
   
@@ -186,7 +186,7 @@ class WadFile {
       if (lump.name=="SECTORS") level.sectors = Sector.parse(lump, lump.getByteData(data));
       if (lump.name=="THINGS") level.things = Thing.parse(lump, lump.getByteData(data));
       if (lump.name=="NODES") level.nodes = Node.parse(lump, lump.getByteData(data));
-      if (lump.name=="E1M2") break; // TODO: Check for end of level data in some good way instead.
+      if (lump.name=="E1M3") break; // TODO: Check for end of level data in some good way instead.
     }
     
     level.build(this);

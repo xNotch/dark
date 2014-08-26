@@ -182,8 +182,8 @@ class Floors {
 
     for (int i=0; i<subSectors.length; i++) {
       SubSector ss = subSectors[i];
-//      double floor = ss.sector.floorHeight.toDouble();
-//      double ceiling = ss.sector.ceilingHeight.toDouble();
+      double orgFloor = ss.sector.floorHeight.toDouble();
+      double orgCeiling = ss.sector.ceilingHeight.toDouble();
       double floor = -10000000.0;
       double ceiling = 10000000.0;
       
@@ -193,58 +193,72 @@ class Floors {
         Vector2 from = ss.segFrom[j]; 
         Vector2 to = ss.segTo[j];
         if (ss.backSectors[j]==null) {
-          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
+          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
+          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y]);
+          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);
 
-          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
+          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
+          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);
+          vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y]);
         } else {
           if (ss.backSectors[j].floorHeight>ss.sector.floorHeight) {
             double backFloor = ss.backSectors[j].floorHeight.toDouble();
             
             if (ss.backSectors[j].floorHeight>pos.y) {
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backFloor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backFloor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backFloor, to.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backFloor, from.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);
               
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backFloor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);              
-            } else {
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backFloor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backFloor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backFloor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-            }
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backFloor, to.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y]);              
+            } 
           }
           if (ss.backSectors[j].ceilingHeight<ss.sector.ceilingHeight) {
             double backCeiling = ss.backSectors[j].ceilingHeight.toDouble();
             
             if (ss.backSectors[j].ceilingHeight<pos.y) {
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backCeiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backCeiling, from.y]);
     
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backCeiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backCeiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-            } else {
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backCeiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-    
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backCeiling, to.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backCeiling, from.y, xSkyTexOffs, ySkyTexOffs, 1.0]);
-            }
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, backCeiling, from.y]);
+              vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, backCeiling, to.y]);
+            } 
           }
         }
       }
+      if (orgFloor<pos.y) {
+        for (int j=0; j<ss.segCount; j++) {
+          Vector2 from = ss.segFrom[j]; 
+          Vector2 to = ss.segTo[j];
+          if (ss.backSectors[j]!=null && ss.backSectors[j].floorHeight<ss.sector.floorHeight) {
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, orgFloor, to.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, orgFloor, from.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);
+
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, orgFloor, to.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, floor, to.y]);
+          }
+        }
+      }
+      if (orgCeiling>pos.y) {
+        for (int j=0; j<ss.segCount; j++) {
+          Vector2 from = ss.segFrom[j]; 
+          Vector2 to = ss.segTo[j];
+          if (ss.backSectors[j]!=null && ss.backSectors[j].ceilingHeight>ss.sector.ceilingHeight) {
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, orgCeiling, from.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, orgCeiling, to.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
+
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, orgCeiling, from.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
+            vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y]);
+          }
+        }
+      }         
     }
     
     gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData.sublist(0, pp*FLOATS_PER_VERTEX) as Float32List);
