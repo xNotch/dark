@@ -20,7 +20,7 @@ part "wad.dart";
 bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
 
 
-bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = true; // Original doom was 4:3.
+bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
 bool GAME_ORIGINAL_PIXEL_ASPECT_RATIO = true; // Original doom used slightly vertically stretched pixels (320x200 pixels in 4:3)
 
 double GAME_MIN_ASPECT_RATIO = 4/3; // Letterbox if aspect ratio is lower than this
@@ -206,7 +206,7 @@ void start() {
     }
   }
   // Below that, lookuptables for COLORMAP.. in rows of 16?
-  for (int i=0; i<34; i++) {
+  for (int i=0; i<33; i++) {
     List<int> colormap = wadFile.colormap.colormaps[i];
     int xo = (i%16)*16;
     int yo = (i~/16+1)*16;
@@ -283,8 +283,13 @@ void updateGameLogic(double passedTime) {
   
   playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
   playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
-  
-  playerPos.y = wadFile.level.bsp.findSector(playerPos.xz).floorHeight.toDouble()+41;
+
+  int floorHeight = -10000000;
+  HashSet<Sector> sectorsInRange = wadFile.level.bsp.findSectorsInRadius(playerPos.xz, 16.0);
+  sectorsInRange.forEach((sector) {
+    if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
+  });
+  playerPos.y = floorHeight.toDouble()+41;
 }
 
 void renderGame() {

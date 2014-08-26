@@ -474,11 +474,11 @@ class WAD_Vertexes {
 }
 
 class WAD_Colormap {
-  List<List<int>> colormaps = new List<List<int>>(34);
+  List<List<int>> colormaps = new List<List<int>>(33);
   
   WAD_Colormap.parse(ByteData data) {
     int pos = 0;
-    for (int i=0; i<34; i++) {
+    for (int i=0; i<33; i++) {
       colormaps[i] = new List<int>(256);
       for (int c=0; c<256; c++) {
         colormaps[i][c] = data.getUint8(pos++);
@@ -682,6 +682,12 @@ class BSP {
     root.findSortedSubSectors(pos, result);
     return result;
   }
+  
+  HashSet<Sector> findSectorsInRadius(Vector2 pos, double radius) {
+    HashSet<Sector> result = new HashSet<Sector>();
+    root.findSectorsInRadius(pos, radius, result);
+    return result;
+  }
 }
 
 class SubSector {
@@ -755,6 +761,17 @@ class BSPNode {
       
       if (leftChild!=null) leftChild.findSortedSubSectors(p, result);
       else result.add(leftSubSector);
+    }
+  }
+  
+  void findSectorsInRadius(Vector2 p, double radius, HashSet<Sector> result) {
+    if (p.dot(dir)>d-radius) {
+      if (leftChild!=null) leftChild.findSectorsInRadius(p, radius, result);
+      else result.add(leftSubSector.sector);
+    } 
+    if (p.dot(dir)<d+radius) {
+      if (rightChild!=null) rightChild.findSectorsInRadius(p, radius, result);
+      else result.add(rightSubSector.sector);
     }
   }
   
