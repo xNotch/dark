@@ -295,6 +295,11 @@ void renderGame() {
   gl.depthFunc(GL.LEQUAL);
   
   walls.values.forEach((walls)=>walls.render());
+  
+  gl.depthFunc(GL.ALWAYS);
+  gl.colorMask(false, false, false, false);
+  floors.renderBackWallHack(wadFile.level.bsp, playerPos);
+  gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LESS);
   spriteMaps.values.forEach((sprites)=>sprites.render());  
 }

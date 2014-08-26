@@ -45,6 +45,7 @@ class WadFile {
       else if (lump.name == "S_END") foundSprites = false;
       else if (foundSprites) {
         WAD_Image sprite = new WAD_Image.parse(lump.getByteData(data));
+        if (lump.name.startsWith("SPID")) print(lump.name);
         spriteMap[lump.name] = sprite;
         spriteList.add(sprite);
       }
@@ -212,7 +213,7 @@ class Level {
       Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
       Sector sector = bsp.findSector(spritePos.xz);
       spritePos.y = sector.floorHeight.toDouble();
-      addSprite(spriteMap["SUITA0"].createSprite(sector, spritePos));
+      addSprite(spriteMap["BAR1A0"].createSprite(sector, spritePos));
     }
     
     for (int i=0; i<segs.length; i++) {
