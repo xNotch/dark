@@ -2,10 +2,6 @@ dark
 ====
 
 Dart / WebGL Doom level renderer
+No doom.wad is provided. If you need a free one, you can try http://freedoom.github.io/
 
-I am very well aware this code could be cleaned up a lot. That's not the point.
-
-Enjoy!
-
-
-(No doom.wad is provided)
+I'm working on this for fun, so I won't be accepting any major pull requests.
