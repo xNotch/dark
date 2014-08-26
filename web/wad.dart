@@ -8,6 +8,7 @@ HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>();
 class WadFile {
   WAD_Header header;
   WAD_Playpal palette;
+  WAD_Colormap colormap;
   ByteData data;
   
   List<WAD_Image> patchList = new List<WAD_Image>();
@@ -35,6 +36,7 @@ class WadFile {
     this.data = data;
     header = new WAD_Header.parse(data);
     palette = new WAD_Playpal.parse(header.lumpInfoMap["PLAYPAL"].getByteData(data));
+    colormap = new WAD_Colormap.parse(header.lumpInfoMap["COLORMAP"].getByteData(data));
 
     bool foundSprites = false;
     for (int i=0; i<header.lumpInfos.length; i++) {
@@ -42,7 +44,7 @@ class WadFile {
       if (lump.name == "S_START") foundSprites = true;
       else if (lump.name == "S_END") foundSprites = false;
       else if (foundSprites) {
-        WAD_Image sprite = new WAD_Image.parse(lump.getByteData(data), palette.palettes[0]);
+        WAD_Image sprite = new WAD_Image.parse(lump.getByteData(data));
         spriteMap[lump.name] = sprite;
         spriteList.add(sprite);
       }
@@ -55,7 +57,7 @@ class WadFile {
       else if (lump.name == "F_END") foundFlats = false;
       else if (foundFlats) {
         if (lump.size==64*64) {
-          flatMap[lump.name] = new WAD_Image.parseFlat(lump.getByteData(data), palette.palettes[0]);
+          flatMap[lump.name] = new WAD_Image.parseFlat(lump.getByteData(data));
         }
       }
       flatMap["_sky_"] = new WAD_Image.empty(64,  64);
@@ -132,7 +134,7 @@ class WadFile {
       String pname = readString(data,  4+i*8, 8);
       
       if (header.lumpInfoMap.containsKey(pname)) {
-        WAD_Image patch = new WAD_Image.parse(header.lumpInfoMap[pname].getByteData(data), palette.palettes[0]);
+        WAD_Image patch = new WAD_Image.parse(header.lumpInfoMap[pname].getByteData(data));
         patchMap[pname] = patch;
         patchList.add(patch);
       }
@@ -470,6 +472,20 @@ class WAD_Vertexes {
   }
 }
 
+class WAD_Colormap {
+  List<List<int>> colormaps = new List<List<int>>(34);
+  
+  WAD_Colormap.parse(ByteData data) {
+    int pos = 0;
+    for (int i=0; i<34; i++) {
+      colormaps[i] = new List<int>(256);
+      for (int c=0; c<256; c++) {
+        colormaps[i][c] = data.getUint8(pos++);
+      }
+    }
+  }
+}
+
 class WAD_Playpal {
   List<Palette> palettes = new List<Palette>(14);
   
@@ -524,7 +540,7 @@ class WAD_Image {
     }
   }
   
-  WAD_Image.parseFlat(ByteData data, Palette palette) {
+  WAD_Image.parseFlat(ByteData data) {
     width = 64;
     height = 64;
     xCenter = 0;
@@ -534,15 +550,15 @@ class WAD_Image {
     pixelData = new Uint8List(width*height*4);
 
     for (int i=0; i<64*64; i++) {
-      pixels[i] = data.getUint8(i);
-      pixelData[i*4+0] = palette.r[pixels[i]]; 
-      pixelData[i*4+1] = palette.g[pixels[i]]; 
-      pixelData[i*4+2] = palette.b[pixels[i]]; 
+      int pixel = pixels[i] = data.getUint8(i);
+      pixelData[i*4+0] = pixel%16*16+8; 
+      pixelData[i*4+1] = pixel~/16*16+8; 
+      pixelData[i*4+2] = 0; 
       pixelData[i*4+3] = 255; 
     }
   }
   
-  WAD_Image.parse(ByteData data, Palette palette) {
+  WAD_Image.parse(ByteData data) {
     width = data.getInt16(0x00, Endianness.LITTLE_ENDIAN);
     height = data.getInt16(0x02, Endianness.LITTLE_ENDIAN);
     xCenter = data.getInt16(0x04, Endianness.LITTLE_ENDIAN);
@@ -565,10 +581,10 @@ class WAD_Image {
         data.getUint8(pos++); // Skip first byte in a column
         for (int i=0; i<count; i++) {
           int pp = x+(rowStart+i)*width;
-          pixels[pp] = data.getUint8(pos++);
-          pixelData[pp*4+0] = palette.r[pixels[pp]]; 
-          pixelData[pp*4+1] = palette.g[pixels[pp]]; 
-          pixelData[pp*4+2] = palette.b[pixels[pp]]; 
+          int pixel = pixels[pp] = data.getUint8(pos++);
+          pixelData[pp*4+0] = pixel%16*16+8; 
+          pixelData[pp*4+1] = pixel~/16*16+8; 
+          pixelData[pp*4+2] = 0; 
           pixelData[pp*4+3] = 255; 
         }
         data.getUint8(pos++); // Also skip the last byte
@@ -589,6 +605,24 @@ class WAD_Image {
   
   Sprite createSprite(Sector sector, Vector3 pos) {
     return new Sprite(imageAtlas.texture, sector, pos, -xCenter, -yCenter, width, height, xAtlasPos, yAtlasPos);
+  }
+  
+  GL.Texture createTexture(Palette palette) {
+    GL.Texture texture = gl.createTexture();
+    
+    Uint8List result = new Uint8List(width*height*4);
+    for (int i=0; i<width*height; i++) {
+      result[i*4+0] = palette.r[pixels[i]];
+      result[i*4+1] = palette.g[pixels[i]];
+      result[i*4+2] = palette.b[pixels[i]];
+      result[i*4+3] = 255;
+    }
+    gl.bindTexture(GL.TEXTURE_2D, texture);
+    gl.texImage2DTyped(GL.TEXTURE_2D, 0, GL.RGBA, width, height, 0, GL.RGBA, GL.UNSIGNED_BYTE, result);
+    gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MIN_FILTER, GL.NEAREST);
+    gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
+    
+    return texture;
   }
 }
 

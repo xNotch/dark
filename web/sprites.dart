@@ -125,3 +125,162 @@ class Sprite {
     ]);
   }
 }
+
+
+
+
+class ScreenRenderer {
+  // Vertex data:
+
+  // x, y      0 + 2 = 2
+  // u, v      2 + 2 = 4
+  
+  static const int BYTES_PER_FLOAT = 4;
+
+  static const int FLOATS_PER_VERTEX = 4;
+  
+  Shader shader;
+  GL.Texture texture;
+  GL.Texture colorLookupTexture;
+  
+  GL.Buffer vertexBuffer, indexBuffer;
+  
+  int posLocation;
+  int uvLocation;
+  
+  GL.UniformLocation projectionMatrixLocation;    
+  
+  Float32List vertexData = new Float32List(4*FLOATS_PER_VERTEX);
+  
+  ScreenRenderer(this.shader, this.texture, this.colorLookupTexture) {
+    vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferDataTyped(GL.ARRAY_BUFFER, vertexData, GL.DYNAMIC_DRAW);
+    
+    Int16List indexData = new Int16List(6);
+    indexData.setAll(0, [0, 1, 2, 0, 2, 3]);
+    
+    indexBuffer = gl.createBuffer();
+    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferDataTyped(GL.ELEMENT_ARRAY_BUFFER, indexData, GL.STATIC_DRAW);
+    
+    shader.use();
+    posLocation = gl.getAttribLocation(shader.program, "a_pos");
+    uvLocation = gl.getAttribLocation(shader.program, "a_uv");
+    
+    gl.uniform1i(gl.getUniformLocation(shader.program, "u_texture"), 0);
+    gl.uniform1i(gl.getUniformLocation(shader.program, "u_colorLookup"), 1);
+
+    projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
+  }
+  
+  void render() {
+    shader.use();
+    gl.activeTexture(GL.TEXTURE1);
+    gl.bindTexture(GL.TEXTURE_2D, colorLookupTexture);
+    gl.activeTexture(GL.TEXTURE0);
+    gl.bindTexture(GL.TEXTURE_2D, texture);
+    
+    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
+    double w = screenWidth.toDouble();
+    double h = screenHeight.toDouble();
+    double u = w/512;
+    double v = h/512;
+    vertexData.setAll(0, [
+                              0.0, 0.0, 0.0,   v,
+                              0.0,   h, 0.0, 0.0,
+                                w,   h,   u, 0.0,
+                                w, 0.0,   u,   v,
+                         ]);
+    gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData);
+    
+    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
+    
+    gl.enableVertexAttribArray(posLocation);
+    gl.enableVertexAttribArray(uvLocation);
+    
+    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(posLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 0*BYTES_PER_FLOAT);
+    gl.vertexAttribPointer(uvLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 2*BYTES_PER_FLOAT);
+
+    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_SHORT, 0);
+  }
+}
+
+
+
+class SkyRenderer {
+  // Vertex data:
+
+  // x, y      0 + 2 = 2
+  // u, v, o   2 + 3 = 5
+  
+  static const int BYTES_PER_FLOAT = 4;
+
+  static const int FLOATS_PER_VERTEX = 5;
+  
+  Shader shader;
+  GL.Texture texture;
+  GL.Texture colorLookupTexture;
+  
+  GL.Buffer vertexBuffer, indexBuffer;
+  
+  int posLocation;
+  int uvLocation;
+  
+  GL.UniformLocation projectionMatrixLocation;    
+  
+  Float32List vertexData = new Float32List(4*FLOATS_PER_VERTEX);
+  
+  SkyRenderer(this.shader, this.texture) {
+    vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
+    gl.bufferDataTyped(GL.ARRAY_BUFFER, vertexData, GL.DYNAMIC_DRAW);
+    
+    Int16List indexData = new Int16List(6);
+    indexData.setAll(0, [0, 1, 2, 0, 2, 3]);
+    
+    indexBuffer = gl.createBuffer();
+    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferDataTyped(GL.ELEMENT_ARRAY_BUFFER, indexData, GL.STATIC_DRAW);
+    
+    shader.use();
+    posLocation = gl.getAttribLocation(shader.program, "a_pos");
+    uvLocation = gl.getAttribLocation(shader.program, "a_uv");
+
+    projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
+  }
+  
+  void render() {
+    shader.use();
+    gl.activeTexture(GL.TEXTURE0);
+    gl.bindTexture(GL.TEXTURE_2D, texture);
+    
+    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
+    double w = screenWidth.toDouble();
+    double h = screenHeight.toDouble();
+    double uo = playerRot*1.0/(PI*2);
+    double u = w/h*0.12*PI;
+    double v = 200/128;
+    vertexData.setAll(0, [
+                              0.0, 0.0, -u, 0.0, uo,
+                              0.0,   h, -u,   v, uo,
+                                w,   h,  u,   v, uo,
+                                w, 0.0,  u, 0.0, uo,
+                         ]);
+    gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData);
+    
+    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
+    
+    gl.enableVertexAttribArray(posLocation);
+    gl.enableVertexAttribArray(uvLocation);
+    
+    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(posLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 0*BYTES_PER_FLOAT);
+    gl.vertexAttribPointer(uvLocation, 3, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 2*BYTES_PER_FLOAT);
+
+    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_SHORT, 0);
+  }
+}

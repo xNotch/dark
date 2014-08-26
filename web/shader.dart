@@ -42,6 +42,78 @@ class Shader {
   }
 }
 
+Shader skyShader = new Shader(
+/* Vertex Shader */ """
+  precision highp float;
+
+  attribute vec2 a_pos;
+  attribute vec3 a_uv;
+
+  uniform mat4 u_projectionMatrix;
+
+  varying vec3 v_uv;
+
+  void main() {
+    v_uv = a_uv;
+    gl_Position = u_projectionMatrix*vec4(a_pos, 0.0, 1.0);
+  }
+""",/* Fragment Shader */  """
+  precision highp float;
+  
+  varying vec3 v_uv;
+  
+  uniform sampler2D u_texture;
+  
+  void main() {
+    float u = atan(v_uv.x)/4.0;
+    u += v_uv.z;
+    float v = v_uv.y;
+  
+    gl_FragColor = texture2D(u_texture, vec2(u, v));
+  }
+""");
+
+// TODO: Set texOffset to something based on the texture size
+Shader screenBlitShader = new Shader(
+/* Vertex Shader */ """
+  precision highp float;
+
+  attribute vec2 a_pos;
+  attribute vec2 a_uv;
+
+  uniform mat4 u_projectionMatrix;
+
+  varying vec2 v_uv;
+
+  void main() {
+    v_uv = a_uv;
+    gl_Position = u_projectionMatrix*vec4(a_pos, 0.0, 1.0);
+  }
+""",/* Fragment Shader */  """
+  precision highp float;
+
+  varying vec2 v_uv;
+
+  uniform sampler2D u_texture;
+  uniform sampler2D u_colorLookup;
+  
+  void main() {
+    vec2 texOffset = vec2(0.2/512.0, 0.0/512.0);
+    vec4 inputSample = texture2D(u_texture, v_uv+texOffset);
+    vec2 colorIndex = inputSample.rg;
+    float brightnessIndex = floor((1.0-inputSample.b)*32.0+0.5)/32.0; // 0-1, in 32 steps?
+    float xBrightness = fract(brightnessIndex*2.0); // 0-1, 0-1 in 16 steps each.
+    float yBrightness = floor(brightnessIndex*2.0+1.0)/16.0; // 0 or 1
+    vec2 brightnessPos = vec2(xBrightness, yBrightness);
+
+    vec2 colorMappedColorIndex = texture2D(u_colorLookup, colorIndex/16.0+brightnessPos).rg;
+
+    gl_FragColor = vec4(texture2D(u_colorLookup, colorMappedColorIndex/16.0).rgb, inputSample.a);
+  }
+""");
+
+
+
 Shader spriteShader = new Shader(
 /* Vertex Shader */ """
   precision highp float;
@@ -82,8 +154,8 @@ Shader spriteShader = new Shader(
     float ib = 1.0-v_brightness;
     ib = ib*ib*ib;
     ib = ib*ib;
-    float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
-    gl_FragColor = vec4(col.rgb*brightness, 1.0);
+    float brightness = ((v_brightness+1.0)/(length(v_pos.z)*ib+v_brightness+1.0));
+    gl_FragColor = vec4(col.rg, brightness, 1.0);
   }
 """);
 
@@ -128,13 +200,10 @@ Shader floorShader = new Shader(
       float ib = 1.0-v_brightness;
       ib = ib*ib*ib;
       ib = ib*ib;
-      float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
+      float brightness = ((v_brightness+1.0)/(length(v_pos.z)*ib+v_brightness+1.0));
       vec2 uv = clamp(fract(v_uv/64.0)*64.0, 0.5, 63.5);
       vec4 texCol = texture2D(u_tex, (uv+v_texOffs)/u_texAtlasSize);
-      gl_FragColor = vec4(texCol.rgb*brightness, texCol.a);
-
-//    gl_FragColor = vec4(fract((v_brp+vec3(0.05, 0.05, 0.05))/64.0), 1.0);
-//    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+      gl_FragColor = vec4(texCol.rg, brightness, texCol.a);
   }
 """);
 
@@ -189,9 +258,9 @@ Shader wallShader = new Shader(
     float ib = 1.0-v_brightness;
     ib = ib*ib*ib;
     ib = ib*ib;
-    float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
+    float brightness = ((v_brightness+1.0)/(length(v_pos.z)*ib+v_brightness+1.0));
    
-    gl_FragColor = vec4(texCol.rgb*brightness, 1.0);
+    gl_FragColor = vec4(texCol.rg, brightness, 1.0);
 //    gl_FragColor = vec4(v_uv, 1.0, 1.0);
   }
 """);
