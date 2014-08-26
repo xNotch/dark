@@ -234,7 +234,7 @@ class Level {
       }
       
       if (backSector!=null) {
-        if (sidedef.middleTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE_TRANSPARENT));
+        if (sidedef.middleTexture!="-") addMiddleTransparentWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE_TRANSPARENT));
         
         if (sidedef.upperTexture!="-" && backSector.ceilingTexture!="F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_UPPER));
         if (sidedef.lowerTexture!="-" && backSector.floorTexture!="F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_LOWER));

@@ -38,6 +38,7 @@ GL.RenderingContext gl;
 
 HashMap<GL.Texture, Sprites> spriteMaps = new HashMap<GL.Texture, Sprites>();
 HashMap<GL.Texture, Walls> walls = new HashMap<GL.Texture, Walls>();
+HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
 Floors floors;
 ScreenRenderer screenRenderer;
 SkyRenderer skyRenderer;
@@ -48,6 +49,13 @@ void addSpriteMap(GL.Texture texture) {
 
 void addSprite(Sprite sprite) {
   spriteMaps[sprite.texture].addSprite(sprite);
+}
+
+
+void addMiddleTransparentWall(Wall wall) {
+  if (wall.texture==null) return;
+  if (!transparentMiddleWalls.containsKey(wall.texture)) transparentMiddleWalls[wall.texture] = new Walls(wallShader, wall.texture);
+  transparentMiddleWalls[wall.texture].addWall(wall);
 }
 
 void addWall(Wall wall) {
@@ -301,7 +309,9 @@ void renderGame() {
   floors.renderBackWallHack(wadFile.level.bsp, playerPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LESS);
-  spriteMaps.values.forEach((sprites)=>sprites.render());  
+  spriteMaps.values.forEach((sprites)=>sprites.render());
+  
+  transparentMiddleWalls.values.forEach((walls)=>walls.render());
 }
 
 void blitScreen() {
