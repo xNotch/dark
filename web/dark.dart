@@ -180,15 +180,13 @@ void render(double time) {
   if (keys[83]) iY-=1.0;
   
   playerRot-=iRot*passedTime*3;
-  playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*800.0;
-  playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*800.0;
+  playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
+  playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
   
   playerPos.y = wadFile.level.bsp.findSector(playerPos.xz).floorHeight.toDouble()+50;
   
   viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos);
   
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
-  gl.clear(GL.DEPTH_BUFFER_BIT | GL.COLOR_BUFFER_BIT);
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);

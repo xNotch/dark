@@ -56,6 +56,7 @@ class WadFile {
           flatMap[lump.name] = new WAD_Image.parseFlat(lump.getByteData(data), palette.palettes[0]);
         }
       }
+      flatMap["_sky_"] = new WAD_Image.empty(64,  64);
     }
     
     int maxFlats = (TEXTURE_ATLAS_SIZE~/64)*(TEXTURE_ATLAS_SIZE~/64);
@@ -207,7 +208,7 @@ class Level {
       Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
       Sector sector = bsp.findSector(spritePos.xz);
       spritePos.y = sector.floorHeight.toDouble();
-      addSprite(spriteMap["SUITA0"].createSprite(spritePos));
+      addSprite(spriteMap["SUITA0"].createSprite(sector, spritePos));
     }
     
     for (int i=0; i<segs.length; i++) {
@@ -229,8 +230,9 @@ class Level {
       
       if (backSector!=null) {
         if (sidedef.middleTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE_TRANSPARENT));
-        if (sidedef.upperTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_UPPER));
-        if (sidedef.lowerTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_LOWER));
+        
+        if (sidedef.upperTexture!="-" && backSector.ceilingTexture!="F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_UPPER));
+        if (sidedef.lowerTexture!="-" && backSector.floorTexture!="F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_LOWER));
       }
     }
   }
@@ -497,6 +499,13 @@ class WAD_Image {
     
     pixels = new Uint8List(width*height);
     pixelData = new Uint8List(width*height*4);
+/*    
+    for (int i=0; i<width*height; i++) {
+      pixelData[i*4+0] = 255; 
+      pixelData[i*4+1] = 0; 
+      pixelData[i*4+2] = 255; 
+      pixelData[i*4+3] = 255; 
+    }*/    
   }
   
   void draw(WAD_Image source, int xp, int yp) {
@@ -583,8 +592,8 @@ class WAD_Image {
     }
   }
   
-  Sprite createSprite(Vector3 pos) {
-    return new Sprite(imageAtlas.texture, pos, -xCenter, -yCenter, width, height, xAtlasPos, yAtlasPos);
+  Sprite createSprite(Sector sector, Vector3 pos) {
+    return new Sprite(imageAtlas.texture, sector, pos, -xCenter, -yCenter, width, height, xAtlasPos, yAtlasPos);
   }
 }
 

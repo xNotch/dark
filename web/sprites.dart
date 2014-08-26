@@ -6,7 +6,7 @@ class Sprites {
   // x, y, z      0 + 3 = 3
   // xo, yo       3 + 2 = 5
   // u, v         5 + 2 = 7
-  // null         7 + 1 = 8
+  // br           7 + 1 = 8
   
   static const int BYTES_PER_FLOAT = 4;
 
@@ -23,6 +23,7 @@ class Sprites {
   int posLocation;
   int offsetLocation;
   int uvLocation;
+  int brightnessLocation;
   
   GL.UniformLocation modelMatrixLocation;    
   GL.UniformLocation projectionMatrixLocation;    
@@ -49,6 +50,7 @@ class Sprites {
     posLocation = gl.getAttribLocation(shader.program, "a_pos");
     offsetLocation = gl.getAttribLocation(shader.program, "a_offs");
     uvLocation = gl.getAttribLocation(shader.program, "a_uv");
+    brightnessLocation = gl.getAttribLocation(shader.program, "a_brightness");
 
     modelMatrixLocation = gl.getUniformLocation(shader.program, "u_modelMatrix");
     viewMatrixLocation = gl.getUniformLocation(shader.program, "u_viewMatrix");
@@ -80,10 +82,13 @@ class Sprites {
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(offsetLocation);
     gl.enableVertexAttribArray(uvLocation);
+    gl.enableVertexAttribArray(brightnessLocation);
+    
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     gl.vertexAttribPointer(posLocation, 3, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 0*BYTES_PER_FLOAT);
     gl.vertexAttribPointer(offsetLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 3*BYTES_PER_FLOAT);
     gl.vertexAttribPointer(uvLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 5*BYTES_PER_FLOAT);
+    gl.vertexAttribPointer(brightnessLocation, 1, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 7*BYTES_PER_FLOAT);
 
     gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.drawElements(GL.TRIANGLES, sprites.length*6, GL.UNSIGNED_SHORT, 0);
@@ -96,10 +101,11 @@ class Sprite {
   double xOffs, yOffs;
   double w, h;
   double u, v;
+  Sector sector;
   
 //  Float32List data = new Float32List(Sprites.FLOATS_PER_VERTEX*4);
   
-  Sprite(this.texture, this.pos, int xOffs, int yOffs, int w, int h, int u, int v) {
+  Sprite(this.texture, this.sector, this.pos, int xOffs, int yOffs, int w, int h, int u, int v) {
     this.xOffs = xOffs.toDouble();
     this.yOffs = yOffs.toDouble();
     this.w = w.toDouble();
@@ -109,11 +115,12 @@ class Sprite {
   }
   
   void set(Float32List data, int offset) {
+    double br = sector.lightLevel/255.0;
     data.setAll(offset, [
-        pos.x, pos.y, pos.z, xOffs+0, -yOffs+0, u+0, v+0, 0.0,
-        pos.x, pos.y, pos.z, xOffs+w, -yOffs+0, u+w, v+0, 0.0,
-        pos.x, pos.y, pos.z, xOffs+w, -yOffs-h, u+w, v+h, 0.0,
-        pos.x, pos.y, pos.z, xOffs+0, -yOffs-h, u+0, v+h, 0.0,
+        pos.x, pos.y, pos.z, xOffs+0, -yOffs+0, u+0, v+0, br,
+        pos.x, pos.y, pos.z, xOffs+w, -yOffs+0, u+w, v+0, br,
+        pos.x, pos.y, pos.z, xOffs+w, -yOffs-h, u+w, v+h, br,
+        pos.x, pos.y, pos.z, xOffs+0, -yOffs-h, u+0, v+h, br,
     ]);
   }
 }

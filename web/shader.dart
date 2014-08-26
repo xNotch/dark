@@ -49,33 +49,40 @@ Shader spriteShader = new Shader(
   attribute vec3 a_pos;
   attribute vec2 a_offs;
   attribute vec2 a_uv;
+  attribute float a_brightness;
 
   uniform mat4 u_modelMatrix;
   uniform mat4 u_viewMatrix;
   uniform mat4 u_projectionMatrix;
 
   varying vec2 v_uv;
-  varying float v_br;
+  varying vec3 v_pos;
+  varying float v_brightness;
 
   void main() {
     v_uv = a_uv/2048.0;
     vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0)+vec4(a_offs, 0.0, 0.0);
-//  v_br = 1.0/(length(pos.xyz)*0.01+1.0);
-    v_br = 1.0;
+    v_pos = pos.xyz;
+    v_brightness = a_brightness;
     gl_Position = u_projectionMatrix*pos;
   }
 """,/* Fragment Shader */  """
   precision highp float;
 
   varying vec2 v_uv;
-  varying float v_br;
+  varying vec3 v_pos;
+  varying float v_brightness;
 
   uniform sampler2D u_tex;
   
   void main() {
     vec4 col = texture2D(u_tex, v_uv);
     if (col.a<0.9) discard;
-    gl_FragColor = vec4(col.rgb*v_br, 1.0);
+    float ib = 1.0-v_brightness;
+    ib = ib*ib*ib;
+    ib = ib*ib;
+    float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
+    gl_FragColor = vec4(col.rgb*brightness, 1.0);
   }
 """);
 
@@ -85,32 +92,44 @@ Shader floorShader = new Shader(
 
   attribute vec3 a_pos;
   attribute vec2 a_texOffs;
+  attribute float a_brightness;
 
   uniform mat4 u_modelMatrix;
   uniform mat4 u_viewMatrix;
   uniform mat4 u_projectionMatrix;
 
-  varying vec3 v_brp;
+  varying vec2 v_uv;
+  varying vec3 v_pos;
   varying vec2 v_texOffs;
+  varying float v_brightness;
 
 
   void main() {
     vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0);
-    v_brp = a_pos.xyz;
+    v_pos = pos.xyz;
+    v_uv = a_pos.xz;
     v_texOffs = a_texOffs;
+    v_brightness = a_brightness;
     gl_Position = u_projectionMatrix*pos;
   }
 """,/* Fragment Shader */  """
   precision highp float;
 
-  varying vec3 v_brp;
+  varying vec2 v_uv;
+  varying vec3 v_pos;
   varying vec2 v_texOffs;
+  varying float v_brightness;
 
   uniform sampler2D u_tex;
   
   void main() {
-      vec2 uv = fract(v_brp.xz/64.0)*64.0;
-      gl_FragColor = texture2D(u_tex, (uv+v_texOffs)/2048.0);
+      float ib = 1.0-v_brightness;
+      ib = ib*ib*ib;
+      ib = ib*ib;
+      float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
+      vec2 uv = clamp(fract(v_uv/64.0)*64.0, 0.5, 63.5);
+      vec4 texCol = texture2D(u_tex, (uv+v_texOffs)/2048.0);
+      gl_FragColor = vec4(texCol.rgb*brightness, texCol.a);
 
 //    gl_FragColor = vec4(fract((v_brp+vec3(0.05, 0.05, 0.05))/64.0), 1.0);
 //    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
@@ -125,20 +144,23 @@ Shader wallShader = new Shader(
   attribute vec2 a_uv;
   attribute vec2 a_texOffs;
   attribute float a_texWidth;
+  attribute float a_brightness;
 
   uniform mat4 u_modelMatrix;
   uniform mat4 u_viewMatrix;
   uniform mat4 u_projectionMatrix;
 
-  varying float v_br;
+  varying vec3 v_pos;
   varying vec2 v_uv;
   varying vec2 v_texOffs;
   varying float v_texWidth;
+  varying float v_brightness;
 
   void main() {
     vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0);
-    v_br = 1.0/(length(pos.xyz)*0.001+1.0);
+    v_pos = pos.xyz;
     v_uv = a_uv;
+    v_brightness = a_brightness;
     v_texOffs = a_texOffs;
     v_texWidth = a_texWidth;
     gl_Position = u_projectionMatrix*pos;
@@ -146,10 +168,11 @@ Shader wallShader = new Shader(
 """,/* Fragment Shader */  """
   precision highp float;
 
-  varying float v_br;
+  varying vec3 v_pos;
   varying vec2 v_uv;
   varying vec2 v_texOffs;
   varying float v_texWidth;
+  varying float v_brightness;
 
   uniform sampler2D u_tex;
   
@@ -158,9 +181,14 @@ Shader wallShader = new Shader(
     float v = fract(v_uv.y/128.0)*128.0;
 
     vec4 texCol = texture2D(u_tex, (vec2(u,v)+v_texOffs)/2048.0);
-    if (texCol.a<1.0) discard; 
+    if (texCol.a<1.0) discard;
+ 
+    float ib = 1.0-v_brightness;
+    ib = ib*ib*ib;
+    ib = ib*ib;
+    float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
    
-    gl_FragColor = vec4(texCol.rgb*v_br, 1.0);
+    gl_FragColor = vec4(texCol.rgb*brightness, 1.0);
 //    gl_FragColor = vec4(v_uv, 1.0, 1.0);
   }
 """);
