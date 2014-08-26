@@ -177,8 +177,8 @@ Shader wallShader = new Shader(
   uniform sampler2D u_tex;
   
   void main() {
-    float u = fract(v_uv.x/v_texWidth)*v_texWidth;
-    float v = fract(v_uv.y/128.0)*128.0;
+    float u = clamp(fract(v_uv.x/v_texWidth)*v_texWidth, 0.5, v_texWidth-0.5);
+    float v = clamp(fract(v_uv.y/128.0)*128.0, 0.5, 127.5);
 
     vec4 texCol = texture2D(u_tex, (vec2(u,v)+v_texOffs)/2048.0);
     if (texCol.a<1.0) discard;

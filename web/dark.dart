@@ -14,9 +14,19 @@ part "walls.dart";
 part "texture.dart";
 part "wad.dart";
 
-const GAME_WIDTH = 320; 
-const GAME_HEIGHT = 200; 
+
+bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
+bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
+bool GAME_ORIGINAL_PIXEL_ASPECT_RATIO = true; // Original doom used slightly vertically stretched pixels (320x200 pixels in 4:3)
+
+double GAME_MIN_ASPECT_RATIO = 4/3; // Letterbox if aspect ratio is lower than this
+double GAME_MAX_ASPECT_RATIO = 2.35/1.0; // Pillarbox if aspect ratio is higher than this
+
+
 const TEXTURE_ATLAS_SIZE = 2048;
+
+
+int screenWidth, screenHeight;
 
 
 var canvas;
@@ -47,8 +57,8 @@ WadFile wadFile = new WadFile();
 // Init method. Set up WebGL, load textures, etc
 void main() {
   canvas = querySelector("#game");
-  canvas.setAttribute("width",  "${GAME_WIDTH}px");
-  canvas.setAttribute("height",  "${GAME_HEIGHT}px");
+  canvas.setAttribute("width",  "${screenWidth}px");
+  canvas.setAttribute("height",  "${screenHeight}px");
 //  gl = canvas.getContext("webgl", {"stencil": true});
   gl = canvas.getContext("webgl");
   if (gl==null) gl = canvas.getContext("experimental-webgl");
@@ -88,14 +98,45 @@ void main() {
 void resize() {
   int width = window.innerWidth;
   int height = window.innerHeight;
-  double xScale = width/GAME_WIDTH;
-  double yScale = height/GAME_HEIGHT;
-  if (xScale<yScale) {
-    int newHeight = (GAME_HEIGHT*xScale).floor(); 
-    canvas.setAttribute("style",  "width: ${width}px; height:${newHeight}px; left:0px; top:${(height-newHeight)~/3}px;");
+  double aspectRatio = width/height;
+  double minAspect = GAME_MIN_ASPECT_RATIO;
+  double maxAspect = GAME_MAX_ASPECT_RATIO;
+  if (GAME_ORIGINAL_SCREEN_ASPECT_RATIO) minAspect = maxAspect = 4/3;
+
+  if (!GAME_ORIGINAL_RESOLUTION) {
+    screenWidth = width;
+    screenHeight = height;
+    if (aspectRatio<minAspect) {
+      screenHeight ~/= minAspect/aspectRatio;
+    }
+    if (aspectRatio>maxAspect) {
+      screenWidth~/= aspectRatio/maxAspect;
+    }
+    canvas.setAttribute("width",  "${screenWidth}px");
+    canvas.setAttribute("height",  "${screenHeight}px");
+    canvas.setAttribute("style",  "width: ${screenWidth}px; height:${screenHeight}px; left:${(width-screenWidth)~/2}px; top:${(height-screenHeight)~/3}px;");
   } else {
-    int newWidth= (GAME_WIDTH*yScale).floor(); 
-    canvas.setAttribute("style",  "width: ${newWidth}px; height:${height}px; left:${(width-newWidth)~/2}px; top:0px;");
+    screenWidth = 320;
+    screenHeight = 200;
+    if (aspectRatio<minAspect) aspectRatio=minAspect;
+    if (aspectRatio>maxAspect) aspectRatio=maxAspect;
+    screenWidth = ((GAME_ORIGINAL_PIXEL_ASPECT_RATIO?240:200)*aspectRatio).floor();
+  
+    double gameWidth = screenWidth.toDouble();
+    double gameHeight = screenHeight.toDouble();
+    if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO) gameHeight*=240/200;
+  
+    canvas.setAttribute("width",  "${screenWidth}px");
+    canvas.setAttribute("height",  "${screenHeight}px");
+    double xScale = width/gameWidth;
+    double yScale = height/gameHeight;
+    if (xScale<yScale) {
+      int newHeight = (gameHeight*xScale).floor(); 
+      canvas.setAttribute("style",  "width: ${width}px; height:${newHeight}px; left:0px; top:${(height-newHeight)~/3}px;");
+    } else {
+      int newWidth= (gameWidth*yScale).floor(); 
+      canvas.setAttribute("style",  "width: ${newWidth}px; height:${height}px; left:${(width-newWidth)~/2}px; top:0px;");
+    }
   }
 }
 
@@ -119,7 +160,6 @@ void start() {
   print("Starting!");
   modelMatrix = new Matrix4.identity();
   viewMatrix = new Matrix4.identity();
-  projectionMatrix = makePerspectiveMatrix(60*PI/180,  GAME_WIDTH/GAME_HEIGHT,  0.1,  10000.0).scale(-1.0, 1.0, 1.0);
 
   //Texture spriteSheet = new Texture("sprites.png");
 //  Texture.loadAll();
@@ -185,8 +225,14 @@ void render(double time) {
   
   playerPos.y = wadFile.level.bsp.findSector(playerPos.xz).floorHeight.toDouble()+50;
   
+  projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  0.1,  10000.0).scale(-1.0, 1.0, 1.0);
+  if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && GAME_ORIGINAL_RESOLUTION) {
+    // Original doom was 320x200 pixels in a 4:3 format
+    projectionMatrix = projectionMatrix.scale(1.0, 240/200, 1.0);
+  }
   viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos);
-  
+
+  gl.viewport(0,  0,  screenWidth,  screenHeight);
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
