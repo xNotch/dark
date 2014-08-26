@@ -128,9 +128,11 @@ class WadFile {
     for (int i=0; i<count; i++) {
       String pname = readString(data,  4+i*8, 8);
       
-      WAD_Image patch = new WAD_Image.parse(header.lumpInfoMap[pname].getByteData(data), palette.palettes[0]);
-      patchMap[pname] = patch;
-      patchList.add(patch);
+      if (header.lumpInfoMap.containsKey(pname)) {
+        WAD_Image patch = new WAD_Image.parse(header.lumpInfoMap[pname].getByteData(data), palette.palettes[0]);
+        patchMap[pname] = patch;
+        patchList.add(patch);
+      }
     }
   }
   
