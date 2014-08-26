@@ -72,8 +72,6 @@ class Sprites {
       sprites[i].set(vertexData,  i*FLOATS_PER_VERTEX*4);
     }
     gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData.sublist(0, toReplace*FLOATS_PER_VERTEX*4) as Float32List);
-//    gl.bufferDataTyped(GL.ARRAY_BUFFER, vertexData, GL.DYNAMIC_DRAW);
-//    gl.bufferSubDataTyped(GL.ARRAY_BUFFER, offset*BYTES_PER_FLOAT, sprite.data);
     
     gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
     gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);

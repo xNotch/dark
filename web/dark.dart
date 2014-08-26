@@ -124,7 +124,7 @@ void resize() {
   
     double gameWidth = screenWidth.toDouble();
     double gameHeight = screenHeight.toDouble();
-    if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO) gameHeight*=240/200;
+    if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO) gameHeight=240/200;
   
     canvas.setAttribute("width",  "${screenWidth}px");
     canvas.setAttribute("height",  "${screenHeight}px");
@@ -157,44 +157,8 @@ double playerRot = 0.0;
 void start() {
   floors.texture = flatMap.values.first.imageAtlas.texture;
 
-  print("Starting!");
   modelMatrix = new Matrix4.identity();
   viewMatrix = new Matrix4.identity();
-
-  //Texture spriteSheet = new Texture("sprites.png");
-//  Texture.loadAll();
-
-  //sprites = new Sprites(testShader, spriteSheet.texture);
-/*  for (int i=0; i<100; i++) {
-    double x = random.nextInt(GAME_WIDTH).toDouble();
-    double y = random.nextInt(GAME_HEIGHT).toDouble();
-    double r = 1.0;
-    double g = 1.0;
-    double b = 1.0;
-    double a = 1.0;
-    Sprite sprite = new Sprite(x-16, y-8, 2048.0, 2048.0, 0.0, 0.0, r, g, b, a); 
-    sprites.addSprite(sprite);
-    spriteList.add(sprite);
-  }*/
-//  sprites.addSprite(new Sprite(0.0, 0.0, 2048.0, 2048.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0));
-  
-/*  wall = new Sprites(testShader, spriteSheet.texture);
-  for (int xx=0; xx<5; xx++) {
-    for (int yy=0; yy<8; yy++) {
-      double x = (xx+0.5)/5.0+(random.nextDouble()-0.5)*0.1;
-      double y = -0.5+(yy+0.5)/8.0+(random.nextDouble()-0.5)*0.1;
-      double z = 0.0+(random.nextDouble()-0.5)*0.1;
-      double br = 1.0-random.nextDouble()*0.1;
-      double r = (1.0-random.nextDouble()*0.1)*br;
-      double g = (1.0-random.nextDouble()*0.1)*br;
-      double b = (1.0-random.nextDouble()*0.1)*br;
-      wall.addSprite(new Sprite(x, y, z, -16.0, -8.0, 32.0, 16.0, 32.0, 0.0, r, g, b));
-    }
-  }*/
-
-  //  sprites.addSprite(new Sprite(0.0, 0.0, 0.0, -8.0, -8.0, 16.0, 16.0, 0.0, 0.0, 1.0, 1.0, 1.0));
-//  sprites.addSprite(new Sprite(0.0, 0.0, 0.0, -8.0, -8.0, 16.0, 16.0, 0.0, 0.0, 1.0, 1.0, 1.0));
-  
   window.requestAnimationFrame(render);
 }
 
@@ -226,8 +190,8 @@ void render(double time) {
   playerPos.y = wadFile.level.bsp.findSector(playerPos.xz).floorHeight.toDouble()+50;
   
   projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  0.1,  10000.0).scale(-1.0, 1.0, 1.0);
-  if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && GAME_ORIGINAL_RESOLUTION) {
-    // Original doom was 320x200 pixels in a 4:3 format
+  if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && !GAME_ORIGINAL_RESOLUTION) {
+    // If the original aspect ratio is set, this scaling is done elsewhere.
     projectionMatrix = projectionMatrix.scale(1.0, 240/200, 1.0);
   }
   viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos);

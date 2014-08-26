@@ -499,13 +499,6 @@ class WAD_Image {
     
     pixels = new Uint8List(width*height);
     pixelData = new Uint8List(width*height*4);
-/*    
-    for (int i=0; i<width*height; i++) {
-      pixelData[i*4+0] = 255; 
-      pixelData[i*4+1] = 0; 
-      pixelData[i*4+2] = 255; 
-      pixelData[i*4+3] = 255; 
-    }*/    
   }
   
   void draw(WAD_Image source, int xp, int yp) {
