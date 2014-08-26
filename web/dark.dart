@@ -15,7 +15,7 @@ part "texture.dart";
 part "wad.dart";
 
 const GAME_WIDTH = 320; 
-const GAME_HEIGHT = 200-32; 
+const GAME_HEIGHT = 200; 
 const TEXTURE_ATLAS_SIZE = 2048;
 
 
@@ -180,8 +180,8 @@ void render(double time) {
   if (keys[83]) iY-=1.0;
   
   playerRot-=iRot*passedTime*3;
-  playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*200.0;
-  playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*200.0;
+  playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*800.0;
+  playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*800.0;
   
   playerPos.y = wadFile.level.bsp.findSector(playerPos.xz).floorHeight.toDouble()+50;
   
@@ -193,7 +193,7 @@ void render(double time) {
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
   floors.render(wadFile.level.bsp, playerPos);
-  gl.depthFunc(GL.EQUAL);
+  gl.depthFunc(GL.LEQUAL);
   
   walls.render();
   gl.depthFunc(GL.LESS);

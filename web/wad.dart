@@ -215,17 +215,22 @@ class Level {
       Linedef linedef = linedefs[seg.linedef];
       Sidedef sidedef = sidedefs[seg.direction==0?linedef.rightSidedef:linedef.leftSidedef];
       Sector sector = sectors[sidedef.sector];
+      Sector backSector = null;
+      
+      int backSidedefId = seg.direction!=0?linedef.rightSidedef:linedef.leftSidedef;
+      if (backSidedefId!=-1) {
+        Sidedef backSidedef = sidedefs[backSidedefId];
+        backSector = sectors[backSidedef.sector];
+      }
       
       if (!linedef.twoSided) {
         addWall(new Wall(seg, linedef, sidedef, sector, null, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE));
-      } else {
-        int backSidedefId = seg.direction!=0?linedef.rightSidedef:linedef.leftSidedef;
-        if (backSidedefId!=-1) {
-          Sidedef backSidedef = sidedefs[backSidedefId];
-          Sector backSector = sectors[backSidedef.sector];
-          if (sidedef.upperTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_UPPER));
-          if (sidedef.lowerTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_LOWER));
-        }
+      }
+      
+      if (backSector!=null) {
+        if (sidedef.middleTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE_TRANSPARENT));
+        if (sidedef.upperTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_UPPER));
+        if (sidedef.lowerTexture!="-") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_LOWER));
       }
     }
   }
@@ -492,9 +497,6 @@ class WAD_Image {
     
     pixels = new Uint8List(width*height);
     pixelData = new Uint8List(width*height*4);
-    for (int i=0; i<pixelData.length; i++) {
-      pixelData[i] = 0xff;
-    }
   }
   
   void draw(WAD_Image source, int xp, int yp) {

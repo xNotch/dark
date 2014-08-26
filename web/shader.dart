@@ -154,14 +154,13 @@ Shader wallShader = new Shader(
   uniform sampler2D u_tex;
   
   void main() {
-
-//    256
-//    0.25*4 = 1024/256 
-    
     float u = fract(v_uv.x/v_texWidth)*v_texWidth;
     float v = fract(v_uv.y/128.0)*128.0;
+
+    vec4 texCol = texture2D(u_tex, (vec2(u,v)+v_texOffs)/2048.0);
+    if (texCol.a<1.0) discard; 
    
-    gl_FragColor = vec4(texture2D(u_tex, (vec2(u,v)+v_texOffs)/2048.0).rgb*v_br, 1.0);
+    gl_FragColor = vec4(texCol.rgb*v_br, 1.0);
 //    gl_FragColor = vec4(v_uv, 1.0, 1.0);
   }
 """);

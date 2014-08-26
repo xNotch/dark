@@ -244,6 +244,7 @@ class Walls {
 const int WALL_TYPE_MIDDLE = 0;
 const int WALL_TYPE_UPPER = 1;
 const int WALL_TYPE_LOWER = 2;
+const int WALL_TYPE_MIDDLE_TRANSPARENT = 3;
 
 class Wall {
   WAD_Image textureImage;
@@ -259,6 +260,7 @@ class Wall {
   
   Wall(this.seg, this.linedef, this.sidedef, this.frontSector, this.backSector, this.v0, this.v1, this.type) {
     if (type==WALL_TYPE_MIDDLE) textureImage = wallTextureMap[sidedef.middleTexture];
+    if (type==WALL_TYPE_MIDDLE_TRANSPARENT) textureImage = wallTextureMap[sidedef.middleTexture];
     if (type==WALL_TYPE_UPPER) textureImage = wallTextureMap[sidedef.upperTexture];
     if (type==WALL_TYPE_LOWER) textureImage = wallTextureMap[sidedef.lowerTexture];
     if (textureImage!=null) texture = textureImage.imageAtlas.texture;
@@ -267,6 +269,7 @@ class Wall {
   bool set(Float32List data, int offset) {
     int floor, ceiling;
     if (type==WALL_TYPE_MIDDLE) {floor = frontSector.floorHeight; ceiling = frontSector.ceilingHeight;}
+    if (type==WALL_TYPE_MIDDLE_TRANSPARENT) {floor = frontSector.floorHeight; ceiling = frontSector.ceilingHeight;}
     if (type==WALL_TYPE_UPPER) {floor = backSector.ceilingHeight; ceiling = frontSector.ceilingHeight;}
     if (type==WALL_TYPE_LOWER) {floor = frontSector.floorHeight; ceiling = backSector.floorHeight;}
     if (floor>=ceiling) return false;
@@ -276,21 +279,48 @@ class Wall {
     double texCoordy0;
     double texCoordy1;
     
+    // Check if the texture is pegged up or down
     bool pegTextureDown = false;
-    
     if (type==WALL_TYPE_UPPER) {
       if (!linedef.upperUnpegged) pegTextureDown = true;
     } else {
       if (linedef.lowerUnpegged) pegTextureDown = true;
     }
     
-    if (pegTextureDown) {
+    if (type==WALL_TYPE_MIDDLE_TRANSPARENT) {
+      // Middle transparent walls are only rendered one patch high
+      int newFloor, newCeiling;
+      texCoordy0 = 0.0;
+      texCoordy1 = textureImage.height+0.0;
+      if (pegTextureDown) {
+        newFloor = floor+sidedef.yTextureOffs;
+        newCeiling = newFloor+textureImage.height;
+      } else {
+        newCeiling = ceiling+sidedef.yTextureOffs;
+        newFloor = newCeiling-textureImage.height;
+      }
+      
+      // Clamp within the sector height
+      if (newCeiling>ceiling) {
+        texCoordy0+=newCeiling-ceiling;
+        newCeiling=ceiling;
+      }
+      if (newFloor<floor) {
+        texCoordy1+=newFloor-floor;
+        newFloor=floor;
+      }
+      floor = newFloor;
+      ceiling = newCeiling;
+    } else if (pegTextureDown) {
+      // Textures pegged down have lower texture edge along bottom of sector
       texCoordy1 = sidedef.yTextureOffs+textureImage.height+0.0;
       if (type==WALL_TYPE_LOWER) {
+        // Except lower textures that have a special case for some reason
         texCoordy1 = sidedef.yTextureOffs+(frontSector.ceilingHeight-frontSector.floorHeight)-textureImage.height+0.0;
       }
       texCoordy0 = texCoordy1-(ceiling-floor)+0.0;
     } else {
+      // Textures pegged up have upper texture edge along top of sector
       texCoordy0 = sidedef.yTextureOffs+0.0;
       texCoordy1 = texCoordy0+(ceiling-floor)+0.0;
     }
