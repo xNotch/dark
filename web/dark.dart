@@ -23,7 +23,7 @@ double GAME_MIN_ASPECT_RATIO = 4/3; // Letterbox if aspect ratio is lower than t
 double GAME_MAX_ASPECT_RATIO = 2.35/1.0; // Pillarbox if aspect ratio is higher than this
 
 
-const TEXTURE_ATLAS_SIZE = 2048;
+const TEXTURE_ATLAS_SIZE = 1024;
 
 
 int screenWidth, screenHeight;
@@ -33,7 +33,7 @@ var canvas;
 GL.RenderingContext gl;
 
 HashMap<GL.Texture, Sprites> spriteMaps = new HashMap<GL.Texture, Sprites>();
-Walls walls;
+HashMap<GL.Texture, Walls> walls = new HashMap<GL.Texture, Walls>();
 Floors floors;
 
 void addSpriteMap(GL.Texture texture) {
@@ -46,8 +46,8 @@ void addSprite(Sprite sprite) {
 
 void addWall(Wall wall) {
   if (wall.texture==null) return;
-  if (walls==null) walls = new Walls(wallShader, null);
-  walls.addWall(wall);
+  if (!walls.containsKey(wall.texture)) walls[wall.texture] = new Walls(wallShader, wall.texture);
+  walls[wall.texture].addWall(wall);
 }
 
 List<bool> keys = new List<bool>(256);
@@ -92,7 +92,12 @@ void main() {
 
   floors = new Floors(floorShader, null);
   
-  wadFile.load("doom.wad", start);
+  wadFile.load("originaldoom/doom.wad", start, (){
+    playerPos = new Vector3(860.0,-50.0,-1480.0);
+    wadFile.load("freedoom/doom.wad", start, (){
+      print("Failed to load!");
+    });
+  });
 }
 
 void resize() {
@@ -124,7 +129,7 @@ void resize() {
   
     double gameWidth = screenWidth.toDouble();
     double gameHeight = screenHeight.toDouble();
-    if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO) gameHeight=240/200;
+    if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO) gameHeight*=240/200;
   
     canvas.setAttribute("width",  "${screenWidth}px");
     canvas.setAttribute("height",  "${screenHeight}px");
@@ -203,7 +208,7 @@ void render(double time) {
   floors.render(wadFile.level.bsp, playerPos);
   gl.depthFunc(GL.LEQUAL);
   
-  walls.render();
+  walls.values.forEach((walls)=>walls.render());
   gl.depthFunc(GL.LESS);
   spriteMaps.values.forEach((sprites)=>sprites.render());
   

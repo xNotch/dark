@@ -11,4 +11,4 @@ build/
 *.js.deps
 *.js.map
 .buildlog
-web/doom.wad
+web/originaldoom/

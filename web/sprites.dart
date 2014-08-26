@@ -28,6 +28,7 @@ class Sprites {
   GL.UniformLocation modelMatrixLocation;    
   GL.UniformLocation projectionMatrixLocation;    
   GL.UniformLocation viewMatrixLocation;
+  GL.UniformLocation texAtlasSizeLocation;
   
   Float32List vertexData = new Float32List(MAX_VERICES*FLOATS_PER_VERTEX);
   
@@ -55,6 +56,7 @@ class Sprites {
     modelMatrixLocation = gl.getUniformLocation(shader.program, "u_modelMatrix");
     viewMatrixLocation = gl.getUniformLocation(shader.program, "u_viewMatrix");
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
+    texAtlasSizeLocation = gl.getUniformLocation(shader.program, "u_texAtlasSize");
   }
   
   void addSprite(Sprite sprite) {
@@ -76,6 +78,7 @@ class Sprites {
     gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
     gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
+    gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
     
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(offsetLocation);

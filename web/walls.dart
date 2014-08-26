@@ -23,6 +23,7 @@ class Floors {
   GL.UniformLocation modelMatrixLocation;    
   GL.UniformLocation projectionMatrixLocation;    
   GL.UniformLocation viewMatrixLocation;
+  GL.UniformLocation texAtlasSizeLocation;
   
   Float32List vertexData = new Float32List(MAX_VERICES*FLOATS_PER_VERTEX);
   
@@ -49,6 +50,7 @@ class Floors {
     modelMatrixLocation = gl.getUniformLocation(shader.program, "u_modelMatrix");
     viewMatrixLocation = gl.getUniformLocation(shader.program, "u_viewMatrix");
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
+    texAtlasSizeLocation  = gl.getUniformLocation(shader.program, "u_texAtlasSize");
   }
   
   void render(BSP bsp, Vector3 pos) {
@@ -149,6 +151,8 @@ class Floors {
     gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
     gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
+    gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
+
     
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(texOffsLocation);
@@ -194,6 +198,7 @@ class Walls {
   GL.UniformLocation modelMatrixLocation;    
   GL.UniformLocation projectionMatrixLocation;    
   GL.UniformLocation viewMatrixLocation;
+  GL.UniformLocation texAtlasSizeLocation;
   
   Float32List vertexData = new Float32List(MAX_VERICES*FLOATS_PER_VERTEX);
   
@@ -222,6 +227,7 @@ class Walls {
     modelMatrixLocation = gl.getUniformLocation(shader.program, "u_modelMatrix");
     viewMatrixLocation = gl.getUniformLocation(shader.program, "u_viewMatrix");
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
+    texAtlasSizeLocation  = gl.getUniformLocation(shader.program, "u_texAtlasSize");
   }
   
   void addWall(Wall wall) {
@@ -230,7 +236,7 @@ class Walls {
   
   void render() {
     shader.use();
-    gl.bindTexture(GL.TEXTURE_2D, walls[0].texture);
+    gl.bindTexture(GL.TEXTURE_2D, texture);
     
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     int toReplace = walls.length;
@@ -246,7 +252,8 @@ class Walls {
     gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
     gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
-    
+    gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
+
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(uvLocation);
     gl.enableVertexAttribArray(texOffsLocation);

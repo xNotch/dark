@@ -54,13 +54,14 @@ Shader spriteShader = new Shader(
   uniform mat4 u_modelMatrix;
   uniform mat4 u_viewMatrix;
   uniform mat4 u_projectionMatrix;
+  uniform float u_texAtlasSize;
 
   varying vec2 v_uv;
   varying vec3 v_pos;
   varying float v_brightness;
 
   void main() {
-    v_uv = a_uv/2048.0;
+    v_uv = a_uv/u_texAtlasSize;
     vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0)+vec4(a_offs, 0.0, 0.0);
     v_pos = pos.xyz;
     v_brightness = a_brightness;
@@ -120,6 +121,7 @@ Shader floorShader = new Shader(
   varying vec2 v_texOffs;
   varying float v_brightness;
 
+  uniform float u_texAtlasSize;
   uniform sampler2D u_tex;
   
   void main() {
@@ -128,7 +130,7 @@ Shader floorShader = new Shader(
       ib = ib*ib;
       float brightness = ((v_brightness+1.0)/(length(v_pos)*ib+v_brightness+1.0));
       vec2 uv = clamp(fract(v_uv/64.0)*64.0, 0.5, 63.5);
-      vec4 texCol = texture2D(u_tex, (uv+v_texOffs)/2048.0);
+      vec4 texCol = texture2D(u_tex, (uv+v_texOffs)/u_texAtlasSize);
       gl_FragColor = vec4(texCol.rgb*brightness, texCol.a);
 
 //    gl_FragColor = vec4(fract((v_brp+vec3(0.05, 0.05, 0.05))/64.0), 1.0);
@@ -174,13 +176,14 @@ Shader wallShader = new Shader(
   varying float v_texWidth;
   varying float v_brightness;
 
+  uniform float u_texAtlasSize;
   uniform sampler2D u_tex;
   
   void main() {
     float u = clamp(fract(v_uv.x/v_texWidth)*v_texWidth, 0.5, v_texWidth-0.5);
     float v = clamp(fract(v_uv.y/128.0)*128.0, 0.5, 127.5);
 
-    vec4 texCol = texture2D(u_tex, (vec2(u,v)+v_texOffs)/2048.0);
+    vec4 texCol = texture2D(u_tex, (vec2(u,v)+v_texOffs)/u_texAtlasSize);
     if (texCol.a<1.0) discard;
  
     float ib = 1.0-v_brightness;

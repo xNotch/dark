@@ -15,16 +15,18 @@ class WadFile {
   
   Level level;
   
-  void load(String url, Function onDone) {
+  void load(String url, Function onDone, Function onFail) {
     var request = new HttpRequest();
     request.open("get",  url);
     request.responseType = "arraybuffer";
     request.onLoadEnd.listen((e) {
       print("${request.status}");
-      print("${request.responseHeaders}");
-      
-      parse(new ByteData.view(request.response as ByteBuffer));
-      onDone();
+      if (request.status~/100==2) {
+        parse(new ByteData.view(request.response as ByteBuffer));
+        onDone();
+      } else {
+        onFail();
+      }
     });
     request.send("");
   }
