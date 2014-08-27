@@ -430,13 +430,13 @@ class Wall {
 
   bool set(Float32List data, int offset) {
     int floor, ceiling;
-    if (type == WALL_TYPE_MIDDLE) {
+    if (type == WALL_TYPE_MIDDLE || type == WALL_TYPE_MIDDLE_TRANSPARENT) {
       floor = frontSector.floorHeight;
       ceiling = frontSector.ceilingHeight;
-    }
-    if (type == WALL_TYPE_MIDDLE_TRANSPARENT) {
-      floor = frontSector.floorHeight;
-      ceiling = frontSector.ceilingHeight;
+      if (backSector!=null) {
+        floor = backSector.floorHeight;
+        ceiling = backSector.ceilingHeight;
+      }
     }
     if (type == WALL_TYPE_UPPER) {
       floor = backSector.ceilingHeight;
@@ -460,7 +460,7 @@ class Wall {
     } else {
       if (linedef.lowerUnpegged) pegTextureDown = true;
     }
-
+    
     if (type == WALL_TYPE_MIDDLE_TRANSPARENT) {
       // Middle transparent walls are only rendered one patch high
       int newFloor, newCeiling;
