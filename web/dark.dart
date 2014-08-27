@@ -338,7 +338,7 @@ void renderGame() {
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffer.framebuffer);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
 
-  projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  0.1,  10000.0).scale(-1.0, 1.0, 1.0);
+  projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  8,  10000.0).scale(-1.0, 1.0, 1.0);
   if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && !GAME_ORIGINAL_RESOLUTION) {
     // If the original aspect ratio is set, this scaling is done elsewhere.
     projectionMatrix = projectionMatrix.scale(1.0, 240/200, 1.0);
@@ -363,7 +363,7 @@ void renderGame() {
   gl.colorMask(false, false, false, false);
   floors.renderBackWallHack(visibleSegs, playerPos);
   gl.colorMask(true, true, true, true);
-  gl.depthFunc(GL.LESS);
+  gl.depthFunc(GL.LEQUAL);
   
   sprites.forEach((sprite) {
     sprite.addToDisplayList(playerRot);
