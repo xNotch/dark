@@ -414,7 +414,13 @@ class Wall {
 
   //  Float32List data = new Float32List(Sprites.FLOATS_PER_VERTEX*4);
 
-  Wall(this.seg, this.linedef, this.sidedef, this.frontSector, this.backSector, this.v0, this.v1, this.type) {
+  Wall(this.seg, this.type) {
+    linedef = seg.linedef;
+    sidedef = seg.sidedef;
+    frontSector = seg.sector;
+    backSector = seg.backSector;
+    v0 = seg.startVertex;
+    v1 = seg.endVertex;
     if (type == WALL_TYPE_MIDDLE) textureImage = wallTextureMap[sidedef.middleTexture];
     if (type == WALL_TYPE_MIDDLE_TRANSPARENT) textureImage = wallTextureMap[sidedef.middleTexture];
     if (type == WALL_TYPE_UPPER) textureImage = wallTextureMap[sidedef.upperTexture];
@@ -509,31 +515,15 @@ class Wall {
   static void addWallsForSeg(Seg seg) {
     Level level = wadFile.level;
 
-    // TODO: Put all these in their classes..
-    Linedef linedef = level.linedefs[seg.linedefId];
-    Sidedef sidedef = level.sidedefs[seg.direction == 0 ? linedef.rightSidedef : linedef.leftSidedef];
-    Sector sector = level.sectors[sidedef.sector];
-    Sector backSector = null;
-
-    int backSidedefId = seg.direction != 0 ? linedef.rightSidedef : linedef.leftSidedef;
-    if (backSidedefId != -1) {
-      Sidedef backSidedef = level.sidedefs[backSidedefId];
-      backSector = level.sectors[backSidedef.sector];
+    if (!seg.linedef.twoSided) {
+      addWall(new Wall(seg, WALL_TYPE_MIDDLE));
     }
 
-    Vector2 startVertex = level.vertices[seg.startVertex];
-    Vector2 endVertex = level.vertices[seg.endVertex];
+    if (seg.backSector != null) {
+      if (seg.sidedef.middleTexture != "-") addMiddleTransparentWall(new Wall(seg, WALL_TYPE_MIDDLE_TRANSPARENT));
 
-
-    if (!linedef.twoSided) {
-      addWall(new Wall(seg, linedef, sidedef, sector, null, startVertex, endVertex, WALL_TYPE_MIDDLE));
-    }
-
-    if (backSector != null) {
-      if (sidedef.middleTexture != "-") addMiddleTransparentWall(new Wall(seg, linedef, sidedef, sector, backSector, startVertex, endVertex, WALL_TYPE_MIDDLE_TRANSPARENT));
-
-      if (sidedef.upperTexture != "-" && backSector.ceilingTexture != "F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, startVertex, endVertex, WALL_TYPE_UPPER));
-      if (sidedef.lowerTexture != "-" && backSector.floorTexture != "F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, startVertex, endVertex, WALL_TYPE_LOWER));
+      if (seg.sidedef.upperTexture != "-" && seg.backSector.ceilingTexture != "F_SKY1") addWall(new Wall(seg, WALL_TYPE_UPPER));
+      if (seg.sidedef.lowerTexture != "-" && seg.backSector.floorTexture != "F_SKY1") addWall(new Wall(seg, WALL_TYPE_LOWER));
     }
   }
 }

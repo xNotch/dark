@@ -472,15 +472,21 @@ class SSector {
 }
 
 class Seg {
-  int startVertex;
-  int endVertex;
+  int startVertexId;
+  int endVertexId;
   int angle;
   int linedefId;
   int direction;
   int offset;
   
-  double x0, y0;
-  double x1, y1;
+  double x0, y0; // Start vertex
+  double x1, y1; // End vertex
+  
+  double xn, yn; // Normal
+  double xt, yt; // Tangent
+  double d; // Distance to line from origin
+  double sd; // Distance to line from origin.. sideways?
+  double length; // Length of the seg
   
   Linedef linedef;
 
@@ -490,13 +496,31 @@ class Seg {
   Sidedef sidedef;
   Sidedef backSidedef;
 
+  Vector2 startVertex;
+  Vector2 endVertex;
+
   void compile(Level level) {
-    Vector2 start = level.vertices[startVertex];
-    Vector2 end = level.vertices[endVertex];
-    x0 = start.x;
-    y0 = start.y;
-    x1 = end.x;
-    y1 = end.y;
+    startVertex = level.vertices[startVertexId];
+    endVertex = level.vertices[endVertexId];
+    x0 = startVertex.x;
+    y0 = startVertex.y;
+    x1 = endVertex.x;
+    y1 = endVertex.y;
+    
+    double xd = x1-x0;
+    double yd = y1-y0;
+    
+    length = sqrt(xd*xd+yd*yd);
+    
+    Vector2 tangent = (endVertex-startVertex).normalize();
+    xt = tangent.x;
+    yt = tangent.y;
+    
+    xn = tangent.y;
+    yn = -tangent.x;
+    
+    d = x0*xn+y0*yn;
+    sd = x0*xt+y0*yt;
 
     linedef = level.linedefs[linedefId];
     int frontSidedefId = direction==0?linedef.rightSidedef:linedef.leftSidedef;
@@ -514,8 +538,8 @@ class Seg {
     List<Seg> segs = new List<Seg>(segCount);
     for (int i=0; i<segCount; i++) {
       Seg seg = segs[i] = new Seg();
-      seg.startVertex = data.getInt16(i*12+0, Endianness.LITTLE_ENDIAN);
-      seg.endVertex = data.getInt16(i*12+2, Endianness.LITTLE_ENDIAN);
+      seg.startVertexId = data.getInt16(i*12+0, Endianness.LITTLE_ENDIAN);
+      seg.endVertexId = data.getInt16(i*12+2, Endianness.LITTLE_ENDIAN);
       seg.angle = data.getInt16(i*12+4, Endianness.LITTLE_ENDIAN);
       seg.linedefId = data.getInt16(i*12+6, Endianness.LITTLE_ENDIAN);
       seg.direction = data.getInt16(i*12+8, Endianness.LITTLE_ENDIAN);
@@ -822,18 +846,23 @@ class BSP {
     return root.findSubSector(pos).sector;
   }
   
-//  List<SubSector> findSortedSubSectors(Vector2 pos, double rot) {
-  List<Seg> findSortedSubSectors(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
+  List<Seg> findSortedSegs(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
     Culler culler = new Culler(modelViewMatrix, perspectiveMatrix);
     Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
     List<Seg> result = new List<Seg>();
-    root.findSortedSubSectors(culler, pos, result);
+    root.findSortedSegs(culler, pos, result);
     return result;
   }
   
   HashSet<Sector> findSectorsInRadius(Vector2 pos, double radius) {
     HashSet<Sector> result = new HashSet<Sector>();
     root.findSectorsInRadius(pos, radius, result);
+    return result;
+  }
+
+  List<SubSector> findSubSectorsInRadius(Vector2 pos, double radius) {
+    List<SubSector> result = new List<SubSector>();
+    root.findSubSectorsInRadius(pos, radius, result);
     return result;
   }
 }
@@ -861,8 +890,8 @@ class SubSector {
     
     for (int i=0; i<sSector.segCount; i++) {
       Seg seg = level.segs[sSector.segStart+i];
-      segFrom[i]=level.vertices[seg.startVertex];
-      segTo[i]=level.vertices[seg.endVertex];
+      segFrom[i]=level.vertices[seg.startVertexId];
+      segTo[i]=level.vertices[seg.endVertexId];
 
       Linedef linedef = level.linedefs[seg.linedefId];
       int backSidedef = seg.direction!=0?linedef.rightSidedef:linedef.leftSidedef;
@@ -1073,27 +1102,38 @@ class BSPNode {
     }
   }
   
-  void findSortedSubSectors(Culler culler, Vector2 p, List<Seg> result) {
+  void findSortedSegs(Culler culler, Vector2 p, List<Seg> result) {
     if (p.dot(dir)>d) {
       if (culler.isVisible(leftBounds)) {
-        if (leftChild!=null) leftChild.findSortedSubSectors(culler, p, result);
+        if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
         else culler.checkOccluders(leftSubSector, result);
       }
       
       if (culler.isVisible(rightBounds)) {
-        if (rightChild!=null) rightChild.findSortedSubSectors(culler, p, result);
+        if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
         else culler.checkOccluders(rightSubSector, result);
       }
     } else {
       if (culler.isVisible(rightBounds)) {
-        if (rightChild!=null) rightChild.findSortedSubSectors(culler, p, result);
+        if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
         else culler.checkOccluders(rightSubSector, result);
       }
       
       if (culler.isVisible(leftBounds)) {
-        if (leftChild!=null) leftChild.findSortedSubSectors(culler, p, result);
+        if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
         else culler.checkOccluders(leftSubSector, result);
       }
+    }
+  }
+  
+  void findSubSectorsInRadius(Vector2 p, double radius, List<SubSector> result) {
+    if (p.dot(dir)>d-radius) {
+      if (leftChild!=null) leftChild.findSubSectorsInRadius(p, radius, result);
+      else result.add(leftSubSector);
+    } 
+    if (p.dot(dir)<d+radius) {
+      if (rightChild!=null) rightChild.findSubSectorsInRadius(p, radius, result);
+      else result.add(rightSubSector);
     }
   }
   

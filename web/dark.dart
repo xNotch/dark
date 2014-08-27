@@ -284,6 +284,8 @@ void updateGameLogic(double passedTime) {
   
   playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
   playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
+  List<SubSector> subSectorsInRange = wadFile.level.bsp.findSubSectorsInRadius(playerPos.xz, 16.0);
+  subSectorsInRange.forEach((ss)=>ss.segs.forEach((seg)=>clipMotion(seg, playerPos, 16.0)));
 
   int floorHeight = -10000000;
   HashSet<Sector> sectorsInRange = wadFile.level.bsp.findSectorsInRadius(playerPos.xz, 16.0);
@@ -293,10 +295,48 @@ void updateGameLogic(double passedTime) {
   playerPos.y = floorHeight.toDouble()+41;
 }
 
+void clipMotion(Seg seg, Vector3 playerPos, double radius) {
+  if (seg.linedef.impassable || seg.backSector==null) {
+    double xp = playerPos.x;
+    double yp = playerPos.z;
+
+    double d = xp*seg.xn+yp*seg.yn - seg.d;
+    if (d>0.0 && d<=16.0) {
+      double sd = xp*seg.xt+yp*seg.yt - seg.sd;
+      if (sd>=0.0 && sd<=seg.length) {
+        // Hit the center of the seg
+        double toPushOut = radius-d+0.001;
+        xp+=seg.xn*toPushOut;
+        yp+=seg.yn*toPushOut;
+      } else if (sd>0.0) {
+        // Hit either corner of the seg
+        double xd, yd;
+/*        if (sd<=seg.length/2.0) {
+          xd = xp-seg.x0;
+          yd = yp-seg.y0;
+        } else {*/
+          xd = xp-seg.x1;
+          yd = yp-seg.y1;
+//        }
+        
+        double distSqr = xd*xd+yd*yd; 
+        if (xd*xd+yd*yd<radius*radius) {
+          double dist = sqrt(distSqr);
+          double toPushOut = radius-dist+0.001;
+          xp+=xd/dist*toPushOut;
+          yp+=yd/dist*toPushOut;
+        }
+      }
+    }
+    
+    playerPos.x = xp;
+    playerPos.z = yp;
+  }
+}
+
 void renderGame() {
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffer.framebuffer);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
-  gl.clear(GL.COLOR_BUFFER_BIT);
 
   projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  0.1,  10000.0).scale(-1.0, 1.0, 1.0);
   if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && !GAME_ORIGINAL_RESOLUTION) {
@@ -305,7 +345,7 @@ void renderGame() {
   }
   viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos);
 
-  List<Seg> visibleSegs = wadFile.level.bsp.findSortedSubSectors(new Matrix4.copy(viewMatrix)..invert(), projectionMatrix);
+  List<Seg> visibleSegs = wadFile.level.bsp.findSortedSegs(new Matrix4.copy(viewMatrix)..invert(), projectionMatrix);
   visibleSegs.forEach((seg) => Wall.addWallsForSeg(seg));
   
   gl.enable(GL.CULL_FACE);
@@ -343,8 +383,6 @@ void renderGame() {
 void blitScreen() {
   gl.bindFramebuffer(GL.FRAMEBUFFER, null);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
-  gl.clearColor(1.0, 0.2, 0.2, 1.0);
-  gl.clear(GL.COLOR_BUFFER_BIT);
   gl.disable(GL.DEPTH_TEST);
   projectionMatrix = makeOrthographicMatrix(0.0, screenWidth, screenHeight, 0.0, -10.0, 10.0);
   skyRenderer.render();
