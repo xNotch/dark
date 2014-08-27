@@ -180,7 +180,7 @@ Shader floorShader = new Shader(
   void main() {
     vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0);
     v_pos = pos.xyz;
-    v_uv = a_pos.xz;
+    v_uv = a_pos.xz*vec2(1.0, -1.0);
     v_texOffs = a_texOffs;
     v_brightness = a_brightness;
     gl_Position = u_projectionMatrix*pos;

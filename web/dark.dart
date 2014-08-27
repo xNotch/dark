@@ -42,13 +42,14 @@ HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Wall
 Floors floors;
 ScreenRenderer screenRenderer;
 SkyRenderer skyRenderer;
+List<Sprite> sprites = new List<Sprite>();
 
 void addSpriteMap(GL.Texture texture) {
   spriteMaps[texture] = new Sprites(spriteShader, texture);
 }
 
 void addSprite(Sprite sprite) {
-  spriteMaps[sprite.texture].addSprite(sprite);
+  sprites.add(sprite);
 }
 
 
@@ -172,8 +173,8 @@ Matrix4 modelMatrix;
 Matrix4 viewMatrix;
 Matrix4 projectionMatrix;
 
-//Vector3 playerPos = new Vector3(1075.8603515625,-50.0,-3237.50537109375);
-Vector3 playerPos = new Vector3(-2090.5009765625,169.0,1060.5748291015625);
+Vector3 playerPos = new Vector3(1075.8603515625,-50.0,-3237.50537109375);
+//Vector3 playerPos = new Vector3(-2090.5009765625,169.0,1060.5748291015625);
 double playerRot = 0.0;
 
 Framebuffer indexColorBuffer;
@@ -227,7 +228,7 @@ void start() {
   
   screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffer.texture, colorLookupTexture);
   
-  WAD_Image skyImage = new WAD_Image.empty(1024, 128);
+  WAD_Image skyImage = new WAD_Image.empty("_sky_", 1024, 128);
   WAD_Image sky = patchMap["SKY1"];
   for (int i=0; i<1024; i+=sky.width) {
     skyImage.draw(sky, i, 0);
@@ -316,7 +317,15 @@ void renderGame() {
   floors.renderBackWallHack(wadFile.level.bsp, playerPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LESS);
-  spriteMaps.values.forEach((sprites)=>sprites.render());
+  
+  sprites.forEach((sprite) {
+    sprite.addToDisplayList(playerRot);
+  });
+  
+  spriteMaps.values.forEach((sprites) {
+    sprites.render();
+    sprites.clear();
+  });
   
   transparentMiddleWalls.values.forEach((walls)=>walls.render());
 }

@@ -192,7 +192,7 @@ class Floors {
       for (int j=0; j<ss.segCount; j++) {
         Vector2 from = ss.segFrom[j]; 
         Vector2 to = ss.segTo[j];
-        if (ss.backSectors[j]==null) {
+        if (ss.backSectors[j]==null || ss.backSectors[j].floorHeight>=ss.backSectors[j].ceilingHeight) {
           vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [to.x, ceiling, to.y]);
           vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, ceiling, from.y]);
           vertexData.setAll((pp++)*FLOATS_PER_VERTEX, [from.x, floor, from.y]);

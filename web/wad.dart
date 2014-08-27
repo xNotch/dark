@@ -1,7 +1,6 @@
 part of Dark;
 
 HashMap<String, WAD_Image> wallTextureMap = new HashMap<String, WAD_Image>();
-HashMap<String, WAD_Image> spriteMap = new HashMap<String, WAD_Image>();
 HashMap<String, WAD_Image> patchMap = new HashMap<String, WAD_Image>();
 HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>(); 
 
@@ -39,17 +38,18 @@ class WadFile {
     colormap = new WAD_Colormap.parse(header.lumpInfoMap["COLORMAP"].getByteData(data));
 
     bool foundSprites = false;
+//    print("==================SPRITES");
     for (int i=0; i<header.lumpInfos.length; i++) {
       LumpInfo lump = header.lumpInfos[i];
       if (lump.name == "S_START") foundSprites = true;
       else if (lump.name == "S_END") foundSprites = false;
       else if (foundSprites) {
-        WAD_Image sprite = new WAD_Image.parse(lump.getByteData(data));
-        if (lump.name.startsWith("SPID")) print(lump.name);
-        spriteMap[lump.name] = sprite;
+        WAD_Image sprite = new WAD_Image.parse(lump.name, lump.getByteData(data));
+//        print(lump.name);
         spriteList.add(sprite);
       }
     }
+//    print("==========================");
     
     bool foundFlats = false;
     for (int i=0; i<header.lumpInfos.length; i++) {
@@ -58,10 +58,10 @@ class WadFile {
       else if (lump.name == "F_END") foundFlats = false;
       else if (foundFlats) {
         if (lump.size==64*64) {
-          flatMap[lump.name] = new WAD_Image.parseFlat(lump.getByteData(data));
+          flatMap[lump.name] = new WAD_Image.parseFlat(lump.name, lump.getByteData(data));
         }
       }
-      flatMap["_sky_"] = new WAD_Image.empty(64,  64);
+      flatMap["_sky_"] = new WAD_Image.empty("_sky_", 64,  64);
     }
     
     int maxFlats = (TEXTURE_ATLAS_SIZE~/64)*(TEXTURE_ATLAS_SIZE~/64);
@@ -82,7 +82,7 @@ class WadFile {
     bool foundLevel = false;
     for (int i=0; i<header.lumpInfos.length; i++) {
       LumpInfo lump = header.lumpInfos[i];
-      if (lump.name == "E1M2") loadLevel(lump.name, i);
+      if (lump.name == "E1M1") loadLevel(lump.name, i);
     }    
   }
   
@@ -122,10 +122,15 @@ class WadFile {
         }
       }
       imageAtlas.render();
+      addSpriteMap(imageAtlas.texture);
+
       imageAtlases.add(imageAtlas);
     } while (toInsert.length>0);
     
     
+    spriteList.forEach((sprite) {
+      SpriteTemplate.addFrameFromLump(sprite.name, sprite);
+    });
     print("Sprite atlas count: ${imageAtlases.length}");
   }
   
@@ -135,7 +140,7 @@ class WadFile {
       String pname = readString(data,  4+i*8, 8);
       
       if (header.lumpInfoMap.containsKey(pname)) {
-        WAD_Image patch = new WAD_Image.parse(header.lumpInfoMap[pname].getByteData(data));
+        WAD_Image patch = new WAD_Image.parse(pname, header.lumpInfoMap[pname].getByteData(data));
         patchMap[pname] = patch;
         patchList.add(patch);
       }
@@ -158,7 +163,7 @@ class WadFile {
     // Skip 4
     int patchCount = data.getInt16(20, Endianness.LITTLE_ENDIAN);
     
-    WAD_Image wallTexture = new WAD_Image.empty(width, height);
+    WAD_Image wallTexture = new WAD_Image.empty(name, width, height);
     for (int i=0; i<patchCount; i++) {
       int xOffs = data.getInt16(22+i*10, Endianness.LITTLE_ENDIAN); 
       int yOffs = data.getInt16(24+i*10, Endianness.LITTLE_ENDIAN); 
@@ -186,7 +191,7 @@ class WadFile {
       if (lump.name=="SECTORS") level.sectors = Sector.parse(lump, lump.getByteData(data));
       if (lump.name=="THINGS") level.things = Thing.parse(lump, lump.getByteData(data));
       if (lump.name=="NODES") level.nodes = Node.parse(lump, lump.getByteData(data));
-      if (lump.name=="E1M3") break; // TODO: Check for end of level data in some good way instead.
+      if (lump.name=="E1M2") break; // TODO: Check for end of level data in some good way instead.
     }
     
     level.build(this);
@@ -213,7 +218,10 @@ class Level {
       Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
       Sector sector = bsp.findSector(spritePos.xz);
       spritePos.y = sector.floorHeight.toDouble();
-      addSprite(spriteMap["BAR1A0"].createSprite(sector, spritePos));
+//      addSprite(spriteMap["BAR1A0"].createSprite(sector, spritePos));
+      double rot = ((90-thing.angle-22)~/45)*PI*2/8.0;
+      
+      if (thing.spriteName!=null) addSprite(new Sprite(sector, spritePos, rot, spriteTemplates[thing.spriteName]));
     }
     
     for (int i=0; i<segs.length; i++) {
@@ -295,6 +303,7 @@ class Thing {
   int angle;
   int type;
   int options;
+  String spriteName;
   
   static List<Thing> parse(LumpInfo lump, ByteData data) {
     int thingCount = lump.size~/10;
@@ -306,6 +315,128 @@ class Thing {
       thing.angle = data.getInt16(i*10+4, Endianness.LITTLE_ENDIAN);
       thing.type = data.getInt16(i*10+6, Endianness.LITTLE_ENDIAN);
       thing.options = data.getInt16(i*10+8, Endianness.LITTLE_ENDIAN);
+      
+      if (thing.type==0x0001) thing.spriteName = "PLAY"; //
+      if (thing.type==0x0002) thing.spriteName = "PLAY";
+      if (thing.type==0x0003) thing.spriteName = "PLAY";
+      if (thing.type==0x0004) thing.spriteName = "PLAY";
+      if (thing.type==0x0bbc) thing.spriteName = "POSS"; // +      # FORMER HUMAN: regular pistol-shooting zombieman
+      if (thing.type==0x0054) thing.spriteName = "SSWV"; // +      # WOLFENSTEIN SS: guest appearance by Wolf3D blue guy
+      if (thing.type==0x0009) thing.spriteName = "SPOS"; // +      # FORMER HUMAN SERGEANT: black armor, shotgunners
+      if (thing.type==0x0041) thing.spriteName = "CPOS"; // +      # HEAVY WEAPON DUDE: red armor, chaingunners
+      if (thing.type==0x0bb9) thing.spriteName = "TROO"; // +      # IMP: brown, hurl fireballs
+      if (thing.type==0x0bba) thing.spriteName = "SARG"; // +      # DEMON: pink, muscular bull-like chewers
+      if (thing.type==0x003a) thing.spriteName = "SARG"; // +      # SPECTRE: invisible version of the DEMON
+      if (thing.type==0x0bbe) thing.spriteName = "SKUL"; // +     ^# LOST SOUL: flying flaming skulls, they really bite
+      if (thing.type==0x0bbd) thing.spriteName = "HEAD"; // +     ^# CACODEMON: red one-eyed floating heads. Behold...
+      if (thing.type==0x0045) thing.spriteName = "BOS2"; // +      # HELL KNIGHT: grey-not-pink BARON, weaker
+      if (thing.type==0x0bbb) thing.spriteName = "BOSS"; // +      # BARON OF HELL: cloven hooved minotaur boss
+      if (thing.type==0x0044) thing.spriteName = "BSPI"; // +      # ARACHNOTRON: baby SPIDER, shoots green plasma
+      if (thing.type==0x0047) thing.spriteName = "PAIN"; // +     ^# PAIN ELEMENTAL: shoots LOST SOULS, deserves its
+      if (thing.type==0x0042) thing.spriteName = "SKEL"; // +      # REVENANT: Fast skeletal dude shoots homing missles
+      if (thing.type==0x0043) thing.spriteName = "FATT"; // +      # MANCUBUS: Big, slow brown guy shoots barrage of
+      if (thing.type==0x0040) thing.spriteName = "VILE"; // +      # ARCH-VILE: Super-fire attack, ressurects the dead!
+      if (thing.type==0x0007) thing.spriteName = "SPID"; // +      # SPIDER MASTERMIND: giant walking brain boss
+      if (thing.type==0x0010) thing.spriteName = "CYBR"; // +      # CYBER-DEMON: robo-boss, rocket launcher
+      if (thing.type==0x0058) thing.spriteName = "BBRN"; // +      # BOSS BRAIN: Horrifying visage of the ultimate demon
+//      if (thing.type==0x0059) thing.spriteName = "-   "; // -        Boss Shooter: Shoots spinning skull-blocks
+//      if (thing.type==0x0057) thing.spriteName = "-   "; // -        Spawn Spot: Where Todd McFarlane's guys appear
+      if (thing.type==0x07d5) thing.spriteName = "CSAW"; // a      $ Chainsaw
+      if (thing.type==0x07d1) thing.spriteName = "SHOT"; // a      $ Shotgun
+      if (thing.type==0x0052) thing.spriteName = "SGN2"; // a      $ Double-barreled shotgun
+      if (thing.type==0x07d2) thing.spriteName = "MGUN"; // a      $ Chaingun, gatling gun, mini-gun, whatever
+      if (thing.type==0x07d3) thing.spriteName = "LAUN"; // a      $ Rocket launcher
+      if (thing.type==0x07d4) thing.spriteName = "PLAS"; // a      $ Plasma gun
+      if (thing.type==0x07d6) thing.spriteName = "BFUG"; // a      $ Bfg9000
+      if (thing.type==0x07d7) thing.spriteName = "CLIP"; // a      $ Ammo clip
+      if (thing.type==0x07d8) thing.spriteName = "SHEL"; // a      $ Shotgun shells
+      if (thing.type==0x07da) thing.spriteName = "ROCK"; // a      $ A rocket
+      if (thing.type==0x07ff) thing.spriteName = "CELL"; // a      $ Cell charge
+      if (thing.type==0x0800) thing.spriteName = "AMMO"; // a      $ Box of Ammo
+      if (thing.type==0x0801) thing.spriteName = "SBOX"; // a      $ Box of Shells
+      if (thing.type==0x07fe) thing.spriteName = "BROK"; // a      $ Box of Rockets
+      if (thing.type==0x0011) thing.spriteName = "CELP"; // a      $ Cell charge pack
+      if (thing.type==0x0008) thing.spriteName = "BPAK"; // a      $ Backpack: doubles maximum ammo capacities
+      if (thing.type==0x07db) thing.spriteName = "STIM"; // a      $ Stimpak
+      if (thing.type==0x07dc) thing.spriteName = "MEDI"; // a      $ Medikit
+      if (thing.type==0x07de) thing.spriteName = "BON1"; // abcdcb ! Health Potion +1% health
+      if (thing.type==0x07df) thing.spriteName = "BON2"; // abcdcb ! Spirit Armor +1% armor
+      if (thing.type==0x07e2) thing.spriteName = "ARM1"; // ab     $ Green armor 100%
+      if (thing.type==0x07e3) thing.spriteName = "ARM2"; // ab     $ Blue armor 200%
+      if (thing.type==0x0053) thing.spriteName = "MEGA"; // abcd   ! Megasphere: 200% health, 200% armor
+      if (thing.type==0x07dd) thing.spriteName = "SOUL"; // abcdcb ! Soulsphere, Supercharge, +100% health
+      if (thing.type==0x07e6) thing.spriteName = "PINV"; // abcd   ! Invulnerability
+      if (thing.type==0x07e7) thing.spriteName = "PSTR"; // a      ! Berserk Strength and 100% health
+      if (thing.type==0x07e8) thing.spriteName = "PINS"; // abcd   ! Invisibility
+      if (thing.type==0x07e9) thing.spriteName = "SUIT"; // a     (!)Radiation suit - see notes on ! above
+      if (thing.type==0x07ea) thing.spriteName = "PMAP"; // abcdcb ! Computer map
+      if (thing.type==0x07fd) thing.spriteName = "PVIS"; // ab     ! Lite Amplification goggles
+      if (thing.type==0x0005) thing.spriteName = "BKEY"; // ab     $ Blue keycard
+      if (thing.type==0x0028) thing.spriteName = "BSKU"; // ab     $ Blue skullkey
+      if (thing.type==0x000d) thing.spriteName = "RKEY"; // ab     $ Red keycard
+      if (thing.type==0x0026) thing.spriteName = "RSKU"; // ab     $ Red skullkey
+      if (thing.type==0x0006) thing.spriteName = "YKEY"; // ab     $ Yellow keycard
+      if (thing.type==0x0027) thing.spriteName = "YSKU"; // ab     $ Yellow skullkey
+      if (thing.type==0x07f3) thing.spriteName = "BAR1"; // ab+    # Barrel; not an obstacle after blown up
+      if (thing.type==0x0048) thing.spriteName = "KEEN"; // a+     # A guest appearance by Billy
+      if (thing.type==0x0030) thing.spriteName = "ELEC"; // a      # Tall, techno pillar
+      if (thing.type==0x001e) thing.spriteName = "COL1"; // a      # Tall green pillar
+      if (thing.type==0x0020) thing.spriteName = "COL3"; // a      # Tall red pillar
+      if (thing.type==0x001f) thing.spriteName = "COL2"; // a      # Short green pillar
+      if (thing.type==0x0024) thing.spriteName = "COL5"; // ab     # Short green pillar with beating heart
+      if (thing.type==0x0021) thing.spriteName = "COL4"; // a      # Short red pillar
+      if (thing.type==0x0025) thing.spriteName = "COL6"; // a      # Short red pillar with skull
+      if (thing.type==0x002f) thing.spriteName = "SMIT"; // a      # Stalagmite: small brown pointy stump
+      if (thing.type==0x002b) thing.spriteName = "TRE1"; // a      # Burnt tree: gray tree
+      if (thing.type==0x0036) thing.spriteName = "TRE2"; // a      # Large brown tree
+      if (thing.type==0x07ec) thing.spriteName = "COLU"; // a      # Floor lamp
+      if (thing.type==0x0055) thing.spriteName = "TLMP"; // abcd   # Tall techno floor lamp
+      if (thing.type==0x0056) thing.spriteName = "TLP2"; // abcd   # Short techno floor lamp
+      if (thing.type==0x0022) thing.spriteName = "CAND"; // a        Candle
+      if (thing.type==0x0023) thing.spriteName = "CBRA"; // a      # Candelabra
+      if (thing.type==0x002c) thing.spriteName = "TBLU"; // abcd   # Tall blue firestick
+      if (thing.type==0x002d) thing.spriteName = "TGRE"; // abcd   # Tall green firestick
+      if (thing.type==0x002e) thing.spriteName = "TRED"; // abcd   # Tall red firestick
+      if (thing.type==0x0037) thing.spriteName = "SMBT"; // abcd   # Short blue firestick
+      if (thing.type==0x0038) thing.spriteName = "SMGT"; // abcd   # Short green firestick
+      if (thing.type==0x0039) thing.spriteName = "SMRT"; // abcd   # Short red firestick
+      if (thing.type==0x0046) thing.spriteName = "FCAN"; // abc    # Burning barrel
+      if (thing.type==0x0029) thing.spriteName = "CEYE"; // abcb   # Evil Eye: floating eye in symbol, over candle
+      if (thing.type==0x002a) thing.spriteName = "FSKU"; // abc    # Floating Skull: flaming skull-rock
+      if (thing.type==0x0031) thing.spriteName = "GOR1"; // abcb  ^# Hanging victim, twitching
+      if (thing.type==0x003f) thing.spriteName = "GOR1"; // abcb  ^  Hanging victim, twitching
+      if (thing.type==0x0032) thing.spriteName = "GOR2"; // a     ^# Hanging victim, arms out
+      if (thing.type==0x003b) thing.spriteName = "GOR2"; // a     ^  Hanging victim, arms out
+      if (thing.type==0x0034) thing.spriteName = "GOR4"; // a     ^# Hanging pair of legs
+      if (thing.type==0x003c) thing.spriteName = "GOR4"; // a     ^  Hanging pair of legs
+      if (thing.type==0x0033) thing.spriteName = "GOR3"; // a     ^# Hanging victim, 1-legged
+      if (thing.type==0x003d) thing.spriteName = "GOR3"; // a     ^  Hanging victim, 1-legged
+      if (thing.type==0x0035) thing.spriteName = "GOR5"; // a     ^# Hanging leg
+      if (thing.type==0x003e) thing.spriteName = "GOR5"; // a     ^  Hanging leg
+      if (thing.type==0x0049) thing.spriteName = "HDB1"; // a     ^# Hanging victim, guts removed
+      if (thing.type==0x004a) thing.spriteName = "HDB2"; // a     ^# Hanging victim, guts and brain removed
+      if (thing.type==0x004b) thing.spriteName = "HDB3"; // a     ^# Hanging torso, looking down
+      if (thing.type==0x004c) thing.spriteName = "HDB4"; // a     ^# Hanging torso, open skull
+      if (thing.type==0x004d) thing.spriteName = "HDB5"; // a     ^# Hanging torso, looking up
+      if (thing.type==0x004e) thing.spriteName = "HDB6"; // a     ^# Hanging torso, brain removed
+      if (thing.type==0x0019) thing.spriteName = "POL1"; // a      # Impaled human
+      if (thing.type==0x001a) thing.spriteName = "POL6"; // ab     # Twitching impaled human
+      if (thing.type==0x001b) thing.spriteName = "POL4"; // a      # Skull on a pole
+      if (thing.type==0x001c) thing.spriteName = "POL2"; // a      # 5 skulls shish kebob
+      if (thing.type==0x001d) thing.spriteName = "POL3"; // ab     # Pile of skulls and candles
+      if (thing.type==0x000a) thing.spriteName = "PLAY"; // w        Bloody mess (an exploded player)
+      if (thing.type==0x000c) thing.spriteName = "PLAY"; // w        Bloody mess, this thing is exactly the same as 10
+      if (thing.type==0x0018) thing.spriteName = "POL5"; // a        Pool of blood and flesh
+      if (thing.type==0x004f) thing.spriteName = "POB1"; // a        Pool of blood
+      if (thing.type==0x0050) thing.spriteName = "POB2"; // a        Pool of blood
+      if (thing.type==0x0051) thing.spriteName = "BRS1"; // a        Pool of brains
+      if (thing.type==0x000f) thing.spriteName = "PLAY"; // n        Dead player
+      if (thing.type==0x0012) thing.spriteName = "POSS"; // l        Dead former human
+      if (thing.type==0x0013) thing.spriteName = "SPOS"; // l        Dead former sergeant
+      if (thing.type==0x0014) thing.spriteName = "TROO"; // m        Dead imp
+      if (thing.type==0x0015) thing.spriteName = "SARG"; // n        Dead demon
+      if (thing.type==0x0016) thing.spriteName = "HEAD"; // l        Dead cacodemon
+      if (thing.type==0x0017) thing.spriteName = "SKUL"; // k        Dead lost soul, invisible
     }
     return things;
   }
@@ -504,6 +635,7 @@ class WAD_Playpal {
 }
 
 class WAD_Image {
+  String name;
   int width, height;
   int xCenter;
   int yCenter;
@@ -512,7 +644,7 @@ class WAD_Image {
   Uint8List pixelData;
   ImageAtlas imageAtlas;
   
-  WAD_Image.empty(this.width, this.height) {
+  WAD_Image.empty(this.name, this.width, this.height) {
     this.xCenter = 0;
     this.yCenter = 0;
     
@@ -541,7 +673,7 @@ class WAD_Image {
     }
   }
   
-  WAD_Image.parseFlat(ByteData data) {
+  WAD_Image.parseFlat(this.name, ByteData data) {
     width = 64;
     height = 64;
     xCenter = 0;
@@ -559,7 +691,7 @@ class WAD_Image {
     }
   }
   
-  WAD_Image.parse(ByteData data) {
+  WAD_Image.parse(this.name, ByteData data) {
     width = data.getInt16(0x00, Endianness.LITTLE_ENDIAN);
     height = data.getInt16(0x02, Endianness.LITTLE_ENDIAN);
     xCenter = data.getInt16(0x04, Endianness.LITTLE_ENDIAN);
@@ -602,10 +734,6 @@ class WAD_Image {
       int end = start+width*4;
       pixels.setRange(start, end, pixelData, y*width*4);
     }
-  }
-  
-  Sprite createSprite(Sector sector, Vector3 pos) {
-    return new Sprite(imageAtlas.texture, sector, pos, -xCenter, -yCenter, width, height, xAtlasPos, yAtlasPos);
   }
   
   GL.Texture createTexture(Palette palette) {
