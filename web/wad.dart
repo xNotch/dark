@@ -103,6 +103,8 @@ class WadFile {
         }
       }
       imageAtlas.render();
+      addWallMap(imageAtlas.texture);
+
       imageAtlases.add(imageAtlas);
     } while (toInsert.length>0);
     
@@ -225,29 +227,14 @@ class Level {
     }
     
     for (int i=0; i<segs.length; i++) {
-      Seg seg = segs[i];
-      Linedef linedef = linedefs[seg.linedef];
-      Sidedef sidedef = sidedefs[seg.direction==0?linedef.rightSidedef:linedef.leftSidedef];
-      Sector sector = sectors[sidedef.sector];
-      Sector backSector = null;
-      
-      int backSidedefId = seg.direction!=0?linedef.rightSidedef:linedef.leftSidedef;
-      if (backSidedefId!=-1) {
-        Sidedef backSidedef = sidedefs[backSidedefId];
-        backSector = sectors[backSidedef.sector];
-      }
-      
-      if (!linedef.twoSided) {
-        addWall(new Wall(seg, linedef, sidedef, sector, null, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE));
-      }
-      
-      if (backSector!=null) {
-        if (sidedef.middleTexture!="-") addMiddleTransparentWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_MIDDLE_TRANSPARENT));
-        
-        if (sidedef.upperTexture!="-" && backSector.ceilingTexture!="F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_UPPER));
-        if (sidedef.lowerTexture!="-" && backSector.floorTexture!="F_SKY1") addWall(new Wall(seg, linedef, sidedef, sector, backSector, vertices[seg.startVertex], vertices[seg.endVertex], WALL_TYPE_LOWER));
-      }
+      segs[i].compile(this);
     }
+    /*
+    for (int i=0; i<segs.length; i++) {
+      Seg seg = segs[i];
+      Wall.addWallsForSeg(seg);
+    }
+    * */
   }
 }
 
@@ -488,9 +475,39 @@ class Seg {
   int startVertex;
   int endVertex;
   int angle;
-  int linedef;
+  int linedefId;
   int direction;
   int offset;
+  
+  double x0, y0;
+  double x1, y1;
+  
+  Linedef linedef;
+
+  Sector sector;
+  Sector backSector;
+  
+  Sidedef sidedef;
+  Sidedef backSidedef;
+
+  void compile(Level level) {
+    Vector2 start = level.vertices[startVertex];
+    Vector2 end = level.vertices[endVertex];
+    x0 = start.x;
+    y0 = start.y;
+    x1 = end.x;
+    y1 = end.y;
+
+    linedef = level.linedefs[linedefId];
+    int frontSidedefId = direction==0?linedef.rightSidedef:linedef.leftSidedef;
+    int backSidedefId = direction!=0?linedef.rightSidedef:linedef.leftSidedef;
+    sidedef = level.sidedefs[frontSidedefId];
+    sector = level.sectors[sidedef.sector];
+    if (backSidedefId!=-1) {
+      backSidedef = level.sidedefs[backSidedefId];
+      backSector = level.sectors[backSidedef.sector];
+    }
+  }
   
   static List<Seg> parse(LumpInfo lump, ByteData data) {
     int segCount = lump.size~/12;
@@ -500,7 +517,7 @@ class Seg {
       seg.startVertex = data.getInt16(i*12+0, Endianness.LITTLE_ENDIAN);
       seg.endVertex = data.getInt16(i*12+2, Endianness.LITTLE_ENDIAN);
       seg.angle = data.getInt16(i*12+4, Endianness.LITTLE_ENDIAN);
-      seg.linedef = data.getInt16(i*12+6, Endianness.LITTLE_ENDIAN);
+      seg.linedefId = data.getInt16(i*12+6, Endianness.LITTLE_ENDIAN);
       seg.direction = data.getInt16(i*12+8, Endianness.LITTLE_ENDIAN);
       seg.offset = data.getInt16(i*12+10, Endianness.LITTLE_ENDIAN);
     }
@@ -805,9 +822,12 @@ class BSP {
     return root.findSubSector(pos).sector;
   }
   
-  List<SubSector> findSortedSubSectors(Vector2 pos) {
-    List<SubSector> result = new List<SubSector>();
-    root.findSortedSubSectors(pos, result);
+//  List<SubSector> findSortedSubSectors(Vector2 pos, double rot) {
+  List<Seg> findSortedSubSectors(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
+    Culler culler = new Culler(modelViewMatrix, perspectiveMatrix);
+    Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
+    List<Seg> result = new List<Seg>();
+    root.findSortedSubSectors(culler, pos, result);
     return result;
   }
   
@@ -821,13 +841,14 @@ class BSP {
 class SubSector {
   Sector sector;
   int segCount;
+  List<Seg> segs;
   List<Vector2> segFrom;
   List<Vector2> segTo;
   List<Sector> backSectors;
   
   SubSector(Level level, SSector sSector) {
     Seg seg = level.segs[sSector.segStart];
-    Linedef linedef = level.linedefs[seg.linedef];
+    Linedef linedef = level.linedefs[seg.linedefId];
     Sidedef sidedef = level.sidedefs[seg.direction==0?linedef.rightSidedef:linedef.leftSidedef];
     sector = level.sectors[sidedef.sector];
     
@@ -836,18 +857,188 @@ class SubSector {
     segTo = new List<Vector2>(segCount);
     backSectors = new List<Sector>(segCount);
     
+    segs = new List<Seg>(segCount);
+    
     for (int i=0; i<sSector.segCount; i++) {
       Seg seg = level.segs[sSector.segStart+i];
       segFrom[i]=level.vertices[seg.startVertex];
       segTo[i]=level.vertices[seg.endVertex];
 
-      Linedef linedef = level.linedefs[seg.linedef];
+      Linedef linedef = level.linedefs[seg.linedefId];
       int backSidedef = seg.direction!=0?linedef.rightSidedef:linedef.leftSidedef;
       if (backSidedef!=-1) {
         backSectors[i] = level.sectors[level.sidedefs[backSidedef].sector]; 
       }
+      segs[i] = seg;
     }
   }
+}
+
+class Culler {
+  double tx, ty; // Tangent line
+  double td; // Distance to tangent line from origin
+  double c, s; // cos and sin
+  double xc, yc; // Center
+  
+  double clip0 = -1.0, clip1 = 1.0;
+  List<Vector2> clipRanges = new List<Vector2>();
+  
+  Culler(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
+    Matrix4 inversePerspective = new Matrix4.copy(perspectiveMatrix)..invert();
+    double width = inversePerspective.transform3(new Vector3(1.0, 0.0, 0.0)).x;
+    clip0 = width;
+    clip1 = -clip0;
+    
+    Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
+    Vector2 tangent = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 1.0))).xz-pos;
+    
+    xc = pos.x;
+    yc = pos.y;
+    
+    double rot = atan2(tangent.y, tangent.x);
+    s = sin(rot);
+    c = cos(rot);
+    
+    tx = tangent.x;
+    ty = tangent.y;
+    td = pos.x*tx+pos.y*ty;
+  }
+  
+  double xProject(double xp, double yp) {
+    double x = xp-xc;
+    double y = yp-yc;
+    
+    double xr = -(s*x-c*y);
+    double yr = -(s*y+c*x);
+    return xr/yr;
+  }
+  
+  bool isVisible(Bounds b) {
+    if (clip0>=clip1) return false;
+
+    // Check if corners are behind the player. True means it's behind
+    bool b0 = (b.x0*tx+b.y0*ty)>td; 
+    bool b1 = (b.x1*tx+b.y0*ty)>td; 
+    bool b2 = (b.x0*tx+b.y1*ty)>td; 
+    bool b3 = (b.x1*tx+b.y1*ty)>td; 
+
+    // If all the corners are behind the player, don't render it.
+    if (b0 && b1 && b2 && b3) return false;
+    
+    // If at least one corner is behind the player, force it to render
+    // (The player is inside the bounding box)
+    if (b0 || b1 || b2 || b3) return true;
+    
+    // Else check the bounding box against the clipping planes
+    List<double> xCorners = [
+      xProject(b.x0, b.y0),
+      xProject(b.x1, b.y0),
+      xProject(b.x1, b.y1),
+      xProject(b.x0, b.y1),
+    ];
+    
+    double xLow = xCorners[0];
+    double xHigh = xLow;
+    for (int i=1; i<4; i++) {
+      if (xCorners[i]<xLow) xLow = xCorners[i];
+      if (xCorners[i]>xHigh) xHigh = xCorners[i];
+    }
+    
+    return rangeVisible(xLow, xHigh);
+  }
+  
+  bool rangeVisible(double x0, double x1) {
+    if (x1<clip0 || x0>clip1) return false;
+    
+    for (int i=0; i<clipRanges.length; i++) {
+      Vector2 cr = clipRanges[i];
+      if (x0>=cr.x && x1<=cr.y) return false; 
+    }
+    return true;
+  }
+  
+  void clipRegion(double x0, double x1) {
+    x0-=0.001;
+    x1+=0.001;
+    for (int i=0; i<clipRanges.length; i++) {
+      Vector2 cr = clipRanges[i];
+      if (cr.x>=x1 || cr.y<=x0) {
+        // It's not inside this range
+      } else {
+        // Expand to include the other one, and remove it
+        if (cr.x<x0) x0 = cr.x;
+        if (cr.y>x1) x1 = cr.y;
+        clipRanges.removeAt(i--);
+      }
+    }
+    if (x0>clip0 && x1<clip1) {
+      if (x1-x0>4.0/320) { // Only add a clip range if it's wider than these many original doom pixels
+        clipRanges.add(new Vector2(x0, x1));
+      }
+    } else {
+      if (x0<=clip0 && x1>clip0) clip0=x1;
+      if (x1>=clip1 && x0<clip1) clip1=x0;
+    }
+  }
+  
+  static const clipDist = 0.01;
+  void checkOccluders(SubSector subSector, List<Seg> result) {
+    if (clip0>=clip1) return;
+    for (int i=0; i<subSector.segs.length; i++) {
+      Seg seg = subSector.segs[i];
+      double x0 = seg.x0-xc;
+      double y0 = seg.y0-yc;
+      double x1 = seg.x1-xc;
+      double y1 = seg.y1-yc;
+      
+      double x0r = -(s*x0-c*y0);
+      double x1r = -(s*x1-c*y1);
+      
+      double y0r = -(s*y0+c*x0);
+      double y1r = -(s*y1+c*x1);
+      
+      if (y0r<clipDist && y1r<clipDist) {
+        // Completely behind the player.. ignore this line.
+        continue;
+      } else if (y0r<clipDist) {
+        // Clip left side
+        double length = y1r-y0r;
+        double p = clipDist-y0r;
+        x0r += (x1r-x0r)*p/length; 
+        y0r = clipDist;
+      } else if (y1r<clipDist) {
+        // Clip right side
+        double length = y0r-y1r;
+        double p = clipDist-y1r;
+        x1r += (x0r-x1r)*p/length; 
+        y1r = clipDist;
+      }
+      
+      double xp0 = x0r/y0r;
+      double xp1 = x1r/y1r;
+
+      if (xp0>xp1) continue;
+      
+      if (rangeVisible(xp0, xp1)) {
+        bool shouldClip = false;
+        if (!seg.linedef.twoSided) {
+          shouldClip = true;
+        } else if (seg.backSector!=null) {
+          if (seg.backSector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
+          else if (seg.sector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
+          else if (seg.sector.ceilingHeight<=seg.backSector.floorHeight) shouldClip = true;
+        }
+        if (shouldClip) clipRegion(xp0, xp1);
+        result.add(seg);
+      }
+    }
+  }
+}
+
+class Bounds {
+  double x0, y0, x1, y1;
+  
+  Bounds(this.x0, this.y0, this.x1, this.y1);
 }
 
 class BSPNode {
@@ -855,6 +1046,9 @@ class BSPNode {
   Vector2 pos;
   Vector2 dir;
   double d;
+
+  Bounds leftBounds;
+  Bounds rightBounds;
   
   BSPNode leftChild, rightChild;
   SubSector leftSubSector, rightSubSector;
@@ -863,6 +1057,9 @@ class BSPNode {
     pos = new Vector2(node.x.toDouble(), node.y.toDouble());
     dir = new Vector2(-node.dy.toDouble(), node.dx.toDouble()).normalize();
     d = pos.dot(dir);
+    
+    rightBounds = new Bounds(node.bb0x0+0.0, node.bb0y0+0.0, node.bb0x1+0.0, node.bb0y1+0.0);
+    leftBounds = new Bounds(node.bb1x0+0.0, node.bb1y0+0.0, node.bb1x1+0.0, node.bb1y1+0.0);
     
     if (node.leftChild&0x8000==0) {
       leftChild = new BSPNode(level, level.nodes[node.leftChild]);
@@ -876,19 +1073,27 @@ class BSPNode {
     }
   }
   
-  void findSortedSubSectors(Vector2 p, List<SubSector> result) {
-    if (p.dot(dir)<d) {
-      if (leftChild!=null) leftChild.findSortedSubSectors(p, result);
-      else result.add(leftSubSector);
+  void findSortedSubSectors(Culler culler, Vector2 p, List<Seg> result) {
+    if (p.dot(dir)>d) {
+      if (culler.isVisible(leftBounds)) {
+        if (leftChild!=null) leftChild.findSortedSubSectors(culler, p, result);
+        else culler.checkOccluders(leftSubSector, result);
+      }
       
-      if (rightChild!=null) rightChild.findSortedSubSectors(p, result);
-      else result.add(rightSubSector);
+      if (culler.isVisible(rightBounds)) {
+        if (rightChild!=null) rightChild.findSortedSubSectors(culler, p, result);
+        else culler.checkOccluders(rightSubSector, result);
+      }
     } else {
-      if (rightChild!=null) rightChild.findSortedSubSectors(p, result);
-      else result.add(rightSubSector);
+      if (culler.isVisible(rightBounds)) {
+        if (rightChild!=null) rightChild.findSortedSubSectors(culler, p, result);
+        else culler.checkOccluders(rightSubSector, result);
+      }
       
-      if (leftChild!=null) leftChild.findSortedSubSectors(p, result);
-      else result.add(leftSubSector);
+      if (culler.isVisible(leftBounds)) {
+        if (leftChild!=null) leftChild.findSortedSubSectors(culler, p, result);
+        else culler.checkOccluders(leftSubSector, result);
+      }
     }
   }
   

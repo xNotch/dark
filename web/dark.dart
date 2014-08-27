@@ -52,17 +52,17 @@ void addSprite(Sprite sprite) {
   sprites.add(sprite);
 }
 
+void addWallMap(GL.Texture texture) {
+  walls[texture] = new Walls(wallShader, texture);
+  transparentMiddleWalls[texture] = new Walls(wallShader, texture);
+}
 
 void addMiddleTransparentWall(Wall wall) {
-  if (wall.texture==null) return;
-  if (!transparentMiddleWalls.containsKey(wall.texture)) transparentMiddleWalls[wall.texture] = new Walls(wallShader, wall.texture);
-  transparentMiddleWalls[wall.texture].addWall(wall);
+  transparentMiddleWalls[wall.texture].insertWall(wall);
 }
 
 void addWall(Wall wall) {
-  if (wall.texture==null) return;
-  if (!walls.containsKey(wall.texture)) walls[wall.texture] = new Walls(wallShader, wall.texture);
-  walls[wall.texture].addWall(wall);
+  walls[wall.texture].insertWall(wall);
 }
 
 List<bool> keys = new List<bool>(256);
@@ -296,6 +296,7 @@ void updateGameLogic(double passedTime) {
 void renderGame() {
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffer.framebuffer);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
+  gl.clear(GL.COLOR_BUFFER_BIT);
 
   projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  0.1,  10000.0).scale(-1.0, 1.0, 1.0);
   if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && !GAME_ORIGINAL_RESOLUTION) {
@@ -304,17 +305,23 @@ void renderGame() {
   }
   viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos);
 
+  List<Seg> visibleSegs = wadFile.level.bsp.findSortedSubSectors(new Matrix4.copy(viewMatrix)..invert(), projectionMatrix);
+  visibleSegs.forEach((seg) => Wall.addWallsForSeg(seg));
+  
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
-  floors.render(wadFile.level.bsp, playerPos);
+  floors.render(visibleSegs, playerPos);
   gl.depthFunc(GL.LEQUAL);
   
-  walls.values.forEach((walls)=>walls.render());
+  walls.values.forEach((walls) {
+    walls.render();
+    walls.clear();
+  });
   
   gl.depthFunc(GL.ALWAYS);
   gl.colorMask(false, false, false, false);
-  floors.renderBackWallHack(wadFile.level.bsp, playerPos);
+  floors.renderBackWallHack(visibleSegs, playerPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LESS);
   
@@ -327,7 +334,10 @@ void renderGame() {
     sprites.clear();
   });
   
-  transparentMiddleWalls.values.forEach((walls)=>walls.render());
+  transparentMiddleWalls.values.forEach((walls) {
+    walls.render();
+    walls.clear();
+  });
 }
 
 void blitScreen() {

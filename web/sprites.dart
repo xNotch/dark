@@ -106,25 +106,12 @@ class Sprites {
 }
 
 class Sprite {
-/*  GL.Texture texture;
-  double xOffs, yOffs;
-  double w, h;
-  double u, v;*/
   Sector sector;
   Vector3 pos;
   SpriteTemplate spriteTemplate;
   double rot;
   
-//  Float32List data = new Float32List(Sprites.FLOATS_PER_VERTEX*4);
-  
-  Sprite(this.sector, this.pos, this.rot, this.spriteTemplate) {
-/*    this.xOffs = xOffs.toDouble();
-    this.yOffs = yOffs.toDouble();
-    this.w = w.toDouble();
-    this.h = h.toDouble();
-    this.u = u.toDouble();
-    this.v = v.toDouble();*/
-  }
+  Sprite(this.sector, this.pos, this.rot, this.spriteTemplate);
   
   void addToDisplayList(double playerRot) {
     double rotDiff = rot-playerRot;
@@ -134,16 +121,6 @@ class Sprite {
     SpriteTemplateRot str = stf.rots[rotFrame];
     spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
   }
-  
-/*  void set(Float32List data, int offset) {
-    double br = sector.lightLevel/255.0;
-    data.setAll(offset, [
-        pos.x, pos.y, pos.z, xOffs+0, -yOffs+0, u+0, v+0, br,
-        pos.x, pos.y, pos.z, xOffs+w, -yOffs+0, u+w, v+0, br,
-        pos.x, pos.y, pos.z, xOffs+w, -yOffs-h, u+w, v+h, br,
-        pos.x, pos.y, pos.z, xOffs+0, -yOffs-h, u+0, v+h, br,
-    ]);
-  }*/
 }
 
 HashMap<String, SpriteTemplate> spriteTemplates = new HashMap<String, SpriteTemplate>();
