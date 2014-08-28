@@ -18,8 +18,6 @@ part "wad.dart";
  *  GAME_ORIGINAL_RESOLUTION false is COMPLETELY broken right now because of the framebuffer being hardcoded at 512*512
  */
 bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
-
-
 bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
 bool GAME_ORIGINAL_PIXEL_ASPECT_RATIO = true; // Original doom used slightly vertically stretched pixels (320x200 pixels in 4:3)
 
@@ -188,9 +186,11 @@ void start() {
   viewMatrix = new Matrix4.identity();
   window.requestAnimationFrame(render);
   
-  // TODO: Resize this in HD mode
-  indexColorBuffer = new Framebuffer(512, 512);
-  // TODO: Pass a proper color lookup texture
+  if (GAME_ORIGINAL_RESOLUTION) {
+    indexColorBuffer = new Framebuffer(512, 512);
+  } else {
+    indexColorBuffer = new Framebuffer(2048, 2048);
+  }
 
   Uint8List lookupTextureData = new Uint8List(256*256*4);
   // Top row: 14 16*16 grids of color look-ups, based on PLAYPAL
@@ -250,7 +250,7 @@ class Framebuffer {
     
     texture = gl.createTexture();
     gl.bindTexture(GL.TEXTURE_2D, texture);
-    gl.texImage2DTyped(GL.TEXTURE_2D,  0,  GL.RGBA,  512,  512,  0,  GL.RGBA,  GL.UNSIGNED_BYTE, null);
+    gl.texImage2DTyped(GL.TEXTURE_2D,  0,  GL.RGBA,  width,  height,  0,  GL.RGBA,  GL.UNSIGNED_BYTE, null);
     gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MIN_FILTER, GL.NEAREST);
     gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
     
@@ -258,7 +258,7 @@ class Framebuffer {
     
     depthbuffer = gl.createRenderbuffer();
     gl.bindRenderbuffer(GL.RENDERBUFFER, depthbuffer);
-    gl.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, 512, 512);
+    gl.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, width, height);
     
     gl.framebufferRenderbuffer(GL.FRAMEBUFFER,  GL.DEPTH_ATTACHMENT,  GL.RENDERBUFFER,  depthbuffer);
   }
@@ -284,53 +284,73 @@ void updateGameLogic(double passedTime) {
   
   playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
   playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
+  
+  HashSet<Sector> sectorsInRange = new HashSet<Sector>();
   List<SubSector> subSectorsInRange = wadFile.level.bsp.findSubSectorsInRadius(playerPos.xz, 16.0);
-  subSectorsInRange.forEach((ss)=>ss.segs.forEach((seg)=>clipMotion(seg, playerPos, 16.0)));
+  subSectorsInRange.forEach((ss)=>ss.segs.forEach((seg)=>clipMotion(seg, playerPos, 16.0, sectorsInRange)));
 
   int floorHeight = -10000000;
-  HashSet<Sector> sectorsInRange = wadFile.level.bsp.findSectorsInRadius(playerPos.xz, 16.0);
+  sectorsInRange.add(wadFile.level.bsp.findSector(playerPos.xz));
   sectorsInRange.forEach((sector) {
     if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
   });
-  playerPos.y = floorHeight.toDouble()+41;
+  playerPos.y = floorHeight.toDouble();
 }
 
-void clipMotion(Seg seg, Vector3 playerPos, double radius) {
-  if (seg.linedef.impassable || seg.backSector==null) {
-    double xp = playerPos.x;
-    double yp = playerPos.z;
+void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overlappedSectors) {
+  double xp = playerPos.x;
+  double yp = playerPos.z;
+  
+  double xNudge = 0.0;
+  double yNudge = 0.0;
+  bool intersect = false;
 
-    double d = xp*seg.xn+yp*seg.yn - seg.d;
-    if (d>0.0 && d<=16.0) {
-      double sd = xp*seg.xt+yp*seg.yt - seg.sd;
-      if (sd>=0.0 && sd<=seg.length) {
-        // Hit the center of the seg
-        double toPushOut = radius-d+0.001;
-        xp+=seg.xn*toPushOut;
-        yp+=seg.yn*toPushOut;
-      } else if (sd>0.0) {
-        // Hit either corner of the seg
-        double xd, yd;
+  double d = xp*seg.xn+yp*seg.yn - seg.d;
+  if (d>0.0 && d<=16.0) {
+    double sd = xp*seg.xt+yp*seg.yt - seg.sd;
+    if (sd>=0.0 && sd<=seg.length) {
+      // Hit the center of the seg
+      double toPushOut = radius-d+0.001;
+      xNudge=seg.xn*toPushOut;
+      yNudge=seg.yn*toPushOut;
+      intersect = true;
+    } else if (sd>0.0) {
+      // Hit either corner of the seg
+      double xd, yd;
 /*        if (sd<=seg.length/2.0) {
           xd = xp-seg.x0;
           yd = yp-seg.y0;
         } else {*/
-          xd = xp-seg.x1;
-          yd = yp-seg.y1;
+        xd = xp-seg.x1;
+        yd = yp-seg.y1;
 //        }
-        
-        double distSqr = xd*xd+yd*yd; 
-        if (xd*xd+yd*yd<radius*radius) {
-          double dist = sqrt(distSqr);
-          double toPushOut = radius-dist+0.001;
-          xp+=xd/dist*toPushOut;
-          yp+=yd/dist*toPushOut;
-        }
+      
+      double distSqr = xd*xd+yd*yd; 
+      if (xd*xd+yd*yd<radius*radius) {
+        double dist = sqrt(distSqr);
+        double toPushOut = radius-dist+0.001;
+        xNudge=xd/dist*toPushOut;
+        yNudge=yd/dist*toPushOut;
+        intersect = true;
       }
     }
+  }
+
+  if (intersect) {
+    bool collideWall = false;
+    if (seg.linedef.impassable || seg.backSector==null) {
+      collideWall = true;
+    } else if (seg.backSector.floorHeight>playerPos.y+24 || seg.sector.floorHeight>playerPos.y+24) {
+      collideWall = true;
+    }
     
-    playerPos.x = xp;
-    playerPos.z = yp;
+    if (collideWall) {
+      playerPos.x += xNudge;
+      playerPos.z += yNudge;
+    } else {
+      overlappedSectors.add(seg.sector);
+      if (seg.backSector!=null) overlappedSectors.add(seg.backSector);
+    }
   }
 }
 
@@ -343,15 +363,17 @@ void renderGame() {
     // If the original aspect ratio is set, this scaling is done elsewhere.
     projectionMatrix = projectionMatrix.scale(1.0, 240/200, 1.0);
   }
-  viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos);
+  viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos).translate(0.0, -41.0, 0.0);
+  Matrix4 invertedViewMatrix = new Matrix4.copy(viewMatrix)..invert();
+  Vector3 cameraPos = invertedViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0));
 
-  List<Seg> visibleSegs = wadFile.level.bsp.findSortedSegs(new Matrix4.copy(viewMatrix)..invert(), projectionMatrix);
+  List<Seg> visibleSegs = wadFile.level.bsp.findSortedSegs(invertedViewMatrix, projectionMatrix);
   visibleSegs.forEach((seg) => Wall.addWallsForSeg(seg));
   
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
-  floors.render(visibleSegs, playerPos);
+  floors.render(visibleSegs, cameraPos);
   gl.depthFunc(GL.LEQUAL);
   
   walls.values.forEach((walls) {
@@ -361,7 +383,7 @@ void renderGame() {
   
   gl.depthFunc(GL.ALWAYS);
   gl.colorMask(false, false, false, false);
-  floors.renderBackWallHack(visibleSegs, playerPos);
+  floors.renderBackWallHack(visibleSegs, cameraPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
   

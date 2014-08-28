@@ -258,8 +258,8 @@ class ScreenRenderer {
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     double w = screenWidth.toDouble();
     double h = screenHeight.toDouble();
-    double u = w/512;
-    double v = h/512;
+    double u = w/indexColorBuffer.width;
+    double v = h/indexColorBuffer.height;
     vertexData.setAll(0, [
                               0.0, 0.0, 0.0,   v,
                               0.0,   h, 0.0, 0.0,
