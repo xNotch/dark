@@ -346,7 +346,9 @@ class Walls {
   }
 
   void insertWall(Wall wall) {
-    wall.set(vertexData, wallCount * FLOATS_PER_VERTEX * 4);
+    if (wall.set(vertexData, wallCount * FLOATS_PER_VERTEX * 4)) {
+      wallCount++;
+    }
     /*    double br = sector.lightLevel/255.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
@@ -356,7 +358,7 @@ class Walls {
         p.x, p.y, p.z, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
     ]);*/
 
-    wallCount++;
+//    wallCount++;
   }
 
   void render() {
@@ -421,10 +423,15 @@ class Wall {
     backSector = seg.backSector;
     v0 = seg.startVertex;
     v1 = seg.endVertex;
-    if (type == WALL_TYPE_MIDDLE) textureImage = wallTextureMap[sidedef.middleTexture];
-    if (type == WALL_TYPE_MIDDLE_TRANSPARENT) textureImage = wallTextureMap[sidedef.middleTexture];
-    if (type == WALL_TYPE_UPPER) textureImage = wallTextureMap[sidedef.upperTexture];
-    if (type == WALL_TYPE_LOWER) textureImage = wallTextureMap[sidedef.lowerTexture];
+
+    String textureName;
+
+    if (type == WALL_TYPE_MIDDLE) textureName = sidedef.middleTexture;
+    if (type == WALL_TYPE_MIDDLE_TRANSPARENT) textureName = sidedef.middleTexture;
+    if (type == WALL_TYPE_UPPER) textureName = sidedef.upperTexture;
+    if (type == WALL_TYPE_LOWER) textureName = sidedef.lowerTexture;
+
+    textureImage = wallTextureMap[textureName];
     if (textureImage != null) texture = textureImage.imageAtlas.texture;
   }
 
@@ -448,7 +455,12 @@ class Wall {
     }
     if (floor >= ceiling) return false;
 
-    double texCoordx0 = seg.offset + sidedef.xTextureOffs + 0.0;
+    double texPosOffset = seg.offset+0.0;
+    if (seg.linedef.types == 0x30) { // Special type for scrolling textures
+      texPosOffset += textureScrollOffset%textureImage.width;
+    }
+
+    double texCoordx0 = texPosOffset + sidedef.xTextureOffs + 0.0;
     double texCoordx1 = texCoordx0 + v1.distanceTo(v0);
     double texCoordy0;
     double texCoordy1;
@@ -502,7 +514,7 @@ class Wall {
     double texCoordxOffs = textureImage.xAtlasPos.toDouble();
     double texCoordyOffs = textureImage.yAtlasPos.toDouble();
     double texWidth = textureImage.width.toDouble();
-    double br = frontSector.lightLevel / 255.0;
+    double br = frontSector.lightLevel / 255.0*seg.brightness;
 
     data.setAll(offset, [v1.x, ceiling.toDouble(), v1.y, texCoordx1, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, ceiling.toDouble(), v0.y, texCoordx0, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, floor.toDouble(), v0.y, texCoordx0, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br, v1.x, floor.toDouble(), v1.y, texCoordx1, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br,]);
     return true;

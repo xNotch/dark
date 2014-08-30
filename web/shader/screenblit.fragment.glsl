@@ -15,6 +15,9 @@ void main() {
     vec2 brightnessPos = vec2(xBrightness, yBrightness);
 
     vec2 colorMappedColorIndex = texture2D(u_colorLookup, colorIndex/16.0+brightnessPos).rg;
-
     gl_FragColor = vec4(texture2D(u_colorLookup, colorMappedColorIndex/16.0).rgb, inputSample.a);
+
+
+
+//    gl_FragColor = vec4(texture2D(u_colorLookup, colorIndex/16.0).rgb*inputSample.b, inputSample.a);
 }

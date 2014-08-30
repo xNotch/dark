@@ -30,7 +30,7 @@ const TEXTURE_ATLAS_SIZE = 1024;
 
 int screenWidth, screenHeight;
 
-
+int textureScrollOffset = 0;
 var canvas;
 GL.RenderingContext gl;
 
@@ -381,6 +381,7 @@ void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overl
 void renderGame() {
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffer.framebuffer);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
+//  gl.clear(GL.DEPTH_BUFFER_BIT | GL.COLOR_BUFFER_BIT);
 
   projectionMatrix = makePerspectiveMatrix(60*PI/180,  screenWidth/screenHeight,  8,  10000.0).scale(-1.0, 1.0, 1.0);
   if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO && !GAME_ORIGINAL_RESOLUTION) {
@@ -438,11 +439,21 @@ void blitScreen() {
   gl.disable(GL.BLEND);
 }
 
+double scrollAccum = 0.0;
+void updateAnimations(double passedTime) {
+  scrollAccum+=passedTime*35.0;
+  textureScrollOffset = scrollAccum.floor();
+  FlatAnimation.animateAll(passedTime);
+  WallAnimation.animateAll(passedTime);
+}
+
 double lastTime = -1.0;
 void render(double time) {
   if (lastTime==-1.0) lastTime = time;
   double passedTime = (time-lastTime)/1000.0; // in seconds
   lastTime = time;
+
+  updateAnimations(passedTime);
 
   updateGameLogic(passedTime);
   renderGame();

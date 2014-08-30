@@ -2,7 +2,116 @@ part of Dark;
 
 HashMap<String, WAD_Image> wallTextureMap = new HashMap<String, WAD_Image>();
 HashMap<String, WAD_Image> patchMap = new HashMap<String, WAD_Image>();
-HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>(); 
+HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>();
+
+List<FlatAnimation> flatAnimations = new List<FlatAnimation>();
+List<WallAnimation> wallAnimations = new List<WallAnimation>();
+
+class WallAnimation {
+  String startFlatName;
+  String endFlatName;
+
+  List<String> wallNames = new List<String>();
+  List<WAD_Image> images = new List<WAD_Image>();
+
+  int frame = 0;
+  int size = 0;
+
+  WallAnimation(this.startFlatName, this.endFlatName) {
+  }
+
+  void add(String wallName, WAD_Image image) {
+    wallNames.add(wallName);
+    images.add(image);
+    size++;
+  }
+
+  void animate(int frames) {
+    if (size==0) return;
+    frame = (frame+frames)%size;
+
+    for (int i=0; i<size; i++) {
+      wallTextureMap[wallNames[i]] = images[(i+frame)%size];
+    }
+  }
+
+  static WallAnimation currentAnimation = null;
+
+  static void check(String name, WAD_Image image) {
+    for (int i=0; i<wallAnimations.length; i++) {
+      if (wallAnimations[i].startFlatName == name) currentAnimation = wallAnimations[i];
+    }
+    if (currentAnimation!=null) {
+      currentAnimation.add(name, image);
+      if (currentAnimation.endFlatName == name) currentAnimation = null;
+    }
+  }
+
+  static double timeAccum = 0.0;
+  static void animateAll(double passedTime) {
+    timeAccum += passedTime/(8/35); // Original doom was 35 fps, with 8 frames per flat change
+    if (timeAccum >= 1.0) {
+      int frames = timeAccum.floor();
+      timeAccum-=frames;
+      for (int i = 0; i < wallAnimations.length; i++) {
+        wallAnimations[i].animate(frames);
+      }
+    }
+  }
+}
+
+class FlatAnimation {
+  String startFlatName;
+  String endFlatName;
+
+  List<String> flatNames = new List<String>();
+  List<WAD_Image> images = new List<WAD_Image>();
+
+  int frame = 0;
+  int size = 0;
+
+  FlatAnimation(this.startFlatName, this.endFlatName) {
+  }
+
+  void add(String flatName, WAD_Image image) {
+    flatNames.add(flatName);
+    images.add(image);
+    size++;
+  }
+
+  void animate(int frames) {
+    if (size==0) return;
+    frame = (frame+frames)%size;
+
+    for (int i=0; i<size; i++) {
+      flatMap[flatNames[i]] = images[(i+frame)%size];
+    }
+  }
+
+  static FlatAnimation currentAnimation = null;
+
+  static void check(String name, WAD_Image image) {
+    for (int i=0; i<flatAnimations.length; i++) {
+      if (flatAnimations[i].startFlatName == name) currentAnimation = flatAnimations[i];
+    }
+    if (currentAnimation!=null) {
+      currentAnimation.add(name, image);
+      if (currentAnimation.endFlatName == name) currentAnimation = null;
+    }
+  }
+
+  static double timeAccum = 0.0;
+  static void animateAll(double passedTime) {
+    timeAccum += passedTime/(8/35); // Original doom was 35 fps, with 8 frames per flat change
+    if (timeAccum >= 1.0) {
+      int frames = timeAccum.floor();
+      timeAccum-=frames;
+      for (int i = 0; i < flatAnimations.length; i++) {
+        flatAnimations[i].animate(frames);
+      }
+    }
+  }
+}
 
 class WadFile {
   WAD_Header header;
@@ -14,6 +123,36 @@ class WadFile {
   List<WAD_Image> spriteList = new List<WAD_Image>();
   
   Level level;
+
+  WadFile() {
+    flatAnimations.clear();
+
+    flatAnimations.add(new FlatAnimation("NUKAGE1", "NUKAGE3"));
+    flatAnimations.add(new FlatAnimation("FWATER1", "FWATER4"));
+    flatAnimations.add(new FlatAnimation("SWATER1", "SWATER4"));
+    flatAnimations.add(new FlatAnimation("LAVA1", "LAVA4"));
+    flatAnimations.add(new FlatAnimation("BLOOD1", "BLOOD3"));
+    flatAnimations.add(new FlatAnimation("RROCK05", "RROCK08"));
+    flatAnimations.add(new FlatAnimation("SLIME01", "SLIME04"));
+    flatAnimations.add(new FlatAnimation("SLIME05", "SLIME08"));
+    flatAnimations.add(new FlatAnimation("SLIME09", "SLIME12"));
+
+    wallAnimations.clear();
+
+    wallAnimations.add(new WallAnimation("BLODGR1", "BLODGR4"));
+    wallAnimations.add(new WallAnimation("BLODRIP1", "BLODRIP4"));
+    wallAnimations.add(new WallAnimation("FIREBLU1", "FIREBLU2"));
+    wallAnimations.add(new WallAnimation("FIRELAV3", "FIRELAVA"));
+    wallAnimations.add(new WallAnimation("FIREMAG1", "FIREMAG3"));
+    wallAnimations.add(new WallAnimation("FIREWALA", "FIREWALL"));
+    wallAnimations.add(new WallAnimation("GSTFONT1", "GSTFONT3"));
+    wallAnimations.add(new WallAnimation("ROCKRED1", "ROCKRED3"));
+    wallAnimations.add(new WallAnimation("SLADRIP1", "SLADRIP3"));
+    wallAnimations.add(new WallAnimation("BFALL1", "BFALL4"));
+    wallAnimations.add(new WallAnimation("WFALL1", "WFALL4"));
+    wallAnimations.add(new WallAnimation("SFALL1", "SFALL4"));
+    wallAnimations.add(new WallAnimation("DBRAIN1", "DBRAIN4"));
+  }
   
   void load(String url, Function onDone, Function onFail) {
     var request = new HttpRequest();
@@ -59,6 +198,7 @@ class WadFile {
       else if (foundFlats) {
         if (lump.size==64*64) {
           flatMap[lump.name] = new WAD_Image.parseFlat(lump.name, lump.getByteData(data));
+          FlatAnimation.check(lump.name, flatMap[lump.name]);
         }
       }
       flatMap["_sky_"] = new WAD_Image.empty("_sky_", 64,  64);
@@ -174,7 +314,8 @@ class WadFile {
       int colorMap = data.getInt16(30+i*10, Endianness.LITTLE_ENDIAN);
       wallTexture.draw(patchList[patchId], xOffs, yOffs);
     }
-    
+
+    WallAnimation.check(name, wallTexture);
     wallTextureMap[name] = wallTexture;
     
     return wallTexture;
@@ -223,7 +364,15 @@ class Level {
 //      addSprite(spriteMap["BAR1A0"].createSprite(sector, spritePos));
       double rot = ((90-thing.angle-22)~/45)*PI*2/8.0;
       
-      if (thing.spriteName!=null) addSprite(new Sprite(sector, spritePos, rot, spriteTemplates[thing.spriteName]));
+      if (thing.spriteName!=null) {
+        SpriteTemplate template = spriteTemplates[thing.spriteName];
+        if (template==null) {
+          print("No template for ${thing.spriteName}");
+        } else {
+          addSprite(new Sprite(sector, spritePos, rot, template));
+        }
+
+      }
     }
     
     for (int i=0; i<segs.length; i++) {
@@ -487,6 +636,8 @@ class Seg {
   double d; // Distance to line from origin
   double sd; // Distance to line from origin.. sideways?
   double length; // Length of the seg
+
+  double brightness;
   
   Linedef linedef;
 
@@ -515,10 +666,12 @@ class Seg {
     Vector2 tangent = (endVertex-startVertex).normalize();
     xt = tangent.x;
     yt = tangent.y;
-    
+
     xn = tangent.y;
     yn = -tangent.x;
-    
+
+    brightness = 1.0-yn.abs()*0.2;
+
     d = x0*xn+y0*yn;
     sd = x0*xt+y0*yt;
 
