@@ -23,12 +23,13 @@ class Sprites {
   int offsetLocation;
   int uvLocation;
   int brightnessLocation;
-  
+
   GL.UniformLocation modelMatrixLocation;    
   GL.UniformLocation projectionMatrixLocation;    
   GL.UniformLocation viewMatrixLocation;
   GL.UniformLocation texAtlasSizeLocation;
-  
+  GL.UniformLocation timeLocation;
+
   Float32List vertexData = new Float32List(MAX_VERICES*FLOATS_PER_VERTEX);
   int spriteCount = 0;
   
@@ -57,6 +58,7 @@ class Sprites {
     viewMatrixLocation = gl.getUniformLocation(shader.program, "u_viewMatrix");
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
     texAtlasSizeLocation = gl.getUniformLocation(shader.program, "u_texAtlasSize");
+    timeLocation = gl.getUniformLocation(shader.program, "u_time");
   }
   
   void clear() {
@@ -88,6 +90,9 @@ class Sprites {
     gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
     gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
+    if (timeLocation!=null) {
+      gl.uniform1f(timeLocation, transparentNoiseTime+0.0);
+    }
     
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(offsetLocation);
@@ -110,16 +115,24 @@ class Sprite {
   Vector3 pos;
   SpriteTemplate spriteTemplate;
   double rot;
+  bool transparent;
   
-  Sprite(this.sector, this.pos, this.rot, this.spriteTemplate);
+  Sprite(this.sector, this.pos, this.rot, this.spriteTemplate) {
+    transparent = random.nextInt(5)==0;
+  }
   
   void addToDisplayList(double playerRot) {
-    double rotDiff = rot-playerRot;
-    int rotFrame = (rotDiff*8/(PI*2)+0.5).floor()&7;
+    double rotDiff = rot - playerRot;
+    int rotFrame = (rotDiff * 8 / (PI * 2) + 0.5).floor() & 7;
     SpriteTemplateFrame stf = spriteTemplate.frames[0];
-    if (stf.rots.length==1) rotFrame = 0;
+    if (stf.rots.length == 1) rotFrame = 0;
     SpriteTemplateRot str = stf.rots[rotFrame];
-    spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+
+    if (transparent) {
+      transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+    } else {
+      spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+    }
   }
 }
 
@@ -246,7 +259,7 @@ class ScreenRenderer {
 
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
   }
-  
+
   void render() {
     shader.use();
     gl.activeTexture(GL.TEXTURE1);

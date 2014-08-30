@@ -31,11 +31,13 @@ const TEXTURE_ATLAS_SIZE = 1024;
 int screenWidth, screenHeight;
 
 int textureScrollOffset = 0;
+int transparentNoiseTime = 0;
 var canvas;
 GL.RenderingContext gl;
 
 var consoleText;
 HashMap<GL.Texture, Sprites> spriteMaps = new HashMap<GL.Texture, Sprites>();
+HashMap<GL.Texture, Sprites> transparentSpriteMaps = new HashMap<GL.Texture, Sprites>();
 HashMap<GL.Texture, Walls> walls = new HashMap<GL.Texture, Walls>();
 HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
 Floors floors;
@@ -45,6 +47,7 @@ List<Sprite> sprites = new List<Sprite>();
 
 void addSpriteMap(GL.Texture texture) {
   spriteMaps[texture] = new Sprites(spriteShader, texture);
+  transparentSpriteMaps[texture] = new Sprites(transparentSpriteShader, texture);
 }
 
 void addSprite(Sprite sprite) {
@@ -68,7 +71,7 @@ List<bool> keys = new List<bool>(256);
 
 WadFile wadFile = new WadFile();
 
-Shader spriteShader, wallShader, floorShader, screenBlitShader, skyShader;
+Shader spriteShader, transparentSpriteShader, wallShader, floorShader, screenBlitShader, skyShader;
 
 // Init method. Set up WebGL, load textures, etc
 void main() {
@@ -105,6 +108,7 @@ void main() {
   });
 
   spriteShader = new Shader("sprite");
+  transparentSpriteShader = new Shader("transparentsprite");
   wallShader = new Shader("wall");
   floorShader = new Shader("floor");
   screenBlitShader = new Shader("screenblit");
@@ -408,9 +412,21 @@ void renderGame() {
 
   gl.depthFunc(GL.ALWAYS);
   gl.colorMask(false, false, false, false);
-//  floors.renderBackWallHack(visibleSegs, cameraPos);
+  floors.renderBackWallHack(visibleSegs, cameraPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
+
+
+  Matrix4 oldMatrix = projectionMatrix;
+  projectionMatrix = makeOrthographicMatrix(0.0, screenWidth, screenHeight, 0.0, -10.0, 10.0);
+  gl.enable(GL.BLEND);
+  gl.blendFunc(GL.ONE_MINUS_DST_ALPHA, GL.DST_ALPHA);
+  gl.depthMask(false);
+  skyRenderer.render();
+  gl.depthMask(true);
+  gl.disable(GL.BLEND);
+  projectionMatrix = oldMatrix;
+
 
   sprites.forEach((sprite) {
     sprite.addToDisplayList(playerRot);
@@ -420,6 +436,18 @@ void renderGame() {
     sprites.render();
     sprites.clear();
   });
+
+  gl.colorMask(false, false, true, false);
+  gl.depthMask(false);
+  gl.enable(GL.BLEND);
+  gl.blendFunc(GL.DST_COLOR, GL.ZERO);
+  transparentSpriteMaps.values.forEach((sprites) {
+    sprites.render();
+    sprites.clear();
+  });
+  gl.disable(GL.BLEND);
+  gl.depthMask(true);
+  gl.colorMask(true, true, true, true);
 
   transparentMiddleWalls.values.forEach((walls) {
     walls.render();
@@ -432,7 +460,7 @@ void blitScreen() {
   gl.viewport(0,  0,  screenWidth,  screenHeight);
   gl.disable(GL.DEPTH_TEST);
   projectionMatrix = makeOrthographicMatrix(0.0, screenWidth, screenHeight, 0.0, -10.0, 10.0);
-  skyRenderer.render();
+//  skyRenderer.render();
   gl.enable(GL.BLEND);
   gl.blendFunc(GL.SRC_ALPHA,  GL.ONE_MINUS_SRC_ALPHA);
   screenRenderer.render();
@@ -443,6 +471,7 @@ double scrollAccum = 0.0;
 void updateAnimations(double passedTime) {
   scrollAccum+=passedTime*35.0;
   textureScrollOffset = scrollAccum.floor();
+  transparentNoiseTime = (scrollAccum.floor())&511;
   FlatAnimation.animateAll(passedTime);
   WallAnimation.animateAll(passedTime);
 }

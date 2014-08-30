@@ -936,9 +936,9 @@ class WAD_Image {
     
     Uint8List result = new Uint8List(width*height*4);
     for (int i=0; i<width*height; i++) {
-      result[i*4+0] = palette.r[pixels[i]];
-      result[i*4+1] = palette.g[pixels[i]];
-      result[i*4+2] = palette.b[pixels[i]];
+      result[i*4+0] = (pixels[i]%16)*16+8;
+      result[i*4+1] = (pixels[i]~/16)*16+8;
+      result[i*4+2] = 255;
       result[i*4+3] = 255;
     }
     gl.bindTexture(GL.TEXTURE_2D, texture);
