@@ -263,7 +263,7 @@ void start() {
   WAD_Image skyImage = new WAD_Image.empty("_sky_", 1024, 128);
   WAD_Image sky = patchMap["SKY1"];
   for (int i=0; i<1024; i+=sky.width) {
-    skyImage.draw(sky, i, 0);
+    skyImage.draw(sky, i, 0, true);
   }
   skyTexture = skyImage.createTexture(wadFile.palette.palettes[0]);
 

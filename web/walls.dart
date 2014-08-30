@@ -121,7 +121,9 @@ class Floors {
             xTexOffs = xSkyTexOffs;
             yTexOffs = ySkyTexOffs;
           }
-          if (ss.backSector!=null && ss.backSector.ceilingTexture=="F_SKY1") continue;
+          if (ss.backSector!=null && ss.backSector.ceilingTexture=="F_SKY1")
+          {
+          } else {
 
 
           double backCeiling = ss.backSector.ceilingHeight.toDouble();
@@ -135,6 +137,7 @@ class Floors {
               tox, backCeiling, toy, xTexOffs, yTexOffs, 1.0]);
           
           pp+=6;
+          }
         }
       }
       if (floor < pos.y) {
@@ -145,8 +148,7 @@ class Floors {
           xTexOffs = xSkyTexOffs;
           yTexOffs = ySkyTexOffs;
           sbr = 1.0;
-          continue;
-        }
+        } else {
 
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
             tox, floor, toy, xTexOffs, yTexOffs, sbr,
@@ -154,12 +156,14 @@ class Floors {
             pos.x, floor, pos.z, xTexOffs, yTexOffs, sbr]);
 
         pp+=3;
+        }
       }
       if (ss.sector.ceilingTexture == "F_SKY1") {
         double xTexOffs = xSkyTexOffs;
         double yTexOffs = ySkyTexOffs;
         double sbr = 1.0;
-        if (ss.backSector!=null && ss.backSector.ceilingTexture=="F_SKY1") continue;
+        if (ss.backSector!=null && ss.backSector.ceilingTexture=="F_SKY1") {
+        } else {
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
             fromx, ceiling, fromy, xTexOffs, yTexOffs, sbr,
             tox, ceiling, toy, xTexOffs, yTexOffs, sbr,
@@ -170,6 +174,7 @@ class Floors {
             fromx, 100000.0, fromy, xTexOffs, yTexOffs, sbr
         ]);
         pp+=6;
+        }
       } else if (ceiling > pos.y) {
         double xTexOffs = flatMap[ss.sector.ceilingTexture].xAtlasPos.toDouble();
         double yTexOffs = flatMap[ss.sector.ceilingTexture].yAtlasPos.toDouble();

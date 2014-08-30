@@ -303,7 +303,7 @@ class WadFile {
     // Skip 4
     int patchCount = data.getInt16(20, Endianness.LITTLE_ENDIAN);
 
-    WAD_Image wallTexture = new WAD_Image.empty(name, width, height);
+    WAD_Image wallTexture = new WAD_Image.tuttiFruttiEmpty(name, width, height);
     for (int i=0; i<patchCount; i++) {
       int xOffs = data.getInt16(22+i*10, Endianness.LITTLE_ENDIAN); 
       int yOffs = data.getInt16(24+i*10, Endianness.LITTLE_ENDIAN); 
@@ -311,7 +311,7 @@ class WadFile {
       int stepDir = data.getInt16(28+i*10, Endianness.LITTLE_ENDIAN);
       int colorMap = data.getInt16(30+i*10, Endianness.LITTLE_ENDIAN);
       if (yOffs<0) yOffs = 0; // Original doom didn't support negative y offsets
-      wallTexture.draw(patchList[patchId], xOffs, yOffs);
+      wallTexture.draw(patchList[patchId], xOffs, yOffs, i==0);
     }
 
     WallAnimation.check(name, wallTexture);
@@ -822,6 +822,7 @@ class WAD_Playpal {
 }
 
 class WAD_Image {
+  static Random tuttiFruttiRandom = new Random(321334);
   String name;
   int width, height;
   int xCenter;
@@ -837,17 +838,34 @@ class WAD_Image {
     
     pixels = new Uint8List(width*height);
     pixelData = new Uint8List(width*height*4);
-
-/*    for (int i=0; i<width*height; i++) {
-      int pixel = pixels[i] = i%256;
-      pixelData[i*4+0] = pixel%16*16+8;
-      pixelData[i*4+1] = pixel~/16*16+8;
-      pixelData[i*4+2] = 0;
-      pixelData[i*4+3] = 255;
-    }*/
   }
   
-  void draw(WAD_Image source, int xp, int yp) {
+  WAD_Image.tuttiFruttiEmpty(this.name, this.width, this.height) {
+    this.xCenter = 0;
+    this.yCenter = 0;
+    
+    pixels = new Uint8List(width*height);
+    pixelData = new Uint8List(width*height*4);
+
+    int run = 0;
+    int tuttifruttiColor = 0;
+    for (int y=0; y<height; y++) {
+      for (int x=0; x<width; x++) {
+        int i = x+y*width;
+        if (--run<0) {
+          tuttifruttiColor = tuttiFruttiRandom.nextInt(256);
+          run = random.nextInt(random.nextInt(32)+1);
+        }
+        int pixel = pixels[i] = tuttifruttiColor;
+        pixelData[i*4+0] = pixel%16*8+4;
+        pixelData[i*4+1] = pixel~/16*8+4;
+        pixelData[i*4+2] = 0;
+        pixelData[i*4+3] = 255;
+      }
+    }
+  }
+  
+  void draw(WAD_Image source, int xp, int yp, bool overwrite) {
     for (int y=0; y<source.height; y++) {
       int dy = (yp+y);
       if (dy<0 || dy>=height) continue;
@@ -856,7 +874,7 @@ class WAD_Image {
         if (dx<0 || dx>=width) continue;
         int sp = (x+y*source.width);
         int srcA = source.pixelData[sp*4+3];
-        if (srcA>0) {
+        if (srcA>0 || overwrite) {
           int dp = (dx+dy*width);
           pixelData[dp*4+0] = source.pixelData[sp*4+0];
           pixelData[dp*4+1] = source.pixelData[sp*4+1];
