@@ -14,12 +14,12 @@ part "walls.dart";
 part "texture.dart";
 part "wad.dart";
 
-/**
- *  GAME_ORIGINAL_RESOLUTION false is COMPLETELY broken right now because of the framebuffer being hardcoded at 512*512
- */
 bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
 bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
 bool GAME_ORIGINAL_PIXEL_ASPECT_RATIO = true; // Original doom used slightly vertically stretched pixels (320x200 pixels in 4:3)
+
+String GAME_NAME = "DARK";
+String GAME_VERSION = "0.1";
 
 double GAME_MIN_ASPECT_RATIO = 4/3; // Letterbox if aspect ratio is lower than this
 double GAME_MAX_ASPECT_RATIO = 2/1; // Pillarbox if aspect ratio is higher than this
@@ -34,6 +34,7 @@ int screenWidth, screenHeight;
 var canvas;
 GL.RenderingContext gl;
 
+var consoleText;
 HashMap<GL.Texture, Sprites> spriteMaps = new HashMap<GL.Texture, Sprites>();
 HashMap<GL.Texture, Walls> walls = new HashMap<GL.Texture, Walls>();
 HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
@@ -67,26 +68,29 @@ List<bool> keys = new List<bool>(256);
 
 WadFile wadFile = new WadFile();
 
+Shader spriteShader, wallShader, floorShader, screenBlitShader, skyShader;
+
 // Init method. Set up WebGL, load textures, etc
 void main() {
+  consoleText = querySelector("#consoleText");
+
+  printToConsole("$GAME_NAME $GAME_VERSION");
+  printToConsole("");
   canvas = querySelector("#game");
   canvas.setAttribute("width",  "${screenWidth}px");
   canvas.setAttribute("height",  "${screenHeight}px");
 //  gl = canvas.getContext("webgl", {"stencil": true});
   gl = canvas.getContext("webgl");
   if (gl==null) gl = canvas.getContext("experimental-webgl");
-  
-  window.onResize.listen((event) => resize());
-  
+
+
   if (gl==null) {
-    noWebGL();
+    crash("No webgl", "Go to <a href=http://get.webgl.org/'>get.webgl.org</a> for more information");
     return;
-  } else {
-    resize();
   }
-  
+
   for (int i=0; i<256; i++) keys[i] = false;
-  
+
   window.onKeyDown.listen((e) {
     print(e.keyCode);
     if (e.keyCode<256) keys[e.keyCode] = true;
@@ -95,23 +99,29 @@ void main() {
   window.onKeyUp.listen((e) {
     if (e.keyCode<256) keys[e.keyCode] = false;
   });
-  
+
   window.onBlur.listen((e) {
     for (int i=0; i<256; i++) keys[i] = false;
   });
-  spriteShader.create();
-  wallShader.create();
-  floorShader.create();
-  screenBlitShader.create();
-  skyShader.create();
 
-  floors = new Floors(floorShader, null);
-  
-  wadFile.load("originaldoom/doom.wad", start, (){
-    playerPos = new Vector3(860.0,-50.0,-1480.0);
-    wadFile.load("freedoom/doom.wad", start, (){
-      print("Failed to load!");
+  spriteShader = new Shader("sprite");
+  wallShader = new Shader("wall");
+  floorShader = new Shader("floor");
+  screenBlitShader = new Shader("screenblit");
+  skyShader = new Shader("sky");
+  printToConsole("Loading shaders");
+  Shader.loadAndCompileAll(() {
+    floors = new Floors(floorShader, null);
+
+    printToConsole("Loading WAD file");
+    wadFile.load("originaldoom/doom.wad", start, (){
+      playerPos = new Vector3(860.0,-50.0,-1480.0);
+      wadFile.load("freedoom/doom.wad", start, (){
+        print("Failed to load wad file!");
+      });
     });
+  },() {
+    print("Failed to load shaders!");
   });
 }
 
@@ -141,28 +151,36 @@ void resize() {
     if (aspectRatio<minAspect) aspectRatio=minAspect;
     if (aspectRatio>maxAspect) aspectRatio=maxAspect;
     screenWidth = ((GAME_ORIGINAL_PIXEL_ASPECT_RATIO?240:200)*aspectRatio).floor();
-  
+
     double gameWidth = screenWidth.toDouble();
     double gameHeight = screenHeight.toDouble();
     if (GAME_ORIGINAL_PIXEL_ASPECT_RATIO) gameHeight*=240/200;
-  
+
     canvas.setAttribute("width",  "${screenWidth}px");
     canvas.setAttribute("height",  "${screenHeight}px");
     double xScale = width/gameWidth;
     double yScale = height/gameHeight;
     if (xScale<yScale) {
-      int newHeight = (gameHeight*xScale).floor(); 
+      int newHeight = (gameHeight*xScale).floor();
       canvas.setAttribute("style",  "width: ${width}px; height:${newHeight}px; left:0px; top:${(height-newHeight)~/3}px;");
     } else {
-      int newWidth= (gameWidth*yScale).floor(); 
+      int newWidth= (gameWidth*yScale).floor();
       canvas.setAttribute("style",  "width: ${newWidth}px; height:${height}px; left:${(width-newWidth)~/2}px; top:0px;");
     }
   }
 }
 
-void noWebGL() {
+void crash(String title, String message) {
   canvas.setAttribute("style", "display:none;");
-  querySelector("#webglwarning").setAttribute("style",  "");
+  querySelector("#consoleHolder").setAttribute("style",  "");
+  printToConsole("---------------------------");
+  printToConsole(title);
+  printToConsole("");
+  printToConsole(message);
+}
+
+void printToConsole(String message) {
+  consoleText.appendHtml(message+"\r");
 }
 
 Random random = new Random();
@@ -185,13 +203,14 @@ void start() {
   modelMatrix = new Matrix4.identity();
   viewMatrix = new Matrix4.identity();
   window.requestAnimationFrame(render);
-  
+
   if (GAME_ORIGINAL_RESOLUTION) {
     indexColorBuffer = new Framebuffer(512, 512);
   } else {
     indexColorBuffer = new Framebuffer(2048, 2048);
   }
 
+  printToConsole("Creating color lookup texture");
   Uint8List lookupTextureData = new Uint8List(256*256*4);
   // Top row: 14 16*16 grids of color look-ups, based on PLAYPAL
   for (int i=0; i<14; i++) {
@@ -219,15 +238,16 @@ void start() {
       }
     }
   }
-  
+
   GL.Texture colorLookupTexture = gl.createTexture();
   gl.bindTexture(GL.TEXTURE_2D, colorLookupTexture);
   gl.texImage2DTyped(GL.TEXTURE_2D,  0,  GL.RGBA,  256,  256,  0,  GL.RGBA,  GL.UNSIGNED_BYTE, lookupTextureData);
   gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MIN_FILTER, GL.NEAREST);
   gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
-  
+
+  printToConsole("Setting up screen renderer");
   screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffer.texture, colorLookupTexture);
-  
+
   WAD_Image skyImage = new WAD_Image.empty("_sky_", 1024, 128);
   WAD_Image sky = patchMap["SKY1"];
   for (int i=0; i<1024; i+=sky.width) {
@@ -236,6 +256,10 @@ void start() {
   skyTexture = skyImage.createTexture(wadFile.palette.palettes[0]);
 
   skyRenderer = new SkyRenderer(skyShader, skyTexture);
+
+  querySelector("#consoleHolder").setAttribute("style",  "display:none;");
+  window.onResize.listen((event) => resize());
+  resize();
 }
 
 class Framebuffer {
@@ -243,23 +267,23 @@ class Framebuffer {
   GL.Texture texture;
   GL.Framebuffer framebuffer;
   GL.Renderbuffer depthbuffer;
-  
+
   Framebuffer(this.width, this.height) {
     framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(GL.FRAMEBUFFER, framebuffer);
-    
+
     texture = gl.createTexture();
     gl.bindTexture(GL.TEXTURE_2D, texture);
     gl.texImage2DTyped(GL.TEXTURE_2D,  0,  GL.RGBA,  width,  height,  0,  GL.RGBA,  GL.UNSIGNED_BYTE, null);
     gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MIN_FILTER, GL.NEAREST);
     gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
-    
+
     gl.framebufferTexture2D(GL.FRAMEBUFFER,  GL.COLOR_ATTACHMENT0,  GL.TEXTURE_2D,  texture, 0);
-    
+
     depthbuffer = gl.createRenderbuffer();
     gl.bindRenderbuffer(GL.RENDERBUFFER, depthbuffer);
     gl.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, width, height);
-    
+
     gl.framebufferRenderbuffer(GL.FRAMEBUFFER,  GL.DEPTH_ATTACHMENT,  GL.RENDERBUFFER,  depthbuffer);
   }
 }
@@ -267,7 +291,7 @@ class Framebuffer {
 void updateGameLogic(double passedTime) {
   if (passedTime>0.1) passedTime = 0.1;
   if (passedTime<0.0) passedTime = 0.0;
-  
+
   double iRot = 0.0;
   double iY = 0.0;
   double iX = 0.0;
@@ -279,12 +303,12 @@ void updateGameLogic(double passedTime) {
 
   if (keys[87]) iY+=1.0;
   if (keys[83]) iY-=1.0;
-  
+
   playerRot-=iRot*passedTime*3;
-  
+
   playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
   playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
-  
+
   HashSet<Sector> sectorsInRange = new HashSet<Sector>();
   List<SubSector> subSectorsInRange = wadFile.level.bsp.findSubSectorsInRadius(playerPos.xz, 16.0);
   subSectorsInRange.forEach((ss)=>ss.segs.forEach((seg)=>clipMotion(seg, playerPos, 16.0, sectorsInRange)));
@@ -300,7 +324,7 @@ void updateGameLogic(double passedTime) {
 void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overlappedSectors) {
   double xp = playerPos.x;
   double yp = playerPos.z;
-  
+
   double xNudge = 0.0;
   double yNudge = 0.0;
   bool intersect = false;
@@ -324,8 +348,8 @@ void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overl
         xd = xp-seg.x1;
         yd = yp-seg.y1;
 //        }
-      
-      double distSqr = xd*xd+yd*yd; 
+
+      double distSqr = xd*xd+yd*yd;
       if (xd*xd+yd*yd<radius*radius) {
         double dist = sqrt(distSqr);
         double toPushOut = radius-dist+0.001;
@@ -343,7 +367,7 @@ void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overl
     } else if (seg.backSector.floorHeight>playerPos.y+24 || seg.sector.floorHeight>playerPos.y+24) {
       collideWall = true;
     }
-    
+
     if (collideWall) {
       playerPos.x += xNudge;
       playerPos.z += yNudge;
@@ -369,33 +393,33 @@ void renderGame() {
 
   List<Seg> visibleSegs = wadFile.level.bsp.findSortedSegs(invertedViewMatrix, projectionMatrix);
   visibleSegs.forEach((seg) => Wall.addWallsForSeg(seg));
-  
+
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
   floors.render(visibleSegs, cameraPos);
   gl.depthFunc(GL.LEQUAL);
-  
+
   walls.values.forEach((walls) {
     walls.render();
     walls.clear();
   });
-  
+
   gl.depthFunc(GL.ALWAYS);
   gl.colorMask(false, false, false, false);
   floors.renderBackWallHack(visibleSegs, cameraPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
-  
+
   sprites.forEach((sprite) {
     sprite.addToDisplayList(playerRot);
   });
-  
+
   spriteMaps.values.forEach((sprites) {
     sprites.render();
     sprites.clear();
   });
-  
+
   transparentMiddleWalls.values.forEach((walls) {
     walls.render();
     walls.clear();
@@ -419,11 +443,11 @@ void render(double time) {
   if (lastTime==-1.0) lastTime = time;
   double passedTime = (time-lastTime)/1000.0; // in seconds
   lastTime = time;
-  
+
   updateGameLogic(passedTime);
   renderGame();
   blitScreen();
-  
+
   int error = gl.getError();
   if (error!=0) {
     print("Error: $error");
