@@ -20,5 +20,6 @@ void main() {
     v_uv = a_pos.xz*vec2(1.0, -1.0);
     v_texOffs = a_texOffs;
     v_brightness = a_brightness;
-    gl_Position = u_projectionMatrix*pos;
+    vec4 projectedPos = u_projectionMatrix*pos;
+    gl_Position = projectedPos;
 }

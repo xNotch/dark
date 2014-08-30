@@ -180,7 +180,6 @@ class SpriteTemplate {
   List<SpriteTemplateFrame> frames = new List<SpriteTemplateFrame>();
   
   SpriteTemplate(this.name) {
-    print("Created sprite template $name");
   }
   
   void addFrame(WAD_Image image, int frame, int rot, bool mirror) {

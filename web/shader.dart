@@ -35,7 +35,6 @@ class Shader {
   }
 
   void create(vertexShaderSource, fragmentShaderSource) {
-    print("$vertexShaderSource, $fragmentShaderSource");
     GL.Shader vertexShader = compile(vertexShaderSource, GL.VERTEX_SHADER);
     GL.Shader fragmentShader = compile(fragmentShaderSource, GL.FRAGMENT_SHADER);
     program = link(vertexShader, fragmentShader);

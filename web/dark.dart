@@ -408,7 +408,7 @@ void renderGame() {
 
   gl.depthFunc(GL.ALWAYS);
   gl.colorMask(false, false, false, false);
-  floors.renderBackWallHack(visibleSegs, cameraPos);
+//  floors.renderBackWallHack(visibleSegs, cameraPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
 

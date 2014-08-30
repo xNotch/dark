@@ -159,7 +159,6 @@ class WadFile {
     request.open("get",  url);
     request.responseType = "arraybuffer";
     request.onLoadEnd.listen((e) {
-      print("${request.status}");
       if (request.status~/100==2) {
         parse(new ByteData.view(request.response as ByteBuffer));
         onDone();
@@ -177,19 +176,16 @@ class WadFile {
     colormap = new WAD_Colormap.parse(header.lumpInfoMap["COLORMAP"].getByteData(data));
 
     bool foundSprites = false;
-//    print("==================SPRITES");
     for (int i=0; i<header.lumpInfos.length; i++) {
       LumpInfo lump = header.lumpInfos[i];
       if (lump.name == "S_START") foundSprites = true;
       else if (lump.name == "S_END") foundSprites = false;
       else if (foundSprites) {
         WAD_Image sprite = new WAD_Image.parse(lump.name, lump.getByteData(data));
-//        print(lump.name);
         spriteList.add(sprite);
       }
     }
-//    print("==========================");
-    
+
     bool foundFlats = false;
     for (int i=0; i<header.lumpInfos.length; i++) {
       LumpInfo lump = header.lumpInfos[i];
@@ -201,19 +197,21 @@ class WadFile {
           FlatAnimation.check(lump.name, flatMap[lump.name]);
         }
       }
-      flatMap["_sky_"] = new WAD_Image.empty("_sky_", 64,  64);
     }
     
     int maxFlats = (TEXTURE_ATLAS_SIZE~/64)*(TEXTURE_ATLAS_SIZE~/64);
     if (flatMap.length > maxFlats) {
       throw "Too many flats, won't fit in a single atlas.";
     }
-    
-    
+
+    WAD_Image skyFlat = new WAD_Image.empty("_sky_", 64,  64);
+
     ImageAtlas flatImageAtlas = new ImageAtlas(TEXTURE_ATLAS_SIZE, TEXTURE_ATLAS_SIZE);
+    flatImageAtlas.insert(skyFlat);
     flatMap.values.forEach((flat) => flatImageAtlas.insert(flat)); 
-    flatImageAtlas.render();    
-    
+    flatImageAtlas.render();
+    flatMap["_sky_"] = skyFlat;
+
     
     readPatches(header.lumpInfoMap["PNAMES"].getByteData(data));
     readAllWallTextures();
@@ -304,14 +302,15 @@ class WadFile {
     int height = data.getInt16(14, Endianness.LITTLE_ENDIAN);
     // Skip 4
     int patchCount = data.getInt16(20, Endianness.LITTLE_ENDIAN);
-    
+
     WAD_Image wallTexture = new WAD_Image.empty(name, width, height);
     for (int i=0; i<patchCount; i++) {
       int xOffs = data.getInt16(22+i*10, Endianness.LITTLE_ENDIAN); 
       int yOffs = data.getInt16(24+i*10, Endianness.LITTLE_ENDIAN); 
       int patchId = data.getInt16(26+i*10, Endianness.LITTLE_ENDIAN); 
-      int stepDir = data.getInt16(28+i*10, Endianness.LITTLE_ENDIAN); 
+      int stepDir = data.getInt16(28+i*10, Endianness.LITTLE_ENDIAN);
       int colorMap = data.getInt16(30+i*10, Endianness.LITTLE_ENDIAN);
+      if (yOffs<0) yOffs = 0; // Original doom didn't support negative y offsets
       wallTexture.draw(patchList[patchId], xOffs, yOffs);
     }
 
@@ -378,12 +377,6 @@ class Level {
     for (int i=0; i<segs.length; i++) {
       segs[i].compile(this);
     }
-    /*
-    for (int i=0; i<segs.length; i++) {
-      Seg seg = segs[i];
-      Wall.addWallsForSeg(seg);
-    }
-    * */
   }
 }
 
@@ -739,7 +732,7 @@ String readString(ByteData data, int offs, int length) {
 class Linedef {
   int fromVertex, toVertex;
   int flags;
-  int types;
+  int type;
   int tag;
   int rightSidedef;
   int leftSidedef;
@@ -774,7 +767,7 @@ class Linedef {
       linedef.fromVertex = data.getInt16(i*14+0, Endianness.LITTLE_ENDIAN);
       linedef.toVertex = data.getInt16(i*14+2, Endianness.LITTLE_ENDIAN);
       linedef.flags = data.getInt16(i*14+4, Endianness.LITTLE_ENDIAN);
-      linedef.types = data.getInt16(i*14+6, Endianness.LITTLE_ENDIAN);
+      linedef.type = data.getInt16(i*14+6, Endianness.LITTLE_ENDIAN);
       linedef.tag = data.getInt16(i*14+8, Endianness.LITTLE_ENDIAN);
       linedef.rightSidedef = data.getInt16(i*14+10, Endianness.LITTLE_ENDIAN);
       linedef.leftSidedef = data.getInt16(i*14+12, Endianness.LITTLE_ENDIAN);
@@ -844,11 +837,19 @@ class WAD_Image {
     
     pixels = new Uint8List(width*height);
     pixelData = new Uint8List(width*height*4);
+
+/*    for (int i=0; i<width*height; i++) {
+      int pixel = pixels[i] = i%256;
+      pixelData[i*4+0] = pixel%16*16+8;
+      pixelData[i*4+1] = pixel~/16*16+8;
+      pixelData[i*4+2] = 0;
+      pixelData[i*4+3] = 255;
+    }*/
   }
   
   void draw(WAD_Image source, int xp, int yp) {
     for (int y=0; y<source.height; y++) {
-      int dy = yp+y;
+      int dy = (yp+y);
       if (dy<0 || dy>=height) continue;
       for (int x=0; x<source.width; x++) {
         int dx = xp+x;

@@ -78,41 +78,60 @@ class Floors {
       double toy = ss.y1;
 
       if (ss.backSector == null) {
+        double xTexOffs = 0.0;
+        double yTexOffs = 0.0;
+
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
-            tox, ceiling, toy, xSkyTexOffs, ySkyTexOffs, 1.0,
-            fromx, ceiling, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
-            fromx, floor, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
+            tox, ceiling, toy, xTexOffs, yTexOffs, 1.0,
+            fromx, ceiling, fromy, xTexOffs, yTexOffs, 1.0,
+            fromx, floor, fromy, xTexOffs, yTexOffs, 1.0,
             
-            tox, ceiling, toy, xSkyTexOffs, ySkyTexOffs, 1.0,
-            fromx, floor, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
-            tox, floor, toy, xSkyTexOffs, ySkyTexOffs, 1.0]);
+            tox, ceiling, toy, xTexOffs, yTexOffs, 1.0,
+            fromx, floor, fromy, xTexOffs, yTexOffs, 1.0,
+            tox, floor, toy, xTexOffs, yTexOffs, 1.0]);
         
         pp+=6;
       } else {
         if (ss.backSector.floorHeight > ss.sector.floorHeight) {
+          double xTexOffs = 0.0;
+          double yTexOffs = 0.0;
+          if (ss.backSector!=null && ss.backSector.floorTexture == "F_SKY1") {
+             xTexOffs = xSkyTexOffs;
+             yTexOffs = ySkyTexOffs;
+           }
+
           double backFloor = ss.backSector.floorHeight.toDouble();
 
           vertexData.setAll(pp * FLOATS_PER_VERTEX, [
-              tox, backFloor, toy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              fromx, backFloor, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              fromx, floor, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
+              tox, backFloor, toy, xTexOffs, yTexOffs, 1.0,
+              fromx, backFloor, fromy, xTexOffs, yTexOffs, 1.0,
+              fromx, floor, fromy, xTexOffs, yTexOffs, 1.0,
         
-              tox, backFloor, toy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              fromx, floor, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              tox, floor, toy, xSkyTexOffs, ySkyTexOffs, 1.0]);
+              tox, backFloor, toy, xTexOffs, yTexOffs, 1.0,
+              fromx, floor, fromy, xTexOffs, yTexOffs, 1.0,
+              tox, floor, toy, xTexOffs, yTexOffs, 1.0]);
           
           pp+=6;
         }
         if (ss.backSector.ceilingHeight < ss.sector.ceilingHeight) {
+          double xTexOffs = 0.0;
+          double yTexOffs = 0.0;
+          if (ss.backSector!=null && ss.backSector.ceilingTexture == "F_SKY1") {
+            xTexOffs = xSkyTexOffs;
+            yTexOffs = ySkyTexOffs;
+          }
+          if (ss.backSector!=null && ss.backSector.ceilingTexture=="F_SKY1") continue;
+
+
           double backCeiling = ss.backSector.ceilingHeight.toDouble();
           vertexData.setAll(pp * FLOATS_PER_VERTEX, [
-              tox, ceiling, toy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              fromx, ceiling, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              fromx, backCeiling, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
+              tox, ceiling, toy, xTexOffs, yTexOffs, 1.0,
+              fromx, ceiling, fromy, xTexOffs, yTexOffs, 1.0,
+              fromx, backCeiling, fromy, xTexOffs, yTexOffs, 1.0,
     
-              tox, ceiling, toy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              fromx, backCeiling, fromy, xSkyTexOffs, ySkyTexOffs, 1.0,
-              tox, backCeiling, toy, xSkyTexOffs, ySkyTexOffs, 1.0]);
+              tox, ceiling, toy, xTexOffs, yTexOffs, 1.0,
+              fromx, backCeiling, fromy, xTexOffs, yTexOffs, 1.0,
+              tox, backCeiling, toy, xTexOffs, yTexOffs, 1.0]);
           
           pp+=6;
         }
@@ -122,32 +141,44 @@ class Floors {
         double yTexOffs = flatMap[ss.sector.floorTexture].yAtlasPos.toDouble();
         double sbr = br;
         if (ss.sector.floorTexture == "F_SKY1") {
-          xTexOffs = flatMap["_sky_"].xAtlasPos.toDouble();
-          yTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
+          xTexOffs = xSkyTexOffs;
+          yTexOffs = ySkyTexOffs;
           sbr = 1.0;
+          continue;
         }
 
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
             tox, floor, toy, xTexOffs, yTexOffs, sbr,
             fromx, floor, fromy, xTexOffs, yTexOffs, sbr,
             pos.x, floor, pos.z, xTexOffs, yTexOffs, sbr]);
-        
+
         pp+=3;
       }
-      if (ceiling > pos.y) {
+      if (ss.sector.ceilingTexture == "F_SKY1") {
+        double xTexOffs = xSkyTexOffs;
+        double yTexOffs = ySkyTexOffs;
+        double sbr = 1.0;
+        if (ss.backSector!=null && ss.backSector.ceilingTexture=="F_SKY1") continue;
+        vertexData.setAll(pp * FLOATS_PER_VERTEX, [
+            fromx, ceiling, fromy, xTexOffs, yTexOffs, sbr,
+            tox, ceiling, toy, xTexOffs, yTexOffs, sbr,
+            tox, 100000.0, toy, xTexOffs, yTexOffs, sbr,
+
+            fromx, ceiling, fromy, xTexOffs, yTexOffs, sbr,
+            tox, 100000.0, toy, xTexOffs, yTexOffs, sbr,
+            fromx, 100000.0, fromy, xTexOffs, yTexOffs, sbr
+        ]);
+        pp+=6;
+      } else if (ceiling > pos.y) {
         double xTexOffs = flatMap[ss.sector.ceilingTexture].xAtlasPos.toDouble();
         double yTexOffs = flatMap[ss.sector.ceilingTexture].yAtlasPos.toDouble();
         double sbr = br;
-        if (ss.sector.ceilingTexture == "F_SKY1") {
-          xTexOffs = flatMap["_sky_"].xAtlasPos.toDouble();
-          yTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
-          sbr = 1.0;
-        }
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
             fromx, ceiling, fromy, xTexOffs, yTexOffs, sbr,
             tox, ceiling, toy, xTexOffs, yTexOffs, sbr,
             pos.x, ceiling, pos.z, xTexOffs, yTexOffs, sbr]);
         pp+=3;
+
       }
     }
 
@@ -181,7 +212,7 @@ class Floors {
     int pp = 0;
     int ip = 0;
 
-    double xSkyTexOffs = flatMap["_sky_"].xAtlasPos.toDouble();
+    double xSkyTexOffs = -10.0;
     double ySkyTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
 
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
@@ -456,7 +487,7 @@ class Wall {
     if (floor >= ceiling) return false;
 
     double texPosOffset = seg.offset+0.0;
-    if (seg.linedef.types == 0x30) { // Special type for scrolling textures
+    if (seg.linedef.type == 0x30) { // Special type for scrolling textures
       texPosOffset += textureScrollOffset%textureImage.width;
     }
 
@@ -472,7 +503,7 @@ class Wall {
     } else {
       if (linedef.lowerUnpegged) pegTextureDown = true;
     }
-    
+
     if (type == WALL_TYPE_MIDDLE_TRANSPARENT) {
       // Middle transparent walls are only rendered one patch high
       int newFloor, newCeiling;
