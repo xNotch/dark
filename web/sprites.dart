@@ -67,6 +67,7 @@ class Sprites {
   
   void insertSprite(Sector sector, Vector3 p, SpriteTemplateRot str) {
     double br = sector.lightLevel/255.0;
+    if (invulnerable) br = 1.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
         p.x, p.y, p.z, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
@@ -235,6 +236,7 @@ class ScreenRenderer {
   int uvLocation;
   
   GL.UniformLocation projectionMatrixLocation;    
+  GL.UniformLocation invulnerableLocation;    
   
   Float32List vertexData = new Float32List(4*FLOATS_PER_VERTEX);
   
@@ -256,6 +258,8 @@ class ScreenRenderer {
     
     gl.uniform1i(gl.getUniformLocation(shader.program, "u_texture"), 0);
     gl.uniform1i(gl.getUniformLocation(shader.program, "u_colorLookup"), 1);
+    invulnerableLocation = gl.getUniformLocation(shader.program, "u_invulnerable");
+    
 
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
   }
@@ -281,6 +285,7 @@ class ScreenRenderer {
     gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData);
     
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
+    gl.uniform1f(invulnerableLocation, invulnerable?1.0:0.0);
     
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(uvLocation);

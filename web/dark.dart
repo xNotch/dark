@@ -45,6 +45,8 @@ ScreenRenderer screenRenderer;
 SkyRenderer skyRenderer;
 List<Sprite> sprites = new List<Sprite>();
 
+bool invulnerable = false;
+
 void addSpriteMap(GL.Texture texture) {
   spriteMaps[texture] = new Sprites(spriteShader, texture);
   transparentSpriteMaps[texture] = new Sprites(transparentSpriteShader, texture);
@@ -197,6 +199,7 @@ Vector3 playerPos = new Vector3(1075.8603515625,-50.0,-3237.50537109375);
 //Vector3 playerPos = new Vector3(-2090.5009765625,169.0,1060.5748291015625);
 double playerRot = 0.0;
 
+List<Framebuffer> indexColorBuffers = new List<Framebuffer>(3);
 Framebuffer indexColorBuffer;
 
 GL.Texture skyTexture;
@@ -208,10 +211,10 @@ void start() {
   viewMatrix = new Matrix4.identity();
   window.requestAnimationFrame(render);
 
-  if (GAME_ORIGINAL_RESOLUTION) {
-    indexColorBuffer = new Framebuffer(512, 512);
-  } else {
-    indexColorBuffer = new Framebuffer(2048, 2048);
+  int frameBufferRes = 512;
+  if (!GAME_ORIGINAL_RESOLUTION) frameBufferRes = 2048;
+  for (int i=0; i<3; i++) {
+    indexColorBuffers[i] = new Framebuffer(frameBufferRes, frameBufferRes);
   }
 
   printToConsole("Creating color lookup texture");
@@ -230,8 +233,9 @@ void start() {
     }
   }
   // Below that, lookuptables for COLORMAP.. in rows of 16?
-  for (int i=0; i<33; i++) {
+  for (int i=0; i<32; i++) {
     List<int> colormap = wadFile.colormap.colormaps[i];
+    List<int> icolormap = wadFile.colormap.colormaps[32];
     int xo = (i%16)*16;
     int yo = (i~/16+1)*16;
     for (int y=0; y<16; y++) {
@@ -239,6 +243,10 @@ void start() {
         int color = colormap[x+y*16];
         lookupTextureData[((x+xo)+(y+yo)*256)*4+0] = (color%16)*16+8;
         lookupTextureData[((x+xo)+(y+yo)*256)*4+1] = (color~/16)*16+8;
+
+        int icolor = colormap[icolormap[x+y*16]];
+        lookupTextureData[((x+xo)+(y+yo+32)*256)*4+0] = (icolor%16)*16+8;
+        lookupTextureData[((x+xo)+(y+yo+32)*256)*4+1] = (icolor~/16)*16+8;
       }
     }
   }
@@ -250,7 +258,7 @@ void start() {
   gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
 
   printToConsole("Setting up screen renderer");
-  screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffer.texture, colorLookupTexture);
+  screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffers[0].texture, colorLookupTexture);
 
   WAD_Image skyImage = new WAD_Image.empty("_sky_", 1024, 128);
   WAD_Image sky = patchMap["SKY1"];
@@ -383,6 +391,8 @@ void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overl
 }
 
 void renderGame() {
+  indexColorBuffer = indexColorBuffers[indexColorBufferId];
+  screenRenderer.texture = indexColorBuffer.texture;
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffer.framebuffer);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
 //  gl.clear(GL.DEPTH_BUFFER_BIT | GL.COLOR_BUFFER_BIT);
@@ -468,10 +478,12 @@ void blitScreen() {
 }
 
 double scrollAccum = 0.0;
+int indexColorBufferId = 0;
 void updateAnimations(double passedTime) {
   scrollAccum+=passedTime*35.0;
   textureScrollOffset = scrollAccum.floor();
   transparentNoiseTime = (scrollAccum.floor())&511;
+  indexColorBufferId = (indexColorBufferId+1)%3;
   FlatAnimation.animateAll(passedTime);
   WallAnimation.animateAll(passedTime);
 }

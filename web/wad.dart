@@ -879,8 +879,8 @@ class WAD_Image {
 
     for (int i=0; i<64*64; i++) {
       int pixel = pixels[i] = data.getUint8(i);
-      pixelData[i*4+0] = pixel%16*16+8; 
-      pixelData[i*4+1] = pixel~/16*16+8; 
+      pixelData[i*4+0] = pixel%16*8+4;
+      pixelData[i*4+1] = pixel~/16*8+4;
       pixelData[i*4+2] = 0; 
       pixelData[i*4+3] = 255; 
     }
@@ -910,8 +910,8 @@ class WAD_Image {
         for (int i=0; i<count; i++) {
           int pp = x+(rowStart+i)*width;
           int pixel = pixels[pp] = data.getUint8(pos++);
-          pixelData[pp*4+0] = pixel%16*16+8; 
-          pixelData[pp*4+1] = pixel~/16*16+8; 
+          pixelData[pp*4+0] = pixel%16*8+4;
+          pixelData[pp*4+1] = pixel~/16*8+4;
           pixelData[pp*4+2] = 0; 
           pixelData[pp*4+3] = 255; 
         }
@@ -936,8 +936,8 @@ class WAD_Image {
     
     Uint8List result = new Uint8List(width*height*4);
     for (int i=0; i<width*height; i++) {
-      result[i*4+0] = (pixels[i]%16)*16+8;
-      result[i*4+1] = (pixels[i]~/16)*16+8;
+      result[i*4+0] = (pixels[i]%16)*8+4;
+      result[i*4+1] = (pixels[i]~/16)*8+4+128;
       result[i*4+2] = 255;
       result[i*4+3] = 255;
     }

@@ -4,6 +4,7 @@ varying vec2 v_uv;
 
 uniform sampler2D u_texture;
 uniform sampler2D u_colorLookup;
+uniform float u_invulnerable;
 
 void main() {
     vec2 texOffset = vec2(0.2/512.0, 0.0/512.0);
@@ -13,8 +14,9 @@ void main() {
     float xBrightness = fract(brightnessIndex*2.0); // 0-1, 0-1 in 16 steps each.
     float yBrightness = floor(brightnessIndex*2.0+1.0)/16.0; // 0 or 1
     vec2 brightnessPos = vec2(xBrightness, yBrightness);
+    brightnessPos.y+=(1.0-floor(colorIndex.y*2.0))*2.0/16.0*u_invulnerable;
 
-    vec2 colorMappedColorIndex = texture2D(u_colorLookup, colorIndex/16.0+brightnessPos).rg;
+    vec2 colorMappedColorIndex = texture2D(u_colorLookup, fract(colorIndex*2.0)/16.0+brightnessPos).rg;
     gl_FragColor = vec4(texture2D(u_colorLookup, colorMappedColorIndex/16.0).rgb, inputSample.a);
 
 

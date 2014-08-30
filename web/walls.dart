@@ -70,7 +70,8 @@ class Floors {
       double floor = ss.sector.floorHeight.toDouble();
       double ceiling = ss.sector.ceilingHeight.toDouble();
 
-      double br = ss.sector.lightLevel / 255.0;
+      double br = (ss.sector.lightLevel / 255.0);
+      if (invulnerable) br = 1.0;
 
       double fromx = ss.x0;
       double fromy = ss.y0;
@@ -223,6 +224,7 @@ class Floors {
       double ceiling = 10000000.0;
 
       double br = ss.sector.lightLevel / 255.0;
+      if (invulnerable) br = 1.0;
 
       double fromx = ss.x0;
       double fromy = ss.y0;
@@ -546,6 +548,7 @@ class Wall {
     double texCoordyOffs = textureImage.yAtlasPos.toDouble();
     double texWidth = textureImage.width.toDouble();
     double br = frontSector.lightLevel / 255.0*seg.brightness;
+    if (invulnerable) br = 1.0;
 
     data.setAll(offset, [v1.x, ceiling.toDouble(), v1.y, texCoordx1, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, ceiling.toDouble(), v0.y, texCoordx0, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, floor.toDouble(), v0.y, texCoordx0, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br, v1.x, floor.toDouble(), v1.y, texCoordx1, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br,]);
     return true;
