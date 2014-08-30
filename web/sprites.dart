@@ -123,7 +123,7 @@ class Sprite {
   }
   
   void addToDisplayList(double playerRot) {
-    double rotDiff = rot - playerRot;
+    double rotDiff = rot - playerRot+PI;
     int rotFrame = (rotDiff * 8 / (PI * 2) + 0.5).floor() & 7;
     SpriteTemplateFrame stf = spriteTemplate.frames[0];
     if (stf.rots.length == 1) rotFrame = 0;
@@ -188,8 +188,9 @@ class SpriteTemplateFrame {
   }
 }
 
+const String FRAME_NAMES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 class SpriteTemplate {
-  static String FRAME_NAMES = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   String name;
   List<SpriteTemplateFrame> frames = new List<SpriteTemplateFrame>();
   
@@ -351,7 +352,7 @@ class SkyRenderer {
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     double w = screenWidth.toDouble();
     double h = screenHeight.toDouble();
-    double uo = playerRot*1.0/(PI*2);
+    double uo = player.rot*1.0/(PI*2);
     double u = w/h*0.12*PI;
     double v = 200/128;
     vertexData.setAll(0, [

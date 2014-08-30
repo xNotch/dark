@@ -341,6 +341,8 @@ class WadFile {
 }
 
 class Level {
+  List<PlayerSpawn> playerSpawns = new List<PlayerSpawn>(4);
+  List<PlayerSpawn> deathmatchSpawns = new List<PlayerSpawn>();
   List<Vector2> vertices;
   List<Linedef> linedefs;
   List<Sidedef> sidedefs;
@@ -360,17 +362,142 @@ class Level {
       Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
       Sector sector = bsp.findSector(spritePos.xz);
       spritePos.y = sector.floorHeight.toDouble();
-//      addSprite(spriteMap["BAR1A0"].createSprite(sector, spritePos));
       double rot = ((90-thing.angle-22)~/45)*PI*2/8.0;
       
-      if (thing.spriteName!=null) {
-        SpriteTemplate template = spriteTemplates[thing.spriteName];
-        if (template==null) {
-          print("No template for ${thing.spriteName}");
-        } else {
-          addSprite(new Sprite(sector, spritePos, rot, template));
-        }
+      switch (thing.type) { 
+        case 0x0001: playerSpawns[0] = new PlayerSpawn(spritePos, rot); break; // Spawn 1
+        case 0x0002: playerSpawns[1] = new PlayerSpawn(spritePos, rot); break; // Spawn 2
+        case 0x0003: playerSpawns[2] = new PlayerSpawn(spritePos, rot); break; // Spawn 3
+        case 0x0004: playerSpawns[3] = new PlayerSpawn(spritePos, rot); break; // Spawn 4
+        case 0x000b: deathmatchSpawns.add(new PlayerSpawn(spritePos, rot));  break; // Multiplayer spawn
+        case 0x0bbc: entities.add(new Monster("POSS", spritePos, rot)); break; // Former Human
+        case 0x0054: entities.add(new Monster("SSWV", spritePos, rot)); break; // Wolfenstein SS
+        case 0x0009: entities.add(new Monster("SPOS", spritePos, rot)); break; // Former Human Seargeant
+        case 0x0041: entities.add(new Monster("CPOS", spritePos, rot)); break; // Heavy Weapon Dude
+        case 0x0bb9: entities.add(new Monster("TROO", spritePos, rot)); break; // Imp 
+        case 0x0bba: entities.add(new Monster("SARG", spritePos, rot)); break; // Demon
+        case 0x003a: entities.add(new Monster("SARG", spritePos, rot, true)); break; // Spectre
+        case 0x0bbe: entities.add(new Monster("SKUL", spritePos, rot)); break; // Lost soul
+        case 0x0bbd: entities.add(new Monster("HEAD", spritePos, rot)); break; // Cacodemon
+        case 0x0045: entities.add(new Monster("BOS2", spritePos, rot)); break; // Hell Knight
+        case 0x0bbb: entities.add(new Monster("BOSS", spritePos, rot)); break; // Baron of Hell
+        case 0x0044: entities.add(new Monster("BSPI", spritePos, rot)); break; // Arachnotron
+        case 0x0047: entities.add(new Monster("PAIN", spritePos, rot)); break; // Pain elemental
+        case 0x0042: entities.add(new Monster("SKEL", spritePos, rot)); break; // Revenant
+        case 0x0043: entities.add(new Monster("FATT", spritePos, rot)); break; // Mancubus
+        case 0x0040: entities.add(new Monster("VILE", spritePos, rot)); break; // Arch-vile
+        case 0x0007: entities.add(new Monster("SPID", spritePos, rot)); break; // Spider Mastermind
+        case 0x0010: entities.add(new Monster("CYBR", spritePos, rot)); break; // Cyber-demon
+        case 0x0058: entities.add(new Monster("BBRN", spritePos, rot)); break; // Romero
+        
+        case 0x07d5: entities.add(new Pickup("CSAW", "a", spritePos, rot)); break; //     $ Chainsaw
+        case 0x07d1: entities.add(new Pickup("SHOT", "a", spritePos, rot)); break; //      $ Shotgun
+        case 0x0052: entities.add(new Pickup("SGN2", "a", spritePos, rot)); break; //      $ Double-barreled shotgun
+        case 0x07d2: entities.add(new Pickup("MGUN", "a", spritePos, rot)); break; //      $ Chaingun, gatling gun, mini-gun, whatever
+        case 0x07d3: entities.add(new Pickup("LAUN", "a", spritePos, rot)); break; //      $ Rocket launcher
+        case 0x07d4: entities.add(new Pickup("PLAS", "a", spritePos, rot)); break; //      $ Plasma gun
+        case 0x07d6: entities.add(new Pickup("BFUG", "a", spritePos, rot)); break; //      $ Bfg9000
+        case 0x07d7: entities.add(new Pickup("CLIP", "a", spritePos, rot)); break; //      $ Ammo clip
+        case 0x07d8: entities.add(new Pickup("SHEL", "a", spritePos, rot)); break; //      $ Shotgun shells
+        case 0x07da: entities.add(new Pickup("ROCK", "a", spritePos, rot)); break; //      $ A rocket
+        case 0x07ff: entities.add(new Pickup("CELL", "a", spritePos, rot)); break; //      $ Cell charge
+        case 0x0800: entities.add(new Pickup("AMMO", "a", spritePos, rot)); break; //      $ Box of Ammo
+        case 0x0801: entities.add(new Pickup("SBOX", "a", spritePos, rot)); break; //      $ Box of Shells
+        case 0x07fe: entities.add(new Pickup("BROK", "a", spritePos, rot)); break; //      $ Box of Rockets
+        case 0x0011: entities.add(new Pickup("CELP", "a", spritePos, rot)); break; //      $ Cell charge pack
+        case 0x0008: entities.add(new Pickup("BPAK", "a", spritePos, rot)); break; //      $ Backpack: doubles maximum ammo capacities
+        case 0x07db: entities.add(new Pickup("STIM", "a", spritePos, rot)); break; //      $ Stimpak
+        case 0x07dc: entities.add(new Pickup("MEDI", "a", spritePos, rot)); break; //      $ Medikit
+        case 0x07de: entities.add(new Pickup("BON1", "abcdcb", spritePos, rot)); break; // ! Health Potion +1% health
+        case 0x07df: entities.add(new Pickup("BON2", "abcdcb", spritePos, rot)); break; // ! Spirit Armor +1% armor
+        case 0x07e2: entities.add(new Pickup("ARM1", "ab", spritePos, rot)); break; //     $ Green armor 100%
+        case 0x07e3: entities.add(new Pickup("ARM2", "ab", spritePos, rot)); break; //     $ Blue armor 200%
+        case 0x0053: entities.add(new Pickup("MEGA", "abcd", spritePos, rot)); break; //   ! Megasphere: 200% health, 200% armor
+        case 0x07dd: entities.add(new Pickup("SOUL", "abcdcb", spritePos, rot)); break; // ! Soulsphere, Supercharge, +100% health
+        case 0x07e6: entities.add(new Pickup("PINV", "abcd", spritePos, rot)); break; //   ! Invulnerability
+        case 0x07e7: entities.add(new Pickup("PSTR", "a", spritePos, rot)); break; //      ! Berserk Strength and 100% health
+        case 0x07e8: entities.add(new Pickup("PINS", "abcd", spritePos, rot)); break; //   ! Invisibility
+        case 0x07e9: entities.add(new Pickup("SUIT", "a", spritePos, rot)); break; //     (!)Radiation suit - see notes on ! above
+        case 0x07ea: entities.add(new Pickup("PMAP", "abcdcb", spritePos, rot)); break; // ! Computer map
+        case 0x07fd: entities.add(new Pickup("PVIS", "ab", spritePos, rot)); break; //     ! Lite Amplification goggles
+        case 0x0005: entities.add(new Pickup("BKEY", "ab", spritePos, rot)); break; //     $ Blue keycard
+        case 0x0028: entities.add(new Pickup("BSKU", "ab", spritePos, rot)); break; //     $ Blue skullkey
+        case 0x000d: entities.add(new Pickup("RKEY", "ab", spritePos, rot)); break; //     $ Red keycard
+        case 0x0026: entities.add(new Pickup("RSKU", "ab", spritePos, rot)); break; //     $ Red skullkey
+        case 0x0006: entities.add(new Pickup("YKEY", "ab", spritePos, rot)); break; //     $ Yellow keycard
+        case 0x0027: entities.add(new Pickup("YSKU", "ab", spritePos, rot)); break; //     $ Yellow skullkey
+        
+        
+        case 0x000a: entities.add(new Decoration("PLAY", "w", spritePos, rot)); break; // Bloody mess (an exploded player)
+        case 0x000c: entities.add(new Decoration("PLAY", "w", spritePos, rot)); break; // 
+        case 0x0018: entities.add(new Decoration("POL5", "a", spritePos, rot)); break; // Pool of blood and flesh
+        case 0x004f: entities.add(new Decoration("POB1", "a", spritePos, rot)); break; // Pool of blood
+        case 0x0050: entities.add(new Decoration("POB2", "a", spritePos, rot)); break; // Pool of blood
+        case 0x0051: entities.add(new Decoration("BRS1", "a", spritePos, rot)); break; // Pool of brains
+        case 0x000f: entities.add(new Decoration("PLAY", "n", spritePos, rot)); break; // Dead player
+        case 0x0012: entities.add(new Decoration("POSS", "l", spritePos, rot)); break; // Dead former human
+        case 0x0013: entities.add(new Decoration("SPOS", "l", spritePos, rot)); break; // Dead former sergeant
+        case 0x0014: entities.add(new Decoration("TROO", "m", spritePos, rot)); break; // Dead imp
+        case 0x0015: entities.add(new Decoration("SARG", "n", spritePos, rot)); break; // Dead demon
+        case 0x0016: entities.add(new Decoration("HEAD", "l", spritePos, rot)); break; // Dead cacodemon
+        case 0x0017: entities.add(new Decoration("SKUL", "k", spritePos, rot)); break; // Dead lost soul, invisible 
 
+        case 0x0030: entities.add(new Decoration.blocking("ELEC", "a", spritePos, rot)); break; //      # Tall, techno pillar
+        case 0x001e: entities.add(new Decoration.blocking("COL1", "a", spritePos, rot)); break; //      # Tall green pillar
+        case 0x0020: entities.add(new Decoration.blocking("COL3", "a", spritePos, rot)); break; //      # Tall red pillar
+        case 0x001f: entities.add(new Decoration.blocking("COL2", "a", spritePos, rot)); break; //      # Short green pillar
+        case 0x0024: entities.add(new Decoration.blocking("COL5", "ab", spritePos, rot)); break; //     # Short green pillar with beating heart
+        case 0x0021: entities.add(new Decoration.blocking("COL4", "a", spritePos, rot)); break; //      # Short red pillar
+        case 0x0025: entities.add(new Decoration.blocking("COL6", "a", spritePos, rot)); break; //      # Short red pillar with skull
+        case 0x002f: entities.add(new Decoration.blocking("SMIT", "a", spritePos, rot)); break; //      # Stalagmite: small brown pointy stump
+        case 0x002b: entities.add(new Decoration.blocking("TRE1", "a", spritePos, rot)); break; //      # Burnt tree: gray tree
+        case 0x0036: entities.add(new Decoration.blocking("TRE2", "a", spritePos, rot)); break; //      # Large brown tree
+        case 0x07ec: entities.add(new Decoration.blocking("COLU", "a", spritePos, rot)); break; //      # Floor lamp
+        case 0x0055: entities.add(new Decoration.blocking("TLMP", "abcd", spritePos, rot)); break; //   # Tall techno floor lamp
+        case 0x0056: entities.add(new Decoration.blocking("TLP2", "abcd", spritePos, rot)); break; //   # Short techno floor lamp
+        case 0x0022: entities.add(new Decoration.blocking("CAND", "a", spritePos, rot)); break; //        Candle
+        case 0x0023: entities.add(new Decoration.blocking("CBRA", "a", spritePos, rot)); break; //      # Candelabra
+        case 0x002c: entities.add(new Decoration.blocking("TBLU", "abcd", spritePos, rot)); break; //   # Tall blue firestick
+        case 0x002d: entities.add(new Decoration.blocking("TGRE", "abcd", spritePos, rot)); break; //   # Tall green firestick
+        case 0x002e: entities.add(new Decoration.blocking("TRED", "abcd", spritePos, rot)); break; //   # Tall red firestick
+        case 0x0037: entities.add(new Decoration.blocking("SMBT", "abcd", spritePos, rot)); break; //   # Short blue firestick
+        case 0x0038: entities.add(new Decoration.blocking("SMGT", "abcd", spritePos, rot)); break; //   # Short green firestick
+        case 0x0039: entities.add(new Decoration.blocking("SMRT", "abcd", spritePos, rot)); break; //   # Short red firestick
+        case 0x0046: entities.add(new Decoration.blocking("FCAN", "abc", spritePos, rot)); break; //    # Burning barrel
+        case 0x0029: entities.add(new Decoration.blocking("CEYE", "abcb", spritePos, rot)); break; //   # Evil Eye: floating eye in symbol, over candle
+        case 0x002a: entities.add(new Decoration.blocking("FSKU", "abc", spritePos, rot)); break; //    # Floating Skull: flaming skull-rock
+        case 0x0031: entities.add(new Decoration.blocking("GOR1", "abcb", spritePos, rot)..hanging = true); break; //  ^# Hanging victim, twitching
+        case 0x003f: entities.add(new Decoration.blocking("GOR1", "abcb", spritePos, rot)..hanging = true); break; //  ^  Hanging victim, twitching
+        case 0x0032: entities.add(new Decoration.blocking("GOR2", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging victim, arms out
+        case 0x003b: entities.add(new Decoration.blocking("GOR2", "a", spritePos, rot)..hanging = true); break; //     ^  Hanging victim, arms out
+        case 0x0034: entities.add(new Decoration.blocking("GOR4", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging pair of legs
+        case 0x003c: entities.add(new Decoration.blocking("GOR4", "a", spritePos, rot)..hanging = true); break; //     ^  Hanging pair of legs
+        case 0x0033: entities.add(new Decoration.blocking("GOR3", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging victim, 1-legged
+        case 0x003d: entities.add(new Decoration.blocking("GOR3", "a", spritePos, rot)..hanging = true); break; //     ^  Hanging victim, 1-legged
+        case 0x0035: entities.add(new Decoration.blocking("GOR5", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging leg
+        case 0x003e: entities.add(new Decoration.blocking("GOR5", "a", spritePos, rot)..hanging = true); break; //     ^  Hanging leg
+        case 0x0049: entities.add(new Decoration.blocking("HDB1", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging victim, guts removed
+        case 0x004a: entities.add(new Decoration.blocking("HDB2", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging victim, guts and brain removed
+        case 0x004b: entities.add(new Decoration.blocking("HDB3", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging torso, looking down
+        case 0x004c: entities.add(new Decoration.blocking("HDB4", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging torso, open skull
+        case 0x004d: entities.add(new Decoration.blocking("HDB5", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging torso, looking up
+        case 0x004e: entities.add(new Decoration.blocking("HDB6", "a", spritePos, rot)..hanging = true); break; //     ^# Hanging torso, brain removed
+        case 0x0019: entities.add(new Decoration.blocking("POL1", "a", spritePos, rot)); break; //      # Impaled human
+        case 0x001a: entities.add(new Decoration.blocking("POL6", "ab", spritePos, rot)); break; //     # Twitching impaled human
+        case 0x001b: entities.add(new Decoration.blocking("POL4", "a", spritePos, rot)); break; //      # Skull on a pole
+        case 0x001c: entities.add(new Decoration.blocking("POL2", "a", spritePos, rot)); break; //      # 5 skulls shish kebob
+        case 0x001d: entities.add(new Decoration.blocking("POL3", "ab", spritePos, rot)); break; //     # Pile of skulls and candles
+        
+        default:
+/*          if (thing.spriteName!=null) {
+          print("thing.spriteName: ${thing.spriteName}");
+          SpriteTemplate template = spriteTemplates[thing.spriteName];
+          if (template==null) {
+            print("No template for ${thing.spriteName}");
+          } else {
+            addSprite(new Sprite(sector, spritePos, rot, template));
+          }
+        }*/
       }
     }
     
@@ -432,7 +559,7 @@ class Thing {
   int angle;
   int type;
   int options;
-  String spriteName;
+//  String spriteName;
   
   static List<Thing> parse(LumpInfo lump, ByteData data) {
     int thingCount = lump.size~/10;
@@ -445,127 +572,11 @@ class Thing {
       thing.type = data.getInt16(i*10+6, Endianness.LITTLE_ENDIAN);
       thing.options = data.getInt16(i*10+8, Endianness.LITTLE_ENDIAN);
       
-      if (thing.type==0x0001) thing.spriteName = "PLAY"; //
-      if (thing.type==0x0002) thing.spriteName = "PLAY";
-      if (thing.type==0x0003) thing.spriteName = "PLAY";
-      if (thing.type==0x0004) thing.spriteName = "PLAY";
-      if (thing.type==0x0bbc) thing.spriteName = "POSS"; // +      # FORMER HUMAN: regular pistol-shooting zombieman
-      if (thing.type==0x0054) thing.spriteName = "SSWV"; // +      # WOLFENSTEIN SS: guest appearance by Wolf3D blue guy
-      if (thing.type==0x0009) thing.spriteName = "SPOS"; // +      # FORMER HUMAN SERGEANT: black armor, shotgunners
-      if (thing.type==0x0041) thing.spriteName = "CPOS"; // +      # HEAVY WEAPON DUDE: red armor, chaingunners
-      if (thing.type==0x0bb9) thing.spriteName = "TROO"; // +      # IMP: brown, hurl fireballs
-      if (thing.type==0x0bba) thing.spriteName = "SARG"; // +      # DEMON: pink, muscular bull-like chewers
-      if (thing.type==0x003a) thing.spriteName = "SARG"; // +      # SPECTRE: invisible version of the DEMON
-      if (thing.type==0x0bbe) thing.spriteName = "SKUL"; // +     ^# LOST SOUL: flying flaming skulls, they really bite
-      if (thing.type==0x0bbd) thing.spriteName = "HEAD"; // +     ^# CACODEMON: red one-eyed floating heads. Behold...
-      if (thing.type==0x0045) thing.spriteName = "BOS2"; // +      # HELL KNIGHT: grey-not-pink BARON, weaker
-      if (thing.type==0x0bbb) thing.spriteName = "BOSS"; // +      # BARON OF HELL: cloven hooved minotaur boss
-      if (thing.type==0x0044) thing.spriteName = "BSPI"; // +      # ARACHNOTRON: baby SPIDER, shoots green plasma
-      if (thing.type==0x0047) thing.spriteName = "PAIN"; // +     ^# PAIN ELEMENTAL: shoots LOST SOULS, deserves its
-      if (thing.type==0x0042) thing.spriteName = "SKEL"; // +      # REVENANT: Fast skeletal dude shoots homing missles
-      if (thing.type==0x0043) thing.spriteName = "FATT"; // +      # MANCUBUS: Big, slow brown guy shoots barrage of
-      if (thing.type==0x0040) thing.spriteName = "VILE"; // +      # ARCH-VILE: Super-fire attack, ressurects the dead!
-      if (thing.type==0x0007) thing.spriteName = "SPID"; // +      # SPIDER MASTERMIND: giant walking brain boss
-      if (thing.type==0x0010) thing.spriteName = "CYBR"; // +      # CYBER-DEMON: robo-boss, rocket launcher
-      if (thing.type==0x0058) thing.spriteName = "BBRN"; // +      # BOSS BRAIN: Horrifying visage of the ultimate demon
-//      if (thing.type==0x0059) thing.spriteName = "-   "; // -        Boss Shooter: Shoots spinning skull-blocks
-//      if (thing.type==0x0057) thing.spriteName = "-   "; // -        Spawn Spot: Where Todd McFarlane's guys appear
-      if (thing.type==0x07d5) thing.spriteName = "CSAW"; // a      $ Chainsaw
-      if (thing.type==0x07d1) thing.spriteName = "SHOT"; // a      $ Shotgun
-      if (thing.type==0x0052) thing.spriteName = "SGN2"; // a      $ Double-barreled shotgun
-      if (thing.type==0x07d2) thing.spriteName = "MGUN"; // a      $ Chaingun, gatling gun, mini-gun, whatever
-      if (thing.type==0x07d3) thing.spriteName = "LAUN"; // a      $ Rocket launcher
-      if (thing.type==0x07d4) thing.spriteName = "PLAS"; // a      $ Plasma gun
-      if (thing.type==0x07d6) thing.spriteName = "BFUG"; // a      $ Bfg9000
-      if (thing.type==0x07d7) thing.spriteName = "CLIP"; // a      $ Ammo clip
-      if (thing.type==0x07d8) thing.spriteName = "SHEL"; // a      $ Shotgun shells
-      if (thing.type==0x07da) thing.spriteName = "ROCK"; // a      $ A rocket
-      if (thing.type==0x07ff) thing.spriteName = "CELL"; // a      $ Cell charge
-      if (thing.type==0x0800) thing.spriteName = "AMMO"; // a      $ Box of Ammo
-      if (thing.type==0x0801) thing.spriteName = "SBOX"; // a      $ Box of Shells
-      if (thing.type==0x07fe) thing.spriteName = "BROK"; // a      $ Box of Rockets
-      if (thing.type==0x0011) thing.spriteName = "CELP"; // a      $ Cell charge pack
-      if (thing.type==0x0008) thing.spriteName = "BPAK"; // a      $ Backpack: doubles maximum ammo capacities
-      if (thing.type==0x07db) thing.spriteName = "STIM"; // a      $ Stimpak
-      if (thing.type==0x07dc) thing.spriteName = "MEDI"; // a      $ Medikit
-      if (thing.type==0x07de) thing.spriteName = "BON1"; // abcdcb ! Health Potion +1% health
-      if (thing.type==0x07df) thing.spriteName = "BON2"; // abcdcb ! Spirit Armor +1% armor
-      if (thing.type==0x07e2) thing.spriteName = "ARM1"; // ab     $ Green armor 100%
-      if (thing.type==0x07e3) thing.spriteName = "ARM2"; // ab     $ Blue armor 200%
-      if (thing.type==0x0053) thing.spriteName = "MEGA"; // abcd   ! Megasphere: 200% health, 200% armor
-      if (thing.type==0x07dd) thing.spriteName = "SOUL"; // abcdcb ! Soulsphere, Supercharge, +100% health
-      if (thing.type==0x07e6) thing.spriteName = "PINV"; // abcd   ! Invulnerability
-      if (thing.type==0x07e7) thing.spriteName = "PSTR"; // a      ! Berserk Strength and 100% health
-      if (thing.type==0x07e8) thing.spriteName = "PINS"; // abcd   ! Invisibility
-      if (thing.type==0x07e9) thing.spriteName = "SUIT"; // a     (!)Radiation suit - see notes on ! above
-      if (thing.type==0x07ea) thing.spriteName = "PMAP"; // abcdcb ! Computer map
-      if (thing.type==0x07fd) thing.spriteName = "PVIS"; // ab     ! Lite Amplification goggles
-      if (thing.type==0x0005) thing.spriteName = "BKEY"; // ab     $ Blue keycard
-      if (thing.type==0x0028) thing.spriteName = "BSKU"; // ab     $ Blue skullkey
-      if (thing.type==0x000d) thing.spriteName = "RKEY"; // ab     $ Red keycard
-      if (thing.type==0x0026) thing.spriteName = "RSKU"; // ab     $ Red skullkey
-      if (thing.type==0x0006) thing.spriteName = "YKEY"; // ab     $ Yellow keycard
-      if (thing.type==0x0027) thing.spriteName = "YSKU"; // ab     $ Yellow skullkey
-      if (thing.type==0x07f3) thing.spriteName = "BAR1"; // ab+    # Barrel; not an obstacle after blown up
-      if (thing.type==0x0048) thing.spriteName = "KEEN"; // a+     # A guest appearance by Billy
-      if (thing.type==0x0030) thing.spriteName = "ELEC"; // a      # Tall, techno pillar
-      if (thing.type==0x001e) thing.spriteName = "COL1"; // a      # Tall green pillar
-      if (thing.type==0x0020) thing.spriteName = "COL3"; // a      # Tall red pillar
-      if (thing.type==0x001f) thing.spriteName = "COL2"; // a      # Short green pillar
-      if (thing.type==0x0024) thing.spriteName = "COL5"; // ab     # Short green pillar with beating heart
-      if (thing.type==0x0021) thing.spriteName = "COL4"; // a      # Short red pillar
-      if (thing.type==0x0025) thing.spriteName = "COL6"; // a      # Short red pillar with skull
-      if (thing.type==0x002f) thing.spriteName = "SMIT"; // a      # Stalagmite: small brown pointy stump
-      if (thing.type==0x002b) thing.spriteName = "TRE1"; // a      # Burnt tree: gray tree
-      if (thing.type==0x0036) thing.spriteName = "TRE2"; // a      # Large brown tree
-      if (thing.type==0x07ec) thing.spriteName = "COLU"; // a      # Floor lamp
-      if (thing.type==0x0055) thing.spriteName = "TLMP"; // abcd   # Tall techno floor lamp
-      if (thing.type==0x0056) thing.spriteName = "TLP2"; // abcd   # Short techno floor lamp
-      if (thing.type==0x0022) thing.spriteName = "CAND"; // a        Candle
-      if (thing.type==0x0023) thing.spriteName = "CBRA"; // a      # Candelabra
-      if (thing.type==0x002c) thing.spriteName = "TBLU"; // abcd   # Tall blue firestick
-      if (thing.type==0x002d) thing.spriteName = "TGRE"; // abcd   # Tall green firestick
-      if (thing.type==0x002e) thing.spriteName = "TRED"; // abcd   # Tall red firestick
-      if (thing.type==0x0037) thing.spriteName = "SMBT"; // abcd   # Short blue firestick
-      if (thing.type==0x0038) thing.spriteName = "SMGT"; // abcd   # Short green firestick
-      if (thing.type==0x0039) thing.spriteName = "SMRT"; // abcd   # Short red firestick
-      if (thing.type==0x0046) thing.spriteName = "FCAN"; // abc    # Burning barrel
-      if (thing.type==0x0029) thing.spriteName = "CEYE"; // abcb   # Evil Eye: floating eye in symbol, over candle
-      if (thing.type==0x002a) thing.spriteName = "FSKU"; // abc    # Floating Skull: flaming skull-rock
-      if (thing.type==0x0031) thing.spriteName = "GOR1"; // abcb  ^# Hanging victim, twitching
-      if (thing.type==0x003f) thing.spriteName = "GOR1"; // abcb  ^  Hanging victim, twitching
-      if (thing.type==0x0032) thing.spriteName = "GOR2"; // a     ^# Hanging victim, arms out
-      if (thing.type==0x003b) thing.spriteName = "GOR2"; // a     ^  Hanging victim, arms out
-      if (thing.type==0x0034) thing.spriteName = "GOR4"; // a     ^# Hanging pair of legs
-      if (thing.type==0x003c) thing.spriteName = "GOR4"; // a     ^  Hanging pair of legs
-      if (thing.type==0x0033) thing.spriteName = "GOR3"; // a     ^# Hanging victim, 1-legged
-      if (thing.type==0x003d) thing.spriteName = "GOR3"; // a     ^  Hanging victim, 1-legged
-      if (thing.type==0x0035) thing.spriteName = "GOR5"; // a     ^# Hanging leg
-      if (thing.type==0x003e) thing.spriteName = "GOR5"; // a     ^  Hanging leg
-      if (thing.type==0x0049) thing.spriteName = "HDB1"; // a     ^# Hanging victim, guts removed
-      if (thing.type==0x004a) thing.spriteName = "HDB2"; // a     ^# Hanging victim, guts and brain removed
-      if (thing.type==0x004b) thing.spriteName = "HDB3"; // a     ^# Hanging torso, looking down
-      if (thing.type==0x004c) thing.spriteName = "HDB4"; // a     ^# Hanging torso, open skull
-      if (thing.type==0x004d) thing.spriteName = "HDB5"; // a     ^# Hanging torso, looking up
-      if (thing.type==0x004e) thing.spriteName = "HDB6"; // a     ^# Hanging torso, brain removed
-      if (thing.type==0x0019) thing.spriteName = "POL1"; // a      # Impaled human
-      if (thing.type==0x001a) thing.spriteName = "POL6"; // ab     # Twitching impaled human
-      if (thing.type==0x001b) thing.spriteName = "POL4"; // a      # Skull on a pole
-      if (thing.type==0x001c) thing.spriteName = "POL2"; // a      # 5 skulls shish kebob
-      if (thing.type==0x001d) thing.spriteName = "POL3"; // ab     # Pile of skulls and candles
-      if (thing.type==0x000a) thing.spriteName = "PLAY"; // w        Bloody mess (an exploded player)
-      if (thing.type==0x000c) thing.spriteName = "PLAY"; // w        Bloody mess, this thing is exactly the same as 10
-      if (thing.type==0x0018) thing.spriteName = "POL5"; // a        Pool of blood and flesh
-      if (thing.type==0x004f) thing.spriteName = "POB1"; // a        Pool of blood
-      if (thing.type==0x0050) thing.spriteName = "POB2"; // a        Pool of blood
-      if (thing.type==0x0051) thing.spriteName = "BRS1"; // a        Pool of brains
-      if (thing.type==0x000f) thing.spriteName = "PLAY"; // n        Dead player
-      if (thing.type==0x0012) thing.spriteName = "POSS"; // l        Dead former human
-      if (thing.type==0x0013) thing.spriteName = "SPOS"; // l        Dead former sergeant
-      if (thing.type==0x0014) thing.spriteName = "TROO"; // m        Dead imp
-      if (thing.type==0x0015) thing.spriteName = "SARG"; // n        Dead demon
-      if (thing.type==0x0016) thing.spriteName = "HEAD"; // l        Dead cacodemon
-      if (thing.type==0x0017) thing.spriteName = "SKUL"; // k        Dead lost soul, invisible
+   /* 
+      case 0x07f3: entities.add(new Decoration("BAR1", "ab+    # Barrel; not an obstacle after blown up
+      case 0x0048: entities.add(new Decoration("KEEN", "a+     # A guest appearance by Billy
+      */
+
     }
     return things;
   }
@@ -1087,7 +1098,7 @@ class Culler {
   Culler(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
     Matrix4 inversePerspective = new Matrix4.copy(perspectiveMatrix)..invert();
     double width = inversePerspective.transform3(new Vector3(1.0, 0.0, 0.0)).x;
-    clip0 = width;
+    clip0 = width*2.0;
     clip1 = -clip0;
     
     Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;

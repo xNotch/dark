@@ -13,6 +13,7 @@ part "sprites.dart";
 part "walls.dart";
 part "texture.dart";
 part "wad.dart";
+part "entity.dart";
 
 bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
 bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
@@ -44,6 +45,7 @@ Floors floors;
 ScreenRenderer screenRenderer;
 SkyRenderer skyRenderer;
 List<Sprite> sprites = new List<Sprite>();
+List<Entity> entities = new List<Entity>();
 
 bool invulnerable = false;
 
@@ -121,7 +123,6 @@ void main() {
 
     printToConsole("Loading WAD file");
     wadFile.load("originaldoom/doom.wad", start, (){
-      playerPos = new Vector3(860.0,-50.0,-1480.0);
       wadFile.load("freedoom/doom.wad", start, (){
         print("Failed to load wad file!");
       });
@@ -195,9 +196,10 @@ Matrix4 modelMatrix;
 Matrix4 viewMatrix;
 Matrix4 projectionMatrix;
 
-Vector3 playerPos = new Vector3(1075.8603515625,-50.0,-3237.50537109375);
+Player player;
+//Vector3 playerPos = ;
 //Vector3 playerPos = new Vector3(-2090.5009765625,169.0,1060.5748291015625);
-double playerRot = 0.0;
+//double playerRot = 0.0;
 
 List<Framebuffer> indexColorBuffers = new List<Framebuffer>(3);
 Framebuffer indexColorBuffer;
@@ -205,6 +207,8 @@ Framebuffer indexColorBuffer;
 GL.Texture skyTexture;
 
 void start() {
+  player = new Player(wadFile.level.playerSpawns[0]);
+
   floors.texture = flatMap.values.first.imageAtlas.texture;
 
   modelMatrix = new Matrix4.identity();
@@ -302,92 +306,30 @@ class Framebuffer {
 
 void updateGameLogic(double passedTime) {
   if (passedTime>0.1) passedTime = 0.1;
-  if (passedTime<0.0) passedTime = 0.0;
+  if (passedTime<0.001) passedTime = 0.001;
 
   double iRot = 0.0;
   double iY = 0.0;
   double iX = 0.0;
-  if (keys[81]) iRot+=1.0;
-  if (keys[69]) iRot-=1.0;
+  if (keys[81] || keys[37]) iRot+=1.0;
+  if (keys[69] || keys[39]) iRot-=1.0;
 
   if (keys[65]) iX+=1.0;
   if (keys[68]) iX-=1.0;
 
   if (keys[87]) iY+=1.0;
   if (keys[83]) iY-=1.0;
+  
+  
+//  player.rot-=iRot*passedTime*3;
+  if (iRot==0.0) player.rotMotion = 0.0;
+  player.rotMotion-=iRot;
+  player.move(iX, iY, passedTime);
 
-  playerRot-=iRot*passedTime*3;
-
-  playerPos.x-=(sin(playerRot)*iY-cos(playerRot)*iX)*passedTime*300.0;
-  playerPos.z-=(cos(playerRot)*iY+sin(playerRot)*iX)*passedTime*300.0;
-
-  HashSet<Sector> sectorsInRange = new HashSet<Sector>();
-  List<SubSector> subSectorsInRange = wadFile.level.bsp.findSubSectorsInRadius(playerPos.xz, 16.0);
-  subSectorsInRange.forEach((ss)=>ss.segs.forEach((seg)=>clipMotion(seg, playerPos, 16.0, sectorsInRange)));
-
-  int floorHeight = -10000000;
-  sectorsInRange.add(wadFile.level.bsp.findSector(playerPos.xz));
-  sectorsInRange.forEach((sector) {
-    if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
+  entities.forEach((entity) {
+    entity.tick(passedTime);
   });
-  playerPos.y = floorHeight.toDouble();
-}
 
-void clipMotion(Seg seg, Vector3 playerPos, double radius, HashSet<Sector> overlappedSectors) {
-  double xp = playerPos.x;
-  double yp = playerPos.z;
-
-  double xNudge = 0.0;
-  double yNudge = 0.0;
-  bool intersect = false;
-
-  double d = xp*seg.xn+yp*seg.yn - seg.d;
-  if (d>0.0 && d<=16.0) {
-    double sd = xp*seg.xt+yp*seg.yt - seg.sd;
-    if (sd>=0.0 && sd<=seg.length) {
-      // Hit the center of the seg
-      double toPushOut = radius-d+0.001;
-      xNudge=seg.xn*toPushOut;
-      yNudge=seg.yn*toPushOut;
-      intersect = true;
-    } else if (sd>0.0) {
-      // Hit either corner of the seg
-      double xd, yd;
-/*        if (sd<=seg.length/2.0) {
-          xd = xp-seg.x0;
-          yd = yp-seg.y0;
-        } else {*/
-        xd = xp-seg.x1;
-        yd = yp-seg.y1;
-//        }
-
-      double distSqr = xd*xd+yd*yd;
-      if (xd*xd+yd*yd<radius*radius) {
-        double dist = sqrt(distSqr);
-        double toPushOut = radius-dist+0.001;
-        xNudge=xd/dist*toPushOut;
-        yNudge=yd/dist*toPushOut;
-        intersect = true;
-      }
-    }
-  }
-
-  if (intersect) {
-    bool collideWall = false;
-    if (seg.linedef.impassable || seg.backSector==null) {
-      collideWall = true;
-    } else if (seg.backSector.floorHeight>playerPos.y+24 || seg.sector.floorHeight>playerPos.y+24) {
-      collideWall = true;
-    }
-
-    if (collideWall) {
-      playerPos.x += xNudge;
-      playerPos.z += yNudge;
-    } else {
-      overlappedSectors.add(seg.sector);
-      if (seg.backSector!=null) overlappedSectors.add(seg.backSector);
-    }
-  }
 }
 
 void renderGame() {
@@ -402,7 +344,8 @@ void renderGame() {
     // If the original aspect ratio is set, this scaling is done elsewhere.
     projectionMatrix = projectionMatrix.scale(1.0, 240/200, 1.0);
   }
-  viewMatrix = new Matrix4.identity().rotateY(playerRot).translate(-playerPos).translate(0.0, -41.0, 0.0);
+  double bob = (sin(player.bobPhase)*0.5+0.5)*player.bobSpeed;
+  viewMatrix = new Matrix4.identity().rotateY(player.rot+PI).translate(-player.pos).translate(0.0, -41.0+bob*8+player.stepUp, 0.0);
   Matrix4 invertedViewMatrix = new Matrix4.copy(viewMatrix)..invert();
   Vector3 cameraPos = invertedViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0));
 
@@ -439,7 +382,11 @@ void renderGame() {
 
 
   sprites.forEach((sprite) {
-    sprite.addToDisplayList(playerRot);
+    sprite.addToDisplayList(player.rot);
+  });
+
+  entities.forEach((entity) {
+    entity.addToDisplayList(player.rot);
   });
 
   spriteMaps.values.forEach((sprites) {
@@ -490,6 +437,13 @@ void updateAnimations(double passedTime) {
 
 double lastTime = -1.0;
 void render(double time) {
+  int error = gl.getError();
+  if (error!=0) {
+    print("Error: $error");
+  } else {
+    window.requestAnimationFrame(render);
+  }
+
   if (lastTime==-1.0) lastTime = time;
   double passedTime = (time-lastTime)/1000.0; // in seconds
   lastTime = time;
@@ -499,11 +453,4 @@ void render(double time) {
   updateGameLogic(passedTime);
   renderGame();
   blitScreen();
-
-  int error = gl.getError();
-  if (error!=0) {
-    print("Error: $error");
-  } else {
-    window.requestAnimationFrame(render);
-  }
 }
