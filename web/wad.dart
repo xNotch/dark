@@ -1330,8 +1330,8 @@ class Culler {
   void init(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
     clipRangeCount = 0;
     Matrix4 inversePerspective = new Matrix4.copy(perspectiveMatrix)..invert();
-    double width = inversePerspective.transform3(new Vector3(1.0, 0.0, 0.0)).x;
-    clip0 = width*2.0;
+    double width = inversePerspective.transform3(new Vector3(1.0, 1.0, 0.0)).x;
+    clip0 = width;
     clip1 = -clip0;
     
     Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
