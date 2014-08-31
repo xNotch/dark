@@ -7,6 +7,15 @@ HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>();
 List<FlatAnimation> flatAnimations = new List<FlatAnimation>();
 List<WallAnimation> wallAnimations = new List<WallAnimation>();
 
+HashSet<String> miscSpriteNames = new HashSet.from([
+  "HELP1", "HELP2", "TITLEPIC", "CREDIT", "VICTORY2", "PFUB1", "PFUB2",
+  "END0", "END1", "END2", "END3", "END4", "END5", "END6",
+  "AMMNUM0", "AMMNUM1", "AMMNUM2", "AMMNUM3", "AMMNUM4", "AMMNUM5", "AMMNUM6", "AMMNUM7", "AMMNUM8", "AMMNUM9",
+  "STRSNUM0", "STRSNUM1", "STRSNUM2", "STRSNUM3", "STRSNUM4", "STRSNUM5", "STRSNUM6", "STRSNUM7", "STRSNUM8", "STRSNUM9",
+  "STGNUM0", "STGNUM1", "STGNUM2", "STGNUM3", "STGNUM4", "STGNUM5", "STGNUM6", "STGNUM7", "STGNUM8", "STGNUM9",
+  "STTNUM0", "STTNUM1", "STTNUM2", "STTNUM3", "STTNUM4", "STTNUM5", "STTNUM6", "STTNUM7", "STTNUM8", "STTNUM9",
+]);
+
 class WallAnimation {
   String startFlatName;
   String endFlatName;
@@ -121,6 +130,7 @@ class WadFile {
   
   List<WAD_Image> patchList = new List<WAD_Image>();
   List<WAD_Image> spriteList = new List<WAD_Image>();
+  HashMap<String, WAD_Image> spriteMap = new HashMap<String, WAD_Image>();
   
   Level level;
 
@@ -180,9 +190,12 @@ class WadFile {
       LumpInfo lump = header.lumpInfos[i];
       if (lump.name == "S_START") foundSprites = true;
       else if (lump.name == "S_END") foundSprites = false;
-      else if (foundSprites) {
+      else if (foundSprites || miscSpriteNames.contains(lump.name)) {
         WAD_Image sprite = new WAD_Image.parse(lump.name, lump.getByteData(data));
+        sprite.isGameSprite = foundSprites;
         spriteList.add(sprite);
+        print(lump.name);
+        spriteMap[lump.name] = sprite;
       }
     }
 
@@ -269,7 +282,7 @@ class WadFile {
     
     
     spriteList.forEach((sprite) {
-      SpriteTemplate.addFrameFromLump(sprite.name, sprite);
+      if (sprite.isGameSprite) SpriteTemplate.addFrameFromLump(sprite.name, sprite);
     });
     print("Sprite atlas count: ${imageAtlases.length}");
   }
@@ -834,6 +847,7 @@ class WAD_Playpal {
 
 class WAD_Image {
   static Random tuttiFruttiRandom = new Random(321334);
+  bool isGameSprite = false;
   String name;
   int width, height;
   int xCenter;

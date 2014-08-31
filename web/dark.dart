@@ -37,8 +37,11 @@ var canvas;
 GL.RenderingContext gl;
 
 var consoleText;
+HashMap<GL.Texture, Sprites> guiSprites = new HashMap<GL.Texture, Sprites>();
+
 HashMap<GL.Texture, Sprites> spriteMaps = new HashMap<GL.Texture, Sprites>();
 HashMap<GL.Texture, Sprites> transparentSpriteMaps = new HashMap<GL.Texture, Sprites>();
+
 HashMap<GL.Texture, Walls> walls = new HashMap<GL.Texture, Walls>();
 HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
 Floors floors;
@@ -50,6 +53,7 @@ List<Entity> entities = new List<Entity>();
 bool invulnerable = false;
 
 void addSpriteMap(GL.Texture texture) {
+  guiSprites[texture] = new Sprites(spriteShader, texture);
   spriteMaps[texture] = new Sprites(spriteShader, texture);
   transparentSpriteMaps[texture] = new Sprites(transparentSpriteShader, texture);
 }
@@ -380,7 +384,6 @@ void renderGame() {
   gl.disable(GL.BLEND);
   projectionMatrix = oldMatrix;
 
-
   sprites.forEach((sprite) {
     sprite.addToDisplayList(player.rot);
   });
@@ -410,6 +413,42 @@ void renderGame() {
     walls.render();
     walls.clear();
   });
+}
+
+void addGuiSprite(int x, int y, String imageName) {
+  WAD_Image image = wadFile.spriteMap[imageName];
+  guiSprites[image.imageAtlas.texture].insertGuiSprite(x, y, guiSpriteCount++, image);
+}
+
+int guiSpriteCount = 0;
+void renderGui() {
+  gl.disable(GL.DEPTH_TEST);
+  double ww = screenWidth*200.0/screenHeight;
+  if (!GAME_ORIGINAL_RESOLUTION && GAME_ORIGINAL_PIXEL_ASPECT_RATIO) {
+    ww=ww*240/200;
+  }
+  double margin = ww-320;
+  double x0 = 0.0-margin/2.0;
+  double x1 = ww-margin/2.0;
+  projectionMatrix = makeOrthographicMatrix(x0, x1, 200.0, 0.0, -10.0, 10.0);
+  viewMatrix = new Matrix4.identity();
+  
+//  addGuiSprite(0, 0, "TITLEPIC");
+  int x = (sin(player.bobPhase/2.0)*player.bobSpeed*20.5).round();
+  int y = (cos(player.bobPhase/2.0)*player.bobSpeed*10.5).abs().round();
+  addGuiSprite(x, 32+y, "SHTGA0");
+  
+  
+  gl.enable(GL.BLEND);
+  gl.disable(GL.CULL_FACE);
+  gl.blendFunc(GL.SRC_ALPHA,  GL.ONE_MINUS_SRC_ALPHA);
+  guiSprites.values.forEach((sprites) {
+    sprites.render();
+    sprites.clear();
+  });  
+  guiSpriteCount = 0;
+  gl.enable(GL.CULL_FACE);
+  gl.disable(GL.BLEND);
 }
 
 void blitScreen() {
@@ -452,5 +491,6 @@ void render(double time) {
 
   updateGameLogic(passedTime);
   renderGame();
+  renderGui();
   blitScreen();
 }

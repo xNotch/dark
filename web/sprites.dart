@@ -79,6 +79,33 @@ class Sprites {
     spriteCount++;
   }
   
+  void insertGuiSprite(int x, int y, int z, WAD_Image image) {
+    double px = x+0.0;
+    double py = y+0.0;
+    double pz = 0.0-z*0.001;
+    double br = 1.0;
+    
+    double xOffs0 = -image.xCenter+0.0;
+    double yOffs0 = -image.yCenter+0.0;
+    double xOffs1 = xOffs0+image.width;
+    double yOffs1 = yOffs0+image.height;
+
+    double u0 = image.xAtlasPos+0.0;
+    double v0 = image.yAtlasPos+0.0;
+    double u1 = u0+image.width;
+    double v1 = v0+image.height;
+    
+    vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
+        px, py, pz, xOffs0, yOffs0, u0, v0, br,
+        px, py, pz, xOffs1, yOffs0, u1, v0, br,
+        px, py, pz, xOffs1, yOffs1, u1, v1, br,
+        px, py, pz, xOffs0, yOffs1, u0, v1, br,
+    ]);
+    
+    spriteCount++;
+  }
+    
+  
   void render() {
     if (spriteCount==0) return;
     shader.use();

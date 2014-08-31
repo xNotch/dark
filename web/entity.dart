@@ -44,7 +44,6 @@ class AnimatedStationary extends Entity {
   double animAccum = 0.0;
   
   AnimatedStationary(String templateName, String frames, Vector3 pos, double rot) {
-    if (frames.length>1) print("Animated decoration: $templateName, $frames"); 
     frames = frames.toUpperCase();
     this.frames = frames;
     spriteTemplate = spriteTemplates[templateName];
@@ -197,7 +196,7 @@ class Player extends Mob {
     bobSpeed = motion.length/300.0;
     bobSpeed = bobSpeed*bobSpeed;
     if (bobSpeed>1.0) bobSpeed = 1.0;
-    bobPhase+=passedTime*PI*2*2*bobSpeed;
+    bobPhase+=passedTime*PI*2*1.5*bobSpeed;
   }
 }
 
