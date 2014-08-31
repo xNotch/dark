@@ -3,6 +3,7 @@ part of Dark;
 HashMap<String, WAD_Image> wallTextureMap = new HashMap<String, WAD_Image>();
 HashMap<String, WAD_Image> patchMap = new HashMap<String, WAD_Image>();
 HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>();
+HashMap<String, AudioBuffer> sampleMap = new HashMap<String, AudioBuffer>();
 
 List<FlatAnimation> flatAnimations = new List<FlatAnimation>();
 List<WallAnimation> wallAnimations = new List<WallAnimation>();
@@ -216,9 +217,11 @@ class WadFile {
       if (lump.name == "P_START") depthCount++;
       else if (lump.name == "P_END") depthCount--;
       else if (depthCount==0) {
-        if (WAD_Image.canBeRead(data, lump)) {
+        if (lump.name.startsWith("DS")) {
+          AudioBuffer sample = WAD_Sample.parse(lump.name, lump.getByteData(data));
+          sampleMap[lump.name.substring(2, lump.name.length)] = sample;
+        } else if (WAD_Image.canBeRead(data, lump)) {
           WAD_Image sprite = new WAD_Image.parse(lump.name, lump.getByteData(data));
-          print(lump.name);
           spriteMap[lump.name] = sprite;
         }
       }
@@ -350,7 +353,6 @@ class WadFile {
     
     while (true) {
       LumpInfo lump = header.lumpInfos[lumpIndex++];
-      print(lump.name);
       if (lump.name=="VERTEXES") level.vertices = WAD_Vertexes.parse(lump, lump.getByteData(data));
       if (lump.name=="LINEDEFS") level.linedefs = Linedef.parse(lump, lump.getByteData(data));
       if (lump.name=="SIDEDEFS") level.sidedefs = Sidedef.parse(lump, lump.getByteData(data));
@@ -990,6 +992,22 @@ class WAD_Playpal {
   }
 }
 
+class WAD_Sample {
+  static AudioBuffer parse(String name, ByteData data) {
+    int SILENCE_SAMPLES = 0;
+    print("Sample: $name");
+    int rate = data.getUint16(2, Endianness.LITTLE_ENDIAN);
+    int sampleCount = data.getUint16(4, Endianness.LITTLE_ENDIAN);
+    AudioBuffer buffer = audioContext.createBuffer(1, sampleCount+SILENCE_SAMPLES, rate);
+    Float32List bufferSampleData = buffer.getChannelData(0);
+    for (int i=0; i<sampleCount; i++) {
+      int sample = data.getUint8(8+i);
+      bufferSampleData[i+SILENCE_SAMPLES] = (sample/255.0)*2.0-1.0;
+    }
+    return buffer;
+  }
+}
+
 class WAD_Image {
   static Random tuttiFruttiRandom = new Random(321334);
   String name;
@@ -1009,23 +1027,17 @@ class WAD_Image {
     if (lump.size<8) return false;
     if (ABSOLUTELY_NOT_IMAGE_LUMPS.contains(lump.name)) return false;
     
-    if (lump.name.startsWith("STCFN")) {
-      print("Maybe char? ${lump.name}");
-    }
-    
     int w = data.getInt16(lump.filePos+0, Endianness.LITTLE_ENDIAN);
     int h = data.getInt16(lump.filePos+2, Endianness.LITTLE_ENDIAN);
     if (h>128) return false;
     if (w<0 || h<0) return false;
     if (lump.size<8+w*4){
-      if (lump.name.startsWith("STCFN")) print("no!");
       return false;
     }
     for (int x=0; x<w; x++) {
       int offs = data.getInt32(lump.filePos+8+x*4, Endianness.LITTLE_ENDIAN);
       if (offs<0) return false;
       if (offs>lump.size) {
-        if (lump.name.startsWith("STCFN")) print("no2!");
         return false;
       }
       
@@ -1038,14 +1050,11 @@ class WAD_Image {
         int count = data.getUint8(pos++);
         pos+=count+2;
         if (pos>=maxPos){
-          if (lump.name.startsWith("STCFN")) print("no3! $count");
           return false;
         }
       }      
     }
     
-    if (lump.name.startsWith("STCFN")) print("YES!");
-
     return true;
   }
   

@@ -6,6 +6,7 @@ import "dart:math";
 import "dart:collection";
 import "dart:typed_data";
 import "dart:web_gl" as GL;
+import "dart:web_audio";
 import "package:vector_math/vector_math.dart";
 
 part "shader.dart";
@@ -75,6 +76,7 @@ void addWall(Wall wall) {
   walls[wall.texture].insertWall(wall);
 }
 
+AudioContext audioContext;
 List<bool> keys = new List<bool>(256);
 
 WadFile wadFile = new WadFile();
@@ -113,6 +115,22 @@ void main() {
 
   window.onBlur.listen((e) {
     for (int i=0; i<256; i++) keys[i] = false;
+  });
+  
+  audioContext = new AudioContext();
+
+  window.onClick.listen((e) {
+    if (document.pointerLockElement!=canvas) {
+      canvas.requestPointerLock();
+    } else {
+      playSound(null, "SHOTGN");
+    }
+  });
+  
+  window.onMouseMove.listen((e) {
+    if (document.pointerLockElement==canvas && player!=null) {
+      player.rot+=e.movement.x*0.002;
+    }
   });
 
   spriteShader = new Shader("sprite");
@@ -209,9 +227,80 @@ List<Framebuffer> indexColorBuffers = new List<Framebuffer>(3);
 Framebuffer indexColorBuffer;
 
 GL.Texture skyTexture;
+PannerNode pannerNode;
+AudioBufferSourceNode nodeHack;
+
+class SoundChannel {
+  PannerNode pannerNode;
+  AudioBufferSourceNode source;
+  Vector3 pos;
+  bool playing = false;
+  int startAge;
+  
+  SoundChannel() {
+  }
+  
+  void play(Vector3 pos, AudioBuffer buffer) {
+    startAge = new DateTime.now().millisecondsSinceEpoch;
+    
+    this.pos = pos;
+    if (pos!=null) {
+      pannerNode = audioContext.createPanner();
+      pannerNode.refDistance = 300.0;
+      pannerNode.rolloffFactor = 3.5;
+      pannerNode.distanceModel = "exponential";
+      pannerNode.panningModel = "equalpower";
+      pannerNode.connectNode(audioContext.destination);
+    }
+      
+    playing = true;
+    
+    update();
+    
+    source = audioContext.createBufferSource();
+    source.onEnded.listen((e)=>finished());
+    if (pos!=null) {
+      source.connectNode(pannerNode);
+    } else {
+      source.connectNode(audioContext.destination);
+    }
+    source.buffer = buffer;
+    source.start();
+  }
+  
+  void finished() {
+    source = null;
+    pannerNode = null;
+    playing = false;
+    pos = null;
+    soundChannels.remove(this);
+  }
+  
+  void update() {
+    if (pos!=null) {
+      pannerNode.setPosition(pos.x, pos.y, pos.z);
+      pannerNode.setPosition(pos.x, pos.y, pos.z);
+      pannerNode.setPosition(pos.x, pos.y, pos.z);
+      pannerNode.setPosition(pos.x, pos.y, pos.z);
+    }
+  }
+}
+
+List<SoundChannel> soundChannels = new List<SoundChannel>();
+
+void playSound(Vector3 pos, String soundName) {
+  if (pos!=null && pos.distanceToSquared(player.pos)>1200*1200) return;
+  SoundChannel soundChannel = new SoundChannel();
+  soundChannel.play(pos, sampleMap[soundName]);
+  soundChannels.add(soundChannel);
+}
 
 void start() {
   player = new Player(wadFile.level.playerSpawns[0]);
+
+  for (int i=0; i<32; i++) {
+    soundChannels.add(new SoundChannel());
+  }
 
   floors.texture = flatMap.values.first.imageAtlas.texture;
 
@@ -289,6 +378,12 @@ void start() {
   querySelector("#consoleHolder").setAttribute("style",  "display:none;");
   window.onResize.listen((event) => resize());
   resize();
+  
+  pannerNode = audioContext.createPanner();
+  pannerNode.refDistance = 300.0;
+  pannerNode.rolloffFactor = 3.0;
+  pannerNode.distanceModel = "exponential";
+  pannerNode.connectNode(audioContext.destination);
 }
 
 class Framebuffer {
@@ -491,6 +586,7 @@ void blitScreen() {
 
 double scrollAccum = 0.0;
 int indexColorBufferId = 0;
+double soundTime = 0.0;
 void updateAnimations(double passedTime) {
   scrollAccum+=passedTime*35.0;
   textureScrollOffset = scrollAccum.floor();
@@ -498,12 +594,23 @@ void updateAnimations(double passedTime) {
   indexColorBufferId = (indexColorBufferId+1)%3;
   FlatAnimation.animateAll(passedTime);
   WallAnimation.animateAll(passedTime);
+  
+  soundTime-=passedTime;
+  if (soundTime<0.0) {
+/*    AudioBufferSourceNode node = audioContext.createBufferSource();
+    node.connectNode(pannerNode);
+    node.buffer = sampleMap["CLAW"];
+    node.start();*/
+    soundTime+=0.5;
+  }
 }
 
 double lastTime = -1.0;
 double lastFrameSeconds = 0.0;
 double lastFrameLogicSeconds = 0.0;
 void render(double time) {
+  audioContext.listener.setPosition(player.pos.x, player.pos.y, player.pos.z);
+  audioContext.listener.setOrientation(sin(player.rot), 0.0, cos(player.rot), 0.0, -1.0, 0.0);
   int error = gl.getError();
   if (error!=0) {
     print("Error: $error");
@@ -527,4 +634,7 @@ void render(double time) {
   int after = new DateTime.now().millisecondsSinceEpoch;
   lastFrameLogicSeconds = lastFrameLogicSeconds+((after-before)/1000.0-lastFrameLogicSeconds)*0.2;
   
+  for (int i=0; i<soundChannels.length; i++) {
+    soundChannels[i].update();
+  }
 }

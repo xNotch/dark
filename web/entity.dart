@@ -269,8 +269,7 @@ class Mob extends Entity {
 
 class Player extends Mob {
   double bobSpeed = 0.0, bobPhase = 0.0;
-  Player(PlayerSpawn playerSpawn) : super(playerSpawn.pos) {
-    this.pos = playerSpawn.pos;
+  Player(PlayerSpawn playerSpawn) : super(new Vector3.copy(playerSpawn.pos)) {
     this.rot = playerSpawn.rot;
     radius = 16.0;
   }
