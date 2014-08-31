@@ -7,14 +7,10 @@ HashMap<String, WAD_Image> flatMap = new HashMap<String, WAD_Image>();
 List<FlatAnimation> flatAnimations = new List<FlatAnimation>();
 List<WallAnimation> wallAnimations = new List<WallAnimation>();
 
-HashSet<String> miscSpriteNames = new HashSet.from([
-  "HELP1", "HELP2", "TITLEPIC", "CREDIT", "VICTORY2", "PFUB1", "PFUB2",
-  "END0", "END1", "END2", "END3", "END4", "END5", "END6",
-  "AMMNUM0", "AMMNUM1", "AMMNUM2", "AMMNUM3", "AMMNUM4", "AMMNUM5", "AMMNUM6", "AMMNUM7", "AMMNUM8", "AMMNUM9",
-  "STRSNUM0", "STRSNUM1", "STRSNUM2", "STRSNUM3", "STRSNUM4", "STRSNUM5", "STRSNUM6", "STRSNUM7", "STRSNUM8", "STRSNUM9",
-  "STGNUM0", "STGNUM1", "STGNUM2", "STGNUM3", "STGNUM4", "STGNUM5", "STGNUM6", "STGNUM7", "STGNUM8", "STGNUM9",
-  "STTNUM0", "STTNUM1", "STTNUM2", "STTNUM3", "STTNUM4", "STTNUM5", "STTNUM6", "STTNUM7", "STTNUM8", "STTNUM9",
-]);
+HashSet<String> ABSOLUTELY_NOT_IMAGE_LUMPS = new HashSet<String>.from([
+  "THINGS", "LINEDEFS", "SIDEDEFS", "VERTEXES", "SEGS", "SSECTORS", "NODES", "SECTORS",
+  "REJECT", "BLOCKMAP", "GENMIDI", "DMXGUS", "PLAYPAL", "COLORMAP", "ENDOOM", "TEXTURE1", "TEXTURE2",
+  "PNAMES"]);
 
 class WallAnimation {
   String startFlatName;
@@ -190,11 +186,9 @@ class WadFile {
       LumpInfo lump = header.lumpInfos[i];
       if (lump.name == "S_START") foundSprites = true;
       else if (lump.name == "S_END") foundSprites = false;
-      else if (foundSprites || miscSpriteNames.contains(lump.name)) {
+      else if (foundSprites) {
         WAD_Image sprite = new WAD_Image.parse(lump.name, lump.getByteData(data));
-        sprite.isGameSprite = foundSprites;
         spriteList.add(sprite);
-        print(lump.name);
         spriteMap[lump.name] = sprite;
       }
     }
@@ -211,6 +205,24 @@ class WadFile {
         }
       }
     }
+    
+    int depthCount = 0;
+    for (int i=0; i<header.lumpInfos.length; i++) {
+      LumpInfo lump = header.lumpInfos[i];
+      if (lump.name == "S_START") depthCount++;
+      else if (lump.name == "S_END") depthCount--;
+      if (lump.name == "F_START") depthCount++;
+      else if (lump.name == "F_END") depthCount--;
+      if (lump.name == "P_START") depthCount++;
+      else if (lump.name == "P_END") depthCount--;
+      else if (depthCount==0) {
+        if (WAD_Image.canBeRead(data, lump)) {
+          WAD_Image sprite = new WAD_Image.parse(lump.name, lump.getByteData(data));
+          print(lump.name);
+          spriteMap[lump.name] = sprite;
+        }
+      }
+    }    
     
     int maxFlats = (TEXTURE_ATLAS_SIZE~/64)*(TEXTURE_ATLAS_SIZE~/64);
     if (flatMap.length > maxFlats) {
@@ -233,7 +245,7 @@ class WadFile {
     bool foundLevel = false;
     for (int i=0; i<header.lumpInfos.length; i++) {
       LumpInfo lump = header.lumpInfos[i];
-      if (lump.name == "E1M1") loadLevel(lump.name, i);
+      if (lump.name == "E1M7") loadLevel(lump.name, i+1);
     }    
   }
   
@@ -265,9 +277,10 @@ class WadFile {
   void readAllSpriteTextures() {
     List<ImageAtlas> imageAtlases = new List<ImageAtlas>();
 
-    List<WAD_Image> toInsert = new List<WAD_Image>.from(spriteList);
+    List<WAD_Image> toInsert = new List<WAD_Image>.from(spriteMap.values);
     toInsert.sort((i0, i1)=>(i1.width*i1.height)-(i0.width*i0.height));
     do {
+      print("New image atlas");
       ImageAtlas imageAtlas = new ImageAtlas(TEXTURE_ATLAS_SIZE, TEXTURE_ATLAS_SIZE);
       for (int i=0; i<toInsert.length; i++) {
         if (imageAtlas.insert(toInsert[i])) {
@@ -276,13 +289,12 @@ class WadFile {
       }
       imageAtlas.render();
       addSpriteMap(imageAtlas.texture);
-
       imageAtlases.add(imageAtlas);
     } while (toInsert.length>0);
     
     
     spriteList.forEach((sprite) {
-      if (sprite.isGameSprite) SpriteTemplate.addFrameFromLump(sprite.name, sprite);
+      SpriteTemplate.addFrameFromLump(sprite.name, sprite);
     });
     print("Sprite atlas count: ${imageAtlases.length}");
   }
@@ -338,6 +350,7 @@ class WadFile {
     
     while (true) {
       LumpInfo lump = header.lumpInfos[lumpIndex++];
+      print(lump.name);
       if (lump.name=="VERTEXES") level.vertices = WAD_Vertexes.parse(lump, lump.getByteData(data));
       if (lump.name=="LINEDEFS") level.linedefs = Linedef.parse(lump, lump.getByteData(data));
       if (lump.name=="SIDEDEFS") level.sidedefs = Sidedef.parse(lump, lump.getByteData(data));
@@ -346,7 +359,10 @@ class WadFile {
       if (lump.name=="SECTORS") level.sectors = Sector.parse(lump, lump.getByteData(data));
       if (lump.name=="THINGS") level.things = Thing.parse(lump, lump.getByteData(data));
       if (lump.name=="NODES") level.nodes = Node.parse(lump, lump.getByteData(data));
-      if (lump.name=="E1M2") break; // TODO: Check for end of level data in some good way instead.
+      if (lump.name=="BLOCKMAP") level.blockmap = new Blockmap.parse(lump, lump.getByteData(data));
+      
+      if (lump.name.length == 4 && lump.name.substring(0, 1)=="E" && lump.name.substring(2, 3)=="M") break;
+      if (lump.name.length == 5 && lump.name.substring(0, 3)=="MAP") break;
     }
     
     level.build(this);
@@ -364,6 +380,7 @@ class Level {
   List<Sector> sectors;
   List<Thing> things;
   List<Node> nodes;
+  Blockmap blockmap;
   
   BSP bsp;
   
@@ -514,9 +531,15 @@ class Level {
       }
     }
     
+    for (int i=0; i<linedefs.length; i++) {
+      linedefs[i].compile(this);
+    }
+    
     for (int i=0; i<segs.length; i++) {
       segs[i].compile(this);
     }
+    
+    blockmap.compile(this);
   }
 }
 
@@ -524,6 +547,76 @@ class Palette {
   List<int> r = new List<int>(256);
   List<int> g = new List<int>(256);
   List<int> b = new List<int>(256);
+}
+
+class BlockCell {
+  List<Entity> entities = new List<Entity>();
+}
+
+class Blockmap {
+  static const int ORIGINAL_BLOCKMAP_WIDTH = 128;
+  static const int BLOCKMAP_WIDTH = 128;
+  int x;
+  int y;
+  int width;
+  int height;
+  
+  List<BlockCell> blockCells;
+  
+  Blockmap.parse(LumpInfo lump, ByteData data) {
+    x = data.getInt16(0, Endianness.LITTLE_ENDIAN);
+    y = data.getInt16(2, Endianness.LITTLE_ENDIAN);
+    width = data.getInt16(4, Endianness.LITTLE_ENDIAN)*BLOCKMAP_WIDTH~/ORIGINAL_BLOCKMAP_WIDTH;
+    height = data.getInt16(6, Endianness.LITTLE_ENDIAN)*BLOCKMAP_WIDTH~/ORIGINAL_BLOCKMAP_WIDTH;
+    
+    blockCells = new List<BlockCell>(width*height);
+    for (int i=0; i<width*height; i++) {
+      BlockCell bc = blockCells[i] = new BlockCell();
+/*      int offset = data.getUint16(8+i*2, Endianness.LITTLE_ENDIAN)*2;
+      if (data.getInt16(offset, Endianness.LITTLE_ENDIAN)!=0) throw "Not a valid blockmap cell list";
+      int pp = 0;
+      while (true) {
+        int linedefId = data.getInt16(offset+(pp+1)*2, Endianness.LITTLE_ENDIAN);
+        if (linedefId==-1) break;
+        bc.linedefIds.add(linedefId);
+        pp++;
+      }*/
+    }
+  }
+  
+  void compile(Level level) {
+    for (int i=0; i<width*height; i++) {
+//      blockCells[i].compile(level);
+    }
+  }
+  
+  void getBlockCellsRadius(double x, double y, double radius, List<BlockCell> result) {
+    getBlockCells(x-radius, y-radius, x+radius, y+radius, result);
+  }
+  
+  BlockCell getBlockCell(double xp, double yp) {
+    int xc = (xp.floor()-x)~/BLOCKMAP_WIDTH;
+    int yc = (yp.floor()-y)~/BLOCKMAP_WIDTH;
+    if (xc<0 || yc<0 || xc>=width || yc>=height) return null;
+    return blockCells[xc+yc*width];
+  }
+
+  void getBlockCells(double x0, double y0, double x1, double y1, List<BlockCell> result) {
+    result.clear();
+    int xc0 = (x0.floor()-x)~/BLOCKMAP_WIDTH;
+    int yc0 = (y0.floor()-y)~/BLOCKMAP_WIDTH;
+    int xc1 = (x1.floor()-x)~/BLOCKMAP_WIDTH;
+    int yc1 = (y1.floor()-y)~/BLOCKMAP_WIDTH;
+    if (xc0<0) xc0 = 0;
+    if (yc0<0) yc0 = 0;
+    if (xc1>=width) xc1 = width-1;
+    if (yc1>=height) yc1 = height-1;
+    for (int y=yc0; y<=yc1; y++) {
+      for (int x=xc0; x<=xc1; x++) {
+        result.add(blockCells[x+y*width]);
+      }
+    }
+  }
 }
 
 class Node {
@@ -687,14 +780,14 @@ class Seg {
     xn = tangent.y;
     yn = -tangent.x;
 
-    brightness = 1.0-yn.abs()*0.2;
-
     d = x0*xn+y0*yn;
     sd = x0*xt+y0*yt;
 
+    brightness = 1.0-yn.abs()*0.2;
+
     linedef = level.linedefs[linedefId];
-    int frontSidedefId = direction==0?linedef.rightSidedef:linedef.leftSidedef;
-    int backSidedefId = direction!=0?linedef.rightSidedef:linedef.leftSidedef;
+    int frontSidedefId = direction==0?linedef.rightSidedefId:linedef.leftSidedefId;
+    int backSidedefId = direction!=0?linedef.rightSidedefId:linedef.leftSidedefId;
     sidedef = level.sidedefs[frontSidedefId];
     sector = level.sectors[sidedef.sector];
     if (backSidedefId!=-1) {
@@ -754,12 +847,21 @@ String readString(ByteData data, int offs, int length) {
 }
 
 class Linedef {
-  int fromVertex, toVertex;
+  int ldCheckCounterHackId;
+  int fromVertexId, toVertexId;
   int flags;
   int type;
   int tag;
-  int rightSidedef;
-  int leftSidedef;
+  int rightSidedefId;
+  int leftSidedefId;
+  
+  Vector2 fromVertex, toVertex;
+
+  Sidedef rightSidedef;
+  Sidedef leftSidedef;
+
+  Sector rightSector;
+  Sector leftSector;
   
   bool impassable;
   bool blockMonsters;
@@ -770,6 +872,16 @@ class Linedef {
   bool blockSound;
   bool notOnMap;
   bool alreadyOnMap;
+  
+  double x0, y0; // Start vertex
+  double x1, y1; // End vertex
+  
+  double xn, yn; // Normal
+  double xt, yt; // Tangent
+  double d; // Distance to line from origin
+  double sd; // Distance to line from origin.. sideways?
+  double length; // Length of the seg
+  
   
   void calcFlags() {
     impassable = (flags&0x0001)!=0;
@@ -788,17 +900,50 @@ class Linedef {
     List<Linedef> linedefs = new List<Linedef>(linedefCount);
     for (int i=0; i<linedefCount; i++) {
       Linedef linedef = linedefs[i] = new Linedef();
-      linedef.fromVertex = data.getInt16(i*14+0, Endianness.LITTLE_ENDIAN);
-      linedef.toVertex = data.getInt16(i*14+2, Endianness.LITTLE_ENDIAN);
+      linedef.fromVertexId = data.getInt16(i*14+0, Endianness.LITTLE_ENDIAN);
+      linedef.toVertexId = data.getInt16(i*14+2, Endianness.LITTLE_ENDIAN);
       linedef.flags = data.getInt16(i*14+4, Endianness.LITTLE_ENDIAN);
       linedef.type = data.getInt16(i*14+6, Endianness.LITTLE_ENDIAN);
       linedef.tag = data.getInt16(i*14+8, Endianness.LITTLE_ENDIAN);
-      linedef.rightSidedef = data.getInt16(i*14+10, Endianness.LITTLE_ENDIAN);
-      linedef.leftSidedef = data.getInt16(i*14+12, Endianness.LITTLE_ENDIAN);
+      linedef.rightSidedefId = data.getInt16(i*14+10, Endianness.LITTLE_ENDIAN);
+      linedef.leftSidedefId = data.getInt16(i*14+12, Endianness.LITTLE_ENDIAN);
       
       linedef.calcFlags();
     }
     return linedefs;
+  }
+  
+  void compile(Level level) {
+    fromVertex = level.vertices[fromVertexId];
+    toVertex = level.vertices[toVertexId];
+
+    rightSidedef = level.sidedefs[rightSidedefId];
+    rightSector = level.sectors[rightSidedef.sector];
+
+    if (leftSidedefId!=-1) {
+      leftSidedef = level.sidedefs[leftSidedefId];
+      leftSector = level.sectors[leftSidedef.sector];
+    }
+    
+    x0 = fromVertex.x;
+    y0 = fromVertex.y;
+    x1 = toVertex.x;
+    y1 = toVertex.y;
+    
+    double xd = x1-x0;
+    double yd = y1-y0;
+    
+    length = sqrt(xd*xd+yd*yd);
+    
+    Vector2 tangent = (toVertex-fromVertex).normalize();
+    xt = tangent.x;
+    yt = tangent.y;
+
+    xn = tangent.y;
+    yn = -tangent.x;
+    
+    d = x0*xn+y0*yn;
+    sd = x0*xt+y0*yt;    
   }
 }
 
@@ -847,7 +992,6 @@ class WAD_Playpal {
 
 class WAD_Image {
   static Random tuttiFruttiRandom = new Random(321334);
-  bool isGameSprite = false;
   String name;
   int width, height;
   int xCenter;
@@ -856,6 +1000,54 @@ class WAD_Image {
   Uint8List pixels;
   Uint8List pixelData;
   ImageAtlas imageAtlas;
+
+  /**
+   * Return true if the lump COULD be read as an image.
+   * It might contain nonsense.
+   */
+  static bool canBeRead(ByteData data, LumpInfo lump) {
+    if (lump.size<8) return false;
+    if (ABSOLUTELY_NOT_IMAGE_LUMPS.contains(lump.name)) return false;
+    
+    if (lump.name.startsWith("STCFN")) {
+      print("Maybe char? ${lump.name}");
+    }
+    
+    int w = data.getInt16(lump.filePos+0, Endianness.LITTLE_ENDIAN);
+    int h = data.getInt16(lump.filePos+2, Endianness.LITTLE_ENDIAN);
+    if (h>128) return false;
+    if (w<0 || h<0) return false;
+    if (lump.size<8+w*4){
+      if (lump.name.startsWith("STCFN")) print("no!");
+      return false;
+    }
+    for (int x=0; x<w; x++) {
+      int offs = data.getInt32(lump.filePos+8+x*4, Endianness.LITTLE_ENDIAN);
+      if (offs<0) return false;
+      if (offs>lump.size) {
+        if (lump.name.startsWith("STCFN")) print("no2!");
+        return false;
+      }
+      
+      int pos = lump.filePos+offs;
+      int maxPos = lump.filePos+lump.size;
+      
+      while (true) {
+        int rowStart = data.getUint8(pos++);
+        if (rowStart==255) break;
+        int count = data.getUint8(pos++);
+        pos+=count+2;
+        if (pos>=maxPos){
+          if (lump.name.startsWith("STCFN")) print("no3! $count");
+          return false;
+        }
+      }      
+    }
+    
+    if (lump.name.startsWith("STCFN")) print("YES!");
+
+    return true;
+  }
   
   WAD_Image.empty(this.name, this.width, this.height) {
     this.xCenter = 0;
@@ -1034,6 +1226,7 @@ class WAD_Header {
 class BSP {
   Level level;
   BSPNode root;
+  Culler culler = new Culler();
   
   BSP(this.level) {
     root = new BSPNode(level, level.nodes.last);
@@ -1044,7 +1237,7 @@ class BSP {
   }
   
   List<Seg> findSortedSegs(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
-    Culler culler = new Culler(modelViewMatrix, perspectiveMatrix);
+    culler.init(modelViewMatrix, perspectiveMatrix);
     Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
     List<Seg> result = new List<Seg>();
     root.findSortedSegs(culler, pos, result);
@@ -1057,8 +1250,8 @@ class BSP {
     return result;
   }
 
-  List<SubSector> findSubSectorsInRadius(Vector2 pos, double radius) {
-    List<SubSector> result = new List<SubSector>();
+  List<SubSector> findSubSectorsInRadius(Vector2 pos, double radius, List<SubSector> result) {
+    result.clear();
     root.findSubSectorsInRadius(pos, radius, result);
     return result;
   }
@@ -1071,11 +1264,12 @@ class SubSector {
   List<Vector2> segFrom;
   List<Vector2> segTo;
   List<Sector> backSectors;
+  List<Linedef> linedefs;
   
   SubSector(Level level, SSector sSector) {
     Seg seg = level.segs[sSector.segStart];
     Linedef linedef = level.linedefs[seg.linedefId];
-    Sidedef sidedef = level.sidedefs[seg.direction==0?linedef.rightSidedef:linedef.leftSidedef];
+    Sidedef sidedef = level.sidedefs[seg.direction==0?linedef.rightSidedefId:linedef.leftSidedefId];
     sector = level.sectors[sidedef.sector];
     
     segCount = sSector.segCount;
@@ -1085,18 +1279,32 @@ class SubSector {
     
     segs = new List<Seg>(segCount);
     
+    HashSet<Linedef> linedefSet = new HashSet<Linedef>();
     for (int i=0; i<sSector.segCount; i++) {
       Seg seg = level.segs[sSector.segStart+i];
       segFrom[i]=level.vertices[seg.startVertexId];
       segTo[i]=level.vertices[seg.endVertexId];
 
       Linedef linedef = level.linedefs[seg.linedefId];
-      int backSidedef = seg.direction!=0?linedef.rightSidedef:linedef.leftSidedef;
+      linedefSet.add(linedef);
+      int backSidedef = seg.direction!=0?linedef.rightSidedefId:linedef.leftSidedefId;
       if (backSidedef!=-1) {
         backSectors[i] = level.sectors[level.sidedefs[backSidedef].sector]; 
       }
       segs[i] = seg;
     }
+    
+    linedefs = new List<Linedef>.from(linedefSet);
+  }
+}
+
+class ClipRange {
+  double x0, x1;
+  
+  ClipRange(this.x0, this.x1);
+  void set(double x0, double x1) {
+    this.x0 = x0;
+    this.x1 = x1;
   }
 }
 
@@ -1107,9 +1315,11 @@ class Culler {
   double xc, yc; // Center
   
   double clip0 = -1.0, clip1 = 1.0;
-  List<Vector2> clipRanges = new List<Vector2>();
+  List<ClipRange> clipRanges = new List<ClipRange>();
+  int clipRangeCount = 0;
   
-  Culler(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
+  void init(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
+    clipRangeCount = 0;
     Matrix4 inversePerspective = new Matrix4.copy(perspectiveMatrix)..invert();
     double width = inversePerspective.transform3(new Vector3(1.0, 0.0, 0.0)).x;
     clip0 = width*2.0;
@@ -1176,9 +1386,9 @@ class Culler {
   bool rangeVisible(double x0, double x1) {
     if (x1<clip0 || x0>clip1) return false;
     
-    for (int i=0; i<clipRanges.length; i++) {
-      Vector2 cr = clipRanges[i];
-      if (x0>=cr.x && x1<=cr.y) return false; 
+    for (int i=0; i<clipRangeCount; i++) {
+      ClipRange cr = clipRanges[i];
+      if (x0>=cr.x0 && x1<=cr.x1) return false; 
     }
     return true;
   }
@@ -1186,20 +1396,25 @@ class Culler {
   void clipRegion(double x0, double x1) {
     x0-=0.001;
     x1+=0.001;
-    for (int i=0; i<clipRanges.length; i++) {
-      Vector2 cr = clipRanges[i];
-      if (cr.x>=x1 || cr.y<=x0) {
+    for (int i=0; i<clipRangeCount; i++) {
+      ClipRange cr = clipRanges[i];
+      if (cr.x0>=x1 || cr.x1<=x0) {
         // It's not inside this range
       } else {
         // Expand to include the other one, and remove it
-        if (cr.x<x0) x0 = cr.x;
-        if (cr.y>x1) x1 = cr.y;
-        clipRanges.removeAt(i--);
+        if (cr.x0<x0) x0 = cr.x0;
+        if (cr.x1>x1) x1 = cr.x1;
+        if (clipRangeCount-->1)
+          clipRanges[i--] = clipRanges[clipRangeCount];
       }
     }
     if (x0>clip0 && x1<clip1) {
       if (x1-x0>4.0/320) { // Only add a clip range if it's wider than these many original doom pixels
-        clipRanges.add(new Vector2(x0, x1));
+        if (clipRangeCount==clipRanges.length) {
+          print("Adding cliprange");
+          clipRanges.add(new ClipRange(x0, x1));
+        }
+        else clipRanges[clipRangeCount++].set(x0, x1);
       }
     } else {
       if (x0<=clip0 && x1>clip0) clip0=x1;

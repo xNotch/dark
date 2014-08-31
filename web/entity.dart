@@ -10,12 +10,21 @@ class PlayerSpawn {
 class Entity {
   Vector3 pos;
   double radius = 16.0;
+  double height = 56.0;
   double rot = 0.0;
   SpriteTemplate spriteTemplate;
   bool transparent = false;
   int animFrame = 0;
   bool hanging = false;
   bool blocking = false;
+  BlockCell blockCell;
+  
+  Entity(this.pos) {
+    blockCell = wadFile.level.blockmap.getBlockCell(pos.x, pos.z); 
+    if (blockCell!=null) {
+      blockCell.entities.add(this);
+    }
+  }
   
   void tick(double passedTime) {
   }
@@ -43,7 +52,7 @@ class AnimatedStationary extends Entity {
   int animStep = 0;
   double animAccum = 0.0;
   
-  AnimatedStationary(String templateName, String frames, Vector3 pos, double rot) {
+  AnimatedStationary(String templateName, String frames, Vector3 pos, double rot) : super(pos) {
     frames = frames.toUpperCase();
     this.frames = frames;
     spriteTemplate = spriteTemplates[templateName];
@@ -81,12 +90,23 @@ class Decoration extends AnimatedStationary {
   }
 }
 
+int ldCheckCounterHack = 0;
 class Mob extends Entity {
+  static List<BlockCell> tmpBlockCells = new List<BlockCell>();
+  static Set<Linedef> tmpLinedefs = new Set<Linedef>();
   Vector3 motion = new Vector3(0.0, 0.0, 0.0);
   double rotMotion = 0.9;
   double stepUp = 0.0;
   
+  bool collided = false;
+  
+  
+  Mob(Vector3 pos) : super(pos) {
+    blocking = true;
+  }
+  
   void move(double iX, double iY, double passedTime) {
+    collided = false;
     Vector3 oldPos = new Vector3.copy(pos);
     
     rot+=rotMotion*passedTime;
@@ -100,11 +120,48 @@ class Mob extends Entity {
     motion.z*=frictionXZ;
     motion.x+=(sin(rot)*iY-cos(rot)*iX)*passedTime*4000.0;
     motion.z+=(cos(rot)*iY+sin(rot)*iX)*passedTime*4000.0;
-    pos+=motion*passedTime;
-
+    
+    int steps = (motion.length/(radius/3.0)).floor()+1;
+    
     HashSet<Sector> sectorsInRange = new HashSet<Sector>();
-    List<SubSector> subSectorsInRange = wadFile.level.bsp.findSubSectorsInRadius(pos.xz, radius);
-    subSectorsInRange.forEach((ss)=>ss.segs.forEach((seg)=>clipMotion(seg, sectorsInRange)));
+    sectorsInRange.clear();
+    List<SubSector> subSectorsInRange = new List<SubSector>();
+    for (int i=0; i<steps; i++) {
+      ldCheckCounterHack++;
+      pos.x+=motion.x*(passedTime/steps);
+      pos.z+=motion.z*(passedTime/steps);
+
+      wadFile.level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+128.0, tmpBlockCells);
+      for (int i=0; i<tmpBlockCells.length; i++) {
+        BlockCell bc = tmpBlockCells[i];
+        for (int j=0; j<bc.entities.length; j++) {
+          Entity e = bc.entities[j];
+          if (e!=this && e.blocking) clipMotionEntity(e);
+        }
+      }
+
+      wadFile.level.bsp.findSubSectorsInRadius(pos.xz, radius, subSectorsInRange);
+      for (int i=0; i<subSectorsInRange.length; i++) {
+        SubSector ss = subSectorsInRange[i];
+        for (int j=0; j<ss.linedefs.length; j++) {
+          Linedef ld = ss.linedefs[j];
+          if (ld.ldCheckCounterHackId != ldCheckCounterHack) {
+            ld.ldCheckCounterHackId = ldCheckCounterHack;
+            clipMotion(ld, sectorsInRange);
+          }
+        }
+      }
+    }
+    
+    pos.y+=motion.y*(passedTime);
+
+
+    BlockCell newBlockCell = wadFile.level.blockmap.getBlockCell(pos.x, pos.z); 
+    if (blockCell!=newBlockCell) {
+      if (blockCell!=null) blockCell.entities.remove(this);
+      blockCell = newBlockCell;
+      if (blockCell!=null) blockCell.entities.add(this);
+    }
 
     int floorHeight = -10000000;
     sectorsInRange.add(wadFile.level.bsp.findSector(pos.xz));
@@ -125,7 +182,28 @@ class Mob extends Entity {
     if (stepUp>32.0) stepUp = 32.0;
   }
   
-  void clipMotion(Seg seg, HashSet<Sector> overlappedSectors) {
+  bool canEnterSector(Sector sector) {
+    if (sector.floorHeight>pos.y+24) return false;
+    if (sector.ceilingHeight-sector.floorHeight==0) return true;
+    if (sector.ceilingHeight-sector.floorHeight<height) return false;
+    return true;
+  }
+  
+  void clipMotionEntity(Entity e) {
+    double xd = pos.x-e.pos.x;
+    double yd = pos.z-e.pos.z;
+    double len2 = xd*xd+yd*yd;
+    double sRad = radius+e.radius;
+    if (len2>0.01 && len2<sRad*sRad) {
+      double len = sqrt(len2);
+      double toPushout = sRad-len;
+      pos.x+=xd/len*toPushout;
+      pos.z+=yd/len*toPushout;
+      collided = true;
+    }
+  }
+  
+  void clipMotion(Linedef seg, HashSet<Sector> overlappedSectors) {
     double xp = pos.x;
     double yp = pos.z;
 
@@ -134,24 +212,29 @@ class Mob extends Entity {
     bool intersect = false;
 
     double d = xp*seg.xn+yp*seg.yn - seg.d;
-    if (d>0.0 && d<=16.0) {
+    double mul = 1.0;
+    if (d>=-radius && d<=radius) {
+      if (d<0) {
+        d=-d;
+        mul = -1.0;
+      }
       double sd = xp*seg.xt+yp*seg.yt - seg.sd;
       if (sd>=0.0 && sd<=seg.length) {
         // Hit the center of the seg
         double toPushOut = radius-d+0.001;
-        xNudge=seg.xn*toPushOut;
-        yNudge=seg.yn*toPushOut;
+        xNudge=seg.xn*toPushOut*mul;
+        yNudge=seg.yn*toPushOut*mul;
         intersect = true;
-      } else if (sd>0.0) {
-        // Hit either corner of the seg
+      } else {
+        // Hit either corner of the linedef
         double xd, yd;
-  /*        if (sd<=seg.length/2.0) {
-            xd = xp-seg.x0;
-            yd = yp-seg.y0;
-          } else {*/
+        if (sd<=0.0) {
+          xd = xp-seg.x0;
+          yd = yp-seg.y0;
+        } else {
           xd = xp-seg.x1;
           yd = yp-seg.y1;
-//        }
+        }
 
         double distSqr = xd*xd+yd*yd;
         if (xd*xd+yd*yd<radius*radius) {
@@ -166,18 +249,19 @@ class Mob extends Entity {
 
     if (intersect) {
       bool collideWall = false;
-      if (seg.linedef.impassable || seg.backSector==null) {
+      if (seg.impassable || seg.leftSector==null) {
         collideWall = true;
-      } else if (seg.backSector.floorHeight>pos.y+24 || seg.sector.floorHeight>pos.y+24) {
+      } else if (!canEnterSector(seg.leftSector) || !canEnterSector(seg.rightSector)) {
         collideWall = true;
       }
 
       if (collideWall) {
+        collided = true;
         pos.x += xNudge;
         pos.z += yNudge;
-      } else {
-        overlappedSectors.add(seg.sector);
-        if (seg.backSector!=null) overlappedSectors.add(seg.backSector);
+      } else if (overlappedSectors!=null) {
+        overlappedSectors.add(seg.rightSector);
+        if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
       }
     }
   }
@@ -185,7 +269,7 @@ class Mob extends Entity {
 
 class Player extends Mob {
   double bobSpeed = 0.0, bobPhase = 0.0;
-  Player(PlayerSpawn playerSpawn) {
+  Player(PlayerSpawn playerSpawn) : super(playerSpawn.pos) {
     this.pos = playerSpawn.pos;
     this.rot = playerSpawn.rot;
     radius = 16.0;
@@ -201,7 +285,11 @@ class Player extends Mob {
 }
 
 class Monster extends Mob {
-  Monster(String templateName, Vector3 pos, double rot, [bool transparent = false]) {
+  double turnIn = 0.0;
+  double collideTime = 0.0;
+  double rota = 0.0;
+  
+  Monster(String templateName, Vector3 pos, double rot, [bool transparent = false]) : super(pos) {
     spriteTemplate = spriteTemplates[templateName];
     this.pos = pos;
     this.rot = rot;
@@ -210,7 +298,26 @@ class Monster extends Mob {
   }
   
   void tick(double passedTime) {
-    rot+=passedTime;
+    rot+=passedTime*rota;
     move(0.0, 1.0*0.2, passedTime);
+    
+    if (collided && collideTime<=0.0) {
+      collideTime = random.nextDouble()*0.1+0.1;
+      rota += (random.nextDouble()*4.0+2.0)*(random.nextInt(2)*2-1);
+    }
+
+    if (turnIn>0.0) {
+      turnIn-=passedTime;
+    }
+    
+    if (collideTime>0.0) {
+      collideTime-=passedTime;
+    } else {
+      rota*=pow(0.000001, passedTime);
+      if (turnIn<=0.0) {
+        turnIn = random.nextDouble()*2.0+0.5;
+        rota += (random.nextDouble()*30.0)*(random.nextInt(2)*2-1);
+      }
+    }
   }
 }

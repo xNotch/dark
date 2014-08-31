@@ -1,6 +1,6 @@
-precision highp float;
+precision mediump float;
 
-attribute vec3 a_pos;
+attribute vec4 a_pos;
 attribute vec2 a_texOffs;
 attribute float a_brightness;
 
@@ -15,9 +15,12 @@ varying float v_brightness;
 
 
 void main() {
-    vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0);
+    vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos.xyz, 1.0);
+    pos.xz*=a_pos.w;
+//    pos.y+=a_pos.w*10.0;
     v_pos = pos.xyz;
     v_uv = a_pos.xz*vec2(1.0, -1.0);
+//    v_uv = pos.xz*vec2(1.0, -1.0);
     v_texOffs = a_texOffs;
     v_brightness = a_brightness;
     vec4 projectedPos = u_projectionMatrix*pos;

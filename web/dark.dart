@@ -267,6 +267,15 @@ void start() {
 
   printToConsole("Setting up screen renderer");
   screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffers[0].texture, colorLookupTexture);
+  
+  
+  printToConsole("Setting up font");
+  for (int i=0; i<256; i++) {
+    String code = i.toString();
+    while (code.length<3) code = "0"+code;
+    WAD_Image image = wadFile.spriteMap["STCFN"+code];
+    fontChars[i] = image;
+  }
 
   WAD_Image skyImage = new WAD_Image.empty("_sky_", 1024, 128);
   WAD_Image sky = patchMap["SKY1"];
@@ -369,7 +378,8 @@ void renderGame() {
 
   gl.depthFunc(GL.ALWAYS);
   gl.colorMask(false, false, false, false);
-  floors.renderBackWallHack(visibleSegs, cameraPos);
+  // TODO: Fix the floor hack!
+//  floors.renderBackWallHack(visibleSegs, cameraPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
 
@@ -420,16 +430,29 @@ void addGuiSprite(int x, int y, String imageName) {
   guiSprites[image.imageAtlas.texture].insertGuiSprite(x, y, guiSpriteCount++, image);
 }
 
+List<WAD_Image> fontChars = new List<WAD_Image>(256);
+
+void addGuiText(int x, int y, String text) {
+  for (int i=0; i<text.length; i++) {
+    int u = text.codeUnitAt(i)&255;
+    WAD_Image image = fontChars[u];
+    if (image!=null) {
+      guiSprites[image.imageAtlas.texture].insertGuiSprite(x+i*8, y, guiSpriteCount, image);
+    }
+  }
+  guiSpriteCount++;
+}
+
 int guiSpriteCount = 0;
 void renderGui() {
   gl.disable(GL.DEPTH_TEST);
-  double ww = screenWidth*200.0/screenHeight;
+  int ww = screenWidth*200~/screenHeight;
   if (!GAME_ORIGINAL_RESOLUTION && GAME_ORIGINAL_PIXEL_ASPECT_RATIO) {
-    ww=ww*240/200;
+    ww=ww*240~/200;
   }
-  double margin = ww-320;
-  double x0 = 0.0-margin/2.0;
-  double x1 = ww-margin/2.0;
+  int margin = ww-320;
+  double x0 = 0.0-margin~/2;
+  double x1 = 0.0+ww-margin~/2;
   projectionMatrix = makeOrthographicMatrix(x0, x1, 200.0, 0.0, -10.0, 10.0);
   viewMatrix = new Matrix4.identity();
   
@@ -437,6 +460,9 @@ void renderGui() {
   int x = (sin(player.bobPhase/2.0)*player.bobSpeed*20.5).round();
   int y = (cos(player.bobPhase/2.0)*player.bobSpeed*10.5).abs().round();
   addGuiSprite(x, 32+y, "SHTGA0");
+  addGuiText(0, 0, "FPS: ${(1.0/lastFrameSeconds).toStringAsPrecision(4)}");
+  addGuiText(0, 8, "MS: ${(lastFrameLogicSeconds*1000).toStringAsPrecision(4)}");
+  addGuiText(0, 16, "MAX FPS: ${(1.0/lastFrameLogicSeconds).toStringAsPrecision(4)}");
   
   
   gl.enable(GL.BLEND);
@@ -475,6 +501,8 @@ void updateAnimations(double passedTime) {
 }
 
 double lastTime = -1.0;
+double lastFrameSeconds = 0.0;
+double lastFrameLogicSeconds = 0.0;
 void render(double time) {
   int error = gl.getError();
   if (error!=0) {
@@ -485,12 +513,18 @@ void render(double time) {
 
   if (lastTime==-1.0) lastTime = time;
   double passedTime = (time-lastTime)/1000.0; // in seconds
+  lastFrameSeconds = passedTime;
   lastTime = time;
 
+  int before = new DateTime.now().millisecondsSinceEpoch;
   updateAnimations(passedTime);
 
   updateGameLogic(passedTime);
   renderGame();
   renderGui();
   blitScreen();
+  
+  int after = new DateTime.now().millisecondsSinceEpoch;
+  lastFrameLogicSeconds = lastFrameLogicSeconds+((after-before)/1000.0-lastFrameLogicSeconds)*0.2;
+  
 }
