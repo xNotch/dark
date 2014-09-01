@@ -177,7 +177,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M7");
+  loadLevel("E3M6");
 }
 
 void loadLevel(String levelName) {
@@ -669,8 +669,7 @@ void updateAnimations(double passedTime) {
   textureScrollOffset = scrollAccum.floor();
   transparentNoiseTime = (scrollAccum.floor())&511;
   indexColorBufferId = (indexColorBufferId+1)%3;
-//  FlatAnimation.animateAll(passedTime);
-  //WallAnimation.animateAll(passedTime);
+  WallAnimation.animateAll(passedTime);
   
   soundTime-=passedTime;
   if (soundTime<0.0) {

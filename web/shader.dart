@@ -35,15 +35,6 @@ class Shader {
         }
       }).catchError((e)=>completer.completeError(e));
     }).catchError((e)=>completer.completeError(e));
-    
-/*    print("Trying to load $shaderRootUrl");
-    loadString(shaderRootUrl+".vertex.glsl", (vertexString) {
-      loadString(shaderRootUrl+".fragment.glsl", (fragmentString) {
-        create(vertexString, fragmentString);
-        onLoad();
-      }, onFail);
-    }, onFail);*/
-    
     return completer.future;
   }
 

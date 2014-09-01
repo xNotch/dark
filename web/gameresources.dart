@@ -2,12 +2,48 @@ part of Dark;
 
 Renderers renderers = new Renderers();
 
+class WallAnimation {
+  List<String> wallNames;
+  List<Image> images;
+
+  int frame = 0;
+  int size = 0;
+  
+  Map<String, Image> mapToAnimate;
+
+  WallAnimation(WAD.Animation data, this.mapToAnimate) {
+    wallNames = new List<String>.from(data.flatNames, growable: false);
+    images = new List<Image>.from(wallNames.map((name)=>mapToAnimate[name]));
+    size = images.length;
+  }
+
+  void animate(int frames) {
+    if (size==0) return;
+    frame = (frame+frames)%size;
+
+    for (int i=0; i<size; i++) {
+      mapToAnimate[wallNames[i]] = images[(i+frame)%size];
+    }
+  }
+
+  static double timeAccum = 0.0;
+  static void animateAll(double passedTime) {
+    timeAccum += passedTime/(8/35); // Original doom was 35 fps, with 8 frames per flat change
+    if (timeAccum >= 1.0) {
+      int frames = timeAccum.floor();
+      timeAccum-=frames;
+      renderers.wallAnimations.forEach((anim)=>anim.animate(frames));
+    }
+  }
+}
+
 class Renderers {
   HashMap<GL.Texture, Sprites> guiSprites = new HashMap<GL.Texture, Sprites>();
   HashMap<GL.Texture, Sprites> spriteMaps = new HashMap<GL.Texture, Sprites>();
   HashMap<GL.Texture, Sprites> transparentSpriteMaps = new HashMap<GL.Texture, Sprites>();
   HashMap<GL.Texture, Walls> walls = new HashMap<GL.Texture, Walls>();
   HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
+  List<WallAnimation> wallAnimations = new List<WallAnimation>();
   Floors floors;
   
   void addSpriteMap(GL.Texture texture) {
@@ -61,6 +97,13 @@ class Renderers {
       while (code.length<3) code = "0"+code;
       fontChars[i] = resources.sprites["STCFN"+code];
     }
+    
+    resources.wadFile.wallAnimations.forEach((anim) {
+      wallAnimations.add(new WallAnimation(anim, resources.wallTextures));    
+    });
+    resources.wadFile.flatAnimations.forEach((anim) {
+      wallAnimations.add(new WallAnimation(anim, resources.flats));    
+    });
   }
 }
 

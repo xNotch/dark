@@ -137,32 +137,6 @@ class Sprites {
     gl.drawElements(GL.TRIANGLES, spriteCount*6, GL.UNSIGNED_SHORT, 0);
   }
 }
-/*
-class Sprite {
-  Sector sector;
-  Vector3 pos;
-  SpriteTemplate spriteTemplate;
-  double rot;
-  bool transparent;
-  
-  Sprite(this.sector, this.pos, this.rot, this.spriteTemplate) {
-    transparent = random.nextInt(5)==0;
-  }
-  
-  void addToDisplayList(double playerRot) {
-    double rotDiff = rot - playerRot+PI;
-    int rotFrame = (rotDiff * 8 / (PI * 2) + 0.5).floor() & 7;
-    SpriteTemplateFrame stf = spriteTemplate.frames[0];
-    if (stf.rots.length == 1) rotFrame = 0;
-    SpriteTemplateRot str = stf.rots[rotFrame];
-
-    if (transparent) {
-      transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
-    } else {
-      spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
-    }
-  }
-}*/
 
 HashMap<String, SpriteTemplate> spriteTemplates = new HashMap<String, SpriteTemplate>();
 
