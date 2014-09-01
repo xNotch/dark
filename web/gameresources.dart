@@ -29,12 +29,12 @@ class Renderers {
   }
 
 
-  void addMiddleTransparentWall(Image image, InsertWallFunction wallBuilderFunc) {
-    transparentMiddleWalls[image.texture].insertWall(wallBuilderFunc);
+  void addMiddleTransparentWall(GL.Texture texture, InsertWallFunction wallBuilderFunc) {
+    transparentMiddleWalls[texture].insertWall(wallBuilderFunc);
   }
   
-  void addWall(Image image, InsertWallFunction wallBuilderFunc) {
-    walls[image.texture].insertWall(wallBuilderFunc);
+  void addWall(GL.Texture texture, InsertWallFunction wallBuilderFunc) {
+    walls[texture].insertWall(wallBuilderFunc);
   }
   
   void addGuiSprite(int x, int y, String imageName) {
@@ -66,7 +66,7 @@ class Renderers {
 
 
 class GameResources {
-  HashMap<String, AudioBuffer> sampleMap = new HashMap<String, AudioBuffer>();
+  HashMap<String, AudioBuffer> samples = new HashMap<String, AudioBuffer>();
   HashMap<String, Image> wallTextures, flats, sprites;
   WAD.WadFile wadFile;
   
@@ -86,6 +86,11 @@ class GameResources {
     wallTextures = loadImagesIntoTextureAtlases(wadFile.wallTextures, renderers.addWallMap);
     flats = loadImagesIntoTextureAtlases(wadFile.flats, renderers.setFlatMap);
     sprites = loadImagesIntoTextureAtlases(wadFile.sprites, renderers.addSpriteMap);
+    
+    sprites.values.forEach((sprite) {
+      SpriteTemplate.addFrameFromLump(sprite.name, sprite);
+    });
+
     sprites.addAll(loadImagesIntoTextureAtlases(wadFile.images, renderers.addSpriteMap));
   }
   
@@ -118,14 +123,14 @@ class GameResources {
       if (sample==null) {
         printToConsole("$name is not a sample!");
         AudioBuffer audioBuffer = audioContext.createBuffer(1, 1000, 11000);
-        sampleMap[name] = audioBuffer;
+        samples[name] = audioBuffer;
       } else {
         AudioBuffer audioBuffer = audioContext.createBuffer(1,  sample.sampleCount, sample.rate);
         Float32List bufferData = audioBuffer.getChannelData(0);
         for (int i=0; i<sample.sampleCount; i++) {
           bufferData[i] = (sample.samples[i]/255.0)*2.0-1.0;
         }
-        sampleMap[name] = audioBuffer;
+        samples[name] = audioBuffer;
       }
     });
   }

@@ -103,6 +103,8 @@ class ImageAtlasCell {
 }
 
 class Image {
+  String name;
+  
   int xCenter, yCenter;
   int width, height;
   Uint8List pixelData;
@@ -112,6 +114,7 @@ class Image {
   int xAtlasPos, yAtlasPos; 
   
   Image.fromWadImage(WAD.Image image) {
+    this.name = image.name;
     width = image.width;
     height = image.height;
     xCenter = image.xCenter;
@@ -141,11 +144,22 @@ class Image {
     }
   }
   
-  GL.Texture createTexture(WAD.Palette palette) {
+  static GL.Texture createTexture(WAD.Image image, WAD.Palette palette) {
     GL.Texture texture = gl.createTexture();
     
+    Uint8List pixelData = new Uint8List(image.width*image.height*4);
+    for (int i=0; i<image.width*image.height; i++) {
+      int pixel = image.pixels[i];
+      if (pixel>=0) {
+        pixelData[i*4+0] = pixel%16*8+4;
+        pixelData[i*4+1] = pixel~/16*8+4+128;
+        pixelData[i*4+2] = 255;
+        pixelData[i*4+3] = 255;
+      }
+    }    
+    
     gl.bindTexture(GL.TEXTURE_2D, texture);
-    gl.texImage2DTyped(GL.TEXTURE_2D, 0, GL.RGBA, width, height, 0, GL.RGBA, GL.UNSIGNED_BYTE, pixelData);
+    gl.texImage2DTyped(GL.TEXTURE_2D, 0, GL.RGBA, image.width, image.height, 0, GL.RGBA, GL.UNSIGNED_BYTE, pixelData);
     gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MIN_FILTER, GL.NEAREST);
     gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
     

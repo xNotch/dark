@@ -318,8 +318,8 @@ class Blockmap {
   Blockmap.read(LumpInfo lump, WadByteData data) {
     x = data.getInt16(0);
     y = data.getInt16(2);
-    width = data.getInt16(4) ~/ 128;
-    height = data.getInt16(6) ~/ 128;
+    width = data.getInt16(4);
+    height = data.getInt16(6);
 
     blockCells = new List<BlockCell>(width * height);
     for (int i = 0; i < width * height; i++) {
@@ -551,6 +551,9 @@ class Linedef {
   Sidedef rightSidedef;
   Sidedef leftSidedef;
 
+  int leftSectorId = -1;
+  int rightSectorId = -1;
+  
   Sector rightSector;
   Sector leftSector;
 
@@ -599,11 +602,13 @@ class Linedef {
     toVertex = level.vertices[toVertexId];
 
     rightSidedef = level.sidedefs[rightSidedefId];
+    rightSectorId = rightSidedef.sectorId;
     rightSector = level.sectors[rightSidedef.sectorId];
 
     if (leftSidedefId != -1) {
       leftSidedef = level.sidedefs[leftSidedefId];
-      leftSector = level.sectors[leftSidedef.sectorId];
+      leftSectorId = leftSidedef.sectorId;
+      leftSector = level.sectors[leftSectorId];
     }
   }
 }

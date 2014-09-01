@@ -66,7 +66,7 @@ class Sprites {
   }
   
   void insertSprite(Sector sector, Vector3 p, SpriteTemplateRot str) {
-    double br = sector.lightLevel/255.0;
+    double br = sector.lightLevel;
     if (invulnerable) br = 1.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [

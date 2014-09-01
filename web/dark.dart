@@ -177,7 +177,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M1");
+  loadLevel("E1M7");
 }
 
 void loadLevel(String levelName) {
@@ -397,7 +397,7 @@ GameResources resources;
 void playSound(Vector3 pos, String soundName) {
   if (pos!=null && pos.distanceToSquared(player.pos)>1200*1200) return;
   SoundChannel soundChannel = new SoundChannel();
-  soundChannel.play(pos, resources.sampleMap[soundName]);
+  soundChannel.play(pos, resources.samples["DS$soundName"]);
   soundChannels.add(soundChannel);
 }
 
@@ -465,7 +465,7 @@ void start(Level _level) {
   for (int i=0; i<1024; i+=sky.width) {
     skyImage.draw(sky, i, 0, true);
   }
-  skyTexture = new Image.fromWadImage(skyImage).createTexture(resources.wadFile.palette.palettes[0]);
+  skyTexture = Image.createTexture(skyImage, resources.wadFile.palette.palettes[0]);
 
   skyRenderer = new SkyRenderer(skyShader, skyTexture);
 

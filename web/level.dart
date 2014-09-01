@@ -64,6 +64,7 @@ class Level {
   
   List<Sector> sectors;
   List<Segment> segments;
+  List<Sidedef> sidedefs;
   List<SubSector> subSectors;
   List<Wall> walls;
   BSP bsp;
@@ -76,6 +77,7 @@ class Level {
   Level(this.levelData) {
     sectors = new List<Sector>(levelData.sectors.length);
     walls = new List<Wall>(levelData.linedefs.length);
+    sidedefs = new List<Sidedef>(levelData.sidedefs.length);
     subSectors = new List<SubSector>(levelData.sSectors.length);
     segments = new List<Segment>(levelData.segs.length);
     
@@ -84,6 +86,9 @@ class Level {
     }
     for (int i=0; i<walls.length; i++) {
       walls[i] = new Wall(this, levelData.linedefs[i]);
+    }
+    for (int i=0; i<sidedefs.length; i++) {
+      sidedefs[i] = new Sidedef(this, levelData.sidedefs[i]);
     }
     for (int i=0; i<segments.length; i++) {
       segments[i] = new Segment(this, levelData.segs[i]);
@@ -247,11 +252,15 @@ class Level {
 class Segment {
   WAD.Seg data;
   
+  Vector2 startVertex, endVertex;
   double x0, y0;
   double x1, y1;
   Sector sector;
   Sector backSector;
+  Sidedef sidedef;
   Wall wall;
+  double offset;
+  double length;
   
   Segment(Level level, this.data) {
     this.x0 = data.startVertex.x+0.0;
@@ -259,7 +268,14 @@ class Segment {
     this.x1 = data.endVertex.x+0.0;
     this.y1 = data.endVertex.y+0.0;
     
+    startVertex = new Vector2(x0, y0);
+    endVertex = new Vector2(x1, y1);
+    
+    offset = data.offset+0.0;
+    length = startVertex.distanceTo(endVertex).floorToDouble();
+    
     wall = level.walls[data.linedefId];
+    sidedef = level.sidedefs[data.frontSidedefId];
     
     sector = level.sectors[data.sidedef.sectorId];
     if (data.backSidedef != null) {
@@ -268,7 +284,7 @@ class Segment {
   }
   
   void renderWalls() {
-    
+    WallRenderer.addWallsForSeg(this);
   }
 }
 
@@ -276,7 +292,56 @@ class Wall {
   int checkCounterHack;
   WAD.Linedef data;
   
+  Sector leftSector;
+  Sector rightSector;
+  
+  Vector2 startVertex, endVertex;
+
+  double x0, y0, x1, y1;
+  double xn, yn, xt, yt;
+  double d, sd;
+  double length;
+  
   Wall(Level level, this.data) {
+    if (data.leftSectorId!=-1) leftSector = level.sectors[data.leftSectorId];
+    if (data.rightSectorId!=-1) rightSector = level.sectors[data.rightSectorId];
+
+    startVertex = new Vector2(data.fromVertex.x+0.0, data.fromVertex.y+0.0);
+    endVertex = new Vector2(data.toVertex.x+0.0, data.toVertex.y+0.0);
+    x0 = startVertex.x;
+    y0 = startVertex.y;
+    x1 = endVertex.x;
+    y1 = endVertex.y;
+    
+    double xd = x1-x0;
+    double yd = y1-y0;
+    
+    length = sqrt(xd*xd+yd*yd);
+    
+    Vector2 tangent = (endVertex-startVertex).normalize();
+    xt = tangent.x;
+    yt = tangent.y;
+
+    xn = tangent.y;
+    yn = -tangent.x;
+
+    d = x0*xn+y0*yn;
+    sd = x0*xt+y0*yt;    
+  }
+}
+
+class Sidedef {
+  WAD.Sidedef data;
+  
+  String middleTexture, upperTexture, lowerTexture;
+  double xTextureOffs, yTextureOffs;
+  
+  Sidedef(Level level, this.data) {
+    middleTexture = data.middleTexture; 
+    upperTexture = data.upperTexture; 
+    lowerTexture = data.lowerTexture; 
+    xTextureOffs = data.xTextureOffs+0.0;
+    yTextureOffs = data.yTextureOffs+0.0;
   }
 }
 
@@ -292,7 +357,7 @@ class Sector {
     ceilingHeight = data.ceilingHeight+0.0;
     floorTexture = data.floorTexture;
     ceilingTexture = data.ceilingTexture;
-    lightLevel = data.lightLevel+0.0;
+    lightLevel = data.lightLevel/255.0;
   }
 }
 
@@ -318,7 +383,7 @@ class SubSector {
     HashSet<Wall> wallSet = new HashSet<Wall>();
     for (int i = 0; i < sSector.segCount; i++) {
       Segment segment = level.segments[sSector.segStart + i];
-      wallSet.add(level.walls[seg.linedefId]);
+      wallSet.add(segment.wall);
       int backSidedef = seg.direction != 0 ? linedef.rightSidedefId : linedef.leftSidedefId;
       if (backSidedef != -1) {
         backSectors[i] = level.sectors[levelData.sidedefs[backSidedef].sectorId];

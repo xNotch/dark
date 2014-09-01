@@ -132,7 +132,7 @@ class Mob extends Entity {
       pos.x+=motion.x*(passedTime/steps);
       pos.z+=motion.z*(passedTime/steps);
 
-      level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+128.0, tmpBlockCells);
+      level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+64.0, tmpBlockCells);
       for (int i=0; i<tmpBlockCells.length; i++) {
         BlockCell bc = tmpBlockCells[i];
         for (int j=0; j<bc.entities.length; j++) {
@@ -163,6 +163,7 @@ class Mob extends Entity {
       blockCell = newBlockCell;
       if (blockCell!=null) blockCell.entities.add(this);
     }
+
 
     double floorHeight = -10000000.0;
     sectorsInRange.add(level.bsp.findSector(pos.xz));
@@ -205,7 +206,7 @@ class Mob extends Entity {
   }
   
   void clipMotion(Wall seg, HashSet<Sector> overlappedSectors) {
-/*  double xp = pos.x;
+    double xp = pos.x;
     double yp = pos.z;
 
     double xNudge = 0.0;
@@ -250,7 +251,7 @@ class Mob extends Entity {
 
     if (intersect) {
       bool collideWall = false;
-      if (seg.impassable || seg.leftSector==null) {
+      if (seg.data.impassable || seg.leftSector==null) {
         collideWall = true;
       } else if (!canEnterSector(seg.leftSector) || !canEnterSector(seg.rightSector)) {
         collideWall = true;
@@ -264,7 +265,7 @@ class Mob extends Entity {
         overlappedSectors.add(seg.rightSector);
         if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
       }
-    }*/
+    }
   }
 }
 

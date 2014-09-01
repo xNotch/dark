@@ -443,140 +443,147 @@ const int WALL_TYPE_UPPER = 1;
 const int WALL_TYPE_LOWER = 2;
 const int WALL_TYPE_MIDDLE_TRANSPARENT = 3;
 
-/*class Wall {
-  WAD_Image textureImage;
+class WallRenderer {
+/*  Image textureImage;
   GL.Texture texture;
-  Seg seg;
+  Segment seg;
   Sidedef sidedef;
-  Linedef linedef;
+  Wall linedef;
   Sector frontSector, backSector;
   Vector2 v0, v1; // Vertices
-  int type;
+  int type;*/
 
   //  Float32List data = new Float32List(Sprites.FLOATS_PER_VERTEX*4);
 
-  Wall(this.seg, this.type) {
-    linedef = seg.linedef;
-    sidedef = seg.sidedef;
-    frontSector = seg.sector;
-    backSector = seg.backSector;
-    v0 = seg.startVertex;
-    v1 = seg.endVertex;
+  static void render(Segment seg, int type) {
+    Wall linedef = seg.wall;
+    Sidedef sidedef = seg.sidedef;
+    Sector frontSector = seg.sector;
+    Sector backSector = seg.backSector;
+    Vector2 v0 = seg.startVertex;
+    Vector2 v1 = seg.endVertex;
 
     String textureName;
+    GL.Texture texture;
 
     if (type == WALL_TYPE_MIDDLE) textureName = sidedef.middleTexture;
     if (type == WALL_TYPE_MIDDLE_TRANSPARENT) textureName = sidedef.middleTexture;
     if (type == WALL_TYPE_UPPER) textureName = sidedef.upperTexture;
     if (type == WALL_TYPE_LOWER) textureName = sidedef.lowerTexture;
 
-    textureImage = wallTextureMap[textureName];
+    Image textureImage = resources.wallTextures[textureName];
     if (textureImage != null) texture = textureImage.imageAtlas.texture;
-  }
-
-  bool set(Float32List data, int offset) {
-    int floor, ceiling;
-    if (type == WALL_TYPE_MIDDLE || type == WALL_TYPE_MIDDLE_TRANSPARENT) {
-      floor = frontSector.floorHeight;
-      ceiling = frontSector.ceilingHeight;
-      if (backSector!=null) {
-        if (backSector.floorHeight>floor) floor = backSector.floorHeight;
-        if (backSector.ceilingHeight<ceiling) ceiling = backSector.ceilingHeight;
+    if (texture==null) return;
+    
+    InsertWallFunction iwf = (Float32List data, int offset) {
+      double floor, ceiling;
+      if (type == WALL_TYPE_MIDDLE || type == WALL_TYPE_MIDDLE_TRANSPARENT) {
+        floor = frontSector.floorHeight;
+        ceiling = frontSector.ceilingHeight;
+        if (backSector!=null) {
+          if (backSector.floorHeight>floor) floor = backSector.floorHeight;
+          if (backSector.ceilingHeight<ceiling) ceiling = backSector.ceilingHeight;
+        }
       }
-    }
-    if (type == WALL_TYPE_UPPER) {
-      floor = backSector.ceilingHeight;
-      ceiling = frontSector.ceilingHeight;
-    }
-    if (type == WALL_TYPE_LOWER) {
-      floor = frontSector.floorHeight;
-      ceiling = backSector.floorHeight;
-    }
-    if (floor >= ceiling) return false;
-
-    double texPosOffset = seg.offset+0.0;
-    if (seg.linedef.type == 0x30) { // Special type for scrolling textures
-      texPosOffset += textureScrollOffset%textureImage.width;
-    }
-
-    double texCoordx0 = texPosOffset + sidedef.xTextureOffs + 0.0;
-    double texCoordx1 = texCoordx0 + v1.distanceTo(v0);
-    double texCoordy0;
-    double texCoordy1;
-
-    // Check if the texture is pegged up or down
-    bool pegTextureDown = false;
-    if (type == WALL_TYPE_UPPER) {
-      if (!linedef.upperUnpegged) pegTextureDown = true;
-    } else {
-      if (linedef.lowerUnpegged) pegTextureDown = true;
-    }
-
-    if (type == WALL_TYPE_MIDDLE_TRANSPARENT) {
-      // Middle transparent walls are only rendered one patch high
-      int newFloor, newCeiling;
-      texCoordy0 = 0.0;
-      texCoordy1 = textureImage.height + 0.0;
-      if (pegTextureDown) {
-        newFloor = floor + sidedef.yTextureOffs;
-        newCeiling = newFloor + textureImage.height;
-      } else {
-        newCeiling = ceiling + sidedef.yTextureOffs;
-        newFloor = newCeiling - textureImage.height;
+      if (type == WALL_TYPE_UPPER) {
+        floor = backSector.ceilingHeight;
+        ceiling = frontSector.ceilingHeight;
       }
-
-      // Clamp within the sector height
-      if (newCeiling > ceiling) {
-        texCoordy0 += newCeiling - ceiling;
-        newCeiling = ceiling;
-      }
-      if (newFloor < floor) {
-        texCoordy1 += newFloor - floor;
-        newFloor = floor;
-      }
-      floor = newFloor;
-      ceiling = newCeiling;
-    } else if (pegTextureDown) {
-      // Textures pegged down have lower texture edge along bottom of sector
-      texCoordy1 = sidedef.yTextureOffs + textureImage.height + 0.0;
       if (type == WALL_TYPE_LOWER) {
-        // Except lower textures that have a special case for some reason
-        texCoordy1 = sidedef.yTextureOffs + (frontSector.ceilingHeight - frontSector.floorHeight) - textureImage.height + 0.0;
+        floor = frontSector.floorHeight;
+        ceiling = backSector.floorHeight;
       }
-      texCoordy0 = texCoordy1 - (ceiling - floor) + 0.0;
+      if (floor >= ceiling) return false;
+  
+      double texPosOffset = seg.offset+0.0;
+      if (seg.wall.data.type == 0x30) { // Special type for scrolling textures
+        texPosOffset += textureScrollOffset%textureImage.width;
+      }
+  
+      double texCoordx0 = texPosOffset + sidedef.xTextureOffs;
+      double texCoordx1 = texCoordx0 + seg.length;
+      double texCoordy0;
+      double texCoordy1;
+  
+      // Check if the texture is pegged up or down
+      bool pegTextureDown = false;
+      if (type == WALL_TYPE_UPPER) {
+        if (!linedef.data.upperUnpegged) pegTextureDown = true;
+      } else {
+        if (linedef.data.lowerUnpegged) pegTextureDown = true;
+      }
+  
+      if (type == WALL_TYPE_MIDDLE_TRANSPARENT) {
+        // Middle transparent walls are only rendered one patch high
+        double newFloor, newCeiling;
+        texCoordy0 = 0.0;
+        texCoordy1 = textureImage.height + 0.0;
+        if (pegTextureDown) {
+          newFloor = floor + sidedef.yTextureOffs;
+          newCeiling = newFloor + textureImage.height;
+        } else {
+          newCeiling = ceiling + sidedef.yTextureOffs;
+          newFloor = newCeiling - textureImage.height;
+        }
+  
+        // Clamp within the sector height
+        if (newCeiling > ceiling) {
+          texCoordy0 += newCeiling - ceiling;
+          newCeiling = ceiling;
+        }
+        if (newFloor < floor) {
+          texCoordy1 += newFloor - floor;
+          newFloor = floor;
+        }
+        floor = newFloor;
+        ceiling = newCeiling;
+      } else if (pegTextureDown) {
+        // Textures pegged down have lower texture edge along bottom of sector
+        texCoordy1 = sidedef.yTextureOffs + textureImage.height + 0.0;
+        if (type == WALL_TYPE_LOWER) {
+          // Except lower textures that have a special case for some reason
+          texCoordy1 = sidedef.yTextureOffs + (frontSector.ceilingHeight - frontSector.floorHeight) - textureImage.height + 0.0;
+        }
+        texCoordy0 = texCoordy1 - (ceiling - floor) + 0.0;
+      } else {
+        // Textures pegged up have upper texture edge along top of sector
+        texCoordy0 = sidedef.yTextureOffs + 0.0;
+        texCoordy1 = texCoordy0 + (ceiling - floor) + 0.0;
+      }
+  
+      double texCoordxOffs = textureImage.xAtlasPos.toDouble();
+      double texCoordyOffs = textureImage.yAtlasPos.toDouble();
+      double texWidth = textureImage.width.toDouble();
+      double br = frontSector.lightLevel; //*seg.brightness; // TODO: Add this again
+      if (invulnerable) br = 1.0;
+  
+      data.setAll(offset, [v1.x, ceiling.toDouble(), v1.y, texCoordx1, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, ceiling.toDouble(), v0.y, texCoordx0, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, floor.toDouble(), v0.y, texCoordx0, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br, v1.x, floor.toDouble(), v1.y, texCoordx1, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br,]);
+      return true;
+    };
+
+    if (type==WALL_TYPE_MIDDLE_TRANSPARENT) {
+      renderers.addWall(texture, iwf);
     } else {
-      // Textures pegged up have upper texture edge along top of sector
-      texCoordy0 = sidedef.yTextureOffs + 0.0;
-      texCoordy1 = texCoordy0 + (ceiling - floor) + 0.0;
+      renderers.addMiddleTransparentWall(texture, iwf);
     }
-
-    double texCoordxOffs = textureImage.xAtlasPos.toDouble();
-    double texCoordyOffs = textureImage.yAtlasPos.toDouble();
-    double texWidth = textureImage.width.toDouble();
-    double br = frontSector.lightLevel / 255.0*seg.brightness;
-    if (invulnerable) br = 1.0;
-
-    data.setAll(offset, [v1.x, ceiling.toDouble(), v1.y, texCoordx1, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, ceiling.toDouble(), v0.y, texCoordx0, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, floor.toDouble(), v0.y, texCoordx0, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br, v1.x, floor.toDouble(), v1.y, texCoordx1, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br,]);
-    return true;
   }
 
   static void addWallsForSubSector(SubSector subSector) {
-    subSector.segs.forEach((seg) => Wall.addWallsForSeg(seg));
+    subSector.segs.forEach((seg) => WallRenderer.addWallsForSeg(seg));
   }
 
-  static void addWallsForSeg(Seg seg) {
-    Level level = wadFile.level;
+  static void addWallsForSeg(Segment seg) {
+//    Level level = wadFile.level;
 
-    if (!seg.linedef.twoSided) {
-      addWall(new Wall(seg, WALL_TYPE_MIDDLE));
+    if (!seg.wall.data.twoSided) {
+      WallRenderer.render(seg, WALL_TYPE_MIDDLE);
     }
 
     if (seg.backSector != null) {
-      if (seg.sidedef.middleTexture != "-") addMiddleTransparentWall(new Wall(seg, WALL_TYPE_MIDDLE_TRANSPARENT));
+      if (seg.sidedef.middleTexture != "-") WallRenderer.render(seg, WALL_TYPE_MIDDLE_TRANSPARENT);
 
-      if (seg.sidedef.upperTexture != "-" && seg.backSector.ceilingTexture != "F_SKY1") addWall(new Wall(seg, WALL_TYPE_UPPER));
-      if (seg.sidedef.lowerTexture != "-" && seg.backSector.floorTexture != "F_SKY1") addWall(new Wall(seg, WALL_TYPE_LOWER));
+      if (seg.sidedef.upperTexture != "-" && seg.backSector.ceilingTexture != "F_SKY1") WallRenderer.render(seg, WALL_TYPE_UPPER);
+      if (seg.sidedef.lowerTexture != "-" && seg.backSector.floorTexture != "F_SKY1") WallRenderer.render(seg, WALL_TYPE_LOWER);
     }
   }
 }
-*/
