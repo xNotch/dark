@@ -3,38 +3,51 @@ part of Dark;
 List<Shader> allShaders = new List<Shader>();
 
 class Shader {
-
   String name;
   GL.Program program;
 
   Shader(this.name) {
-    print("Adding shader $name");
     allShaders.add(this);
   }
 
-  static void loadAndCompileAll(onLoad, onFail) {
-    print("Trying to load ${allShaders.length} shaders");
-    Function functionQueue = (){onLoad();};
+  static Future loadAndCompileAll() {
+    List<Future> allFutures = new List<Future>();
+    
     for (int i=0; i<allShaders.length; i++) {
-      Shader s = allShaders[i];
-      Function previous = functionQueue;
-      functionQueue = (){s.loadAndCompile(()=>previous(), onFail);};
+      allFutures.add(allShaders[i].loadAndCompile());
     }
-    functionQueue();
+
+    return Future.wait(allFutures);
   }
 
-  void loadAndCompile(onLoad, onFail) {
-    String shaderRootUrl = "shader/"+name;
-    print("Trying to load $shaderRootUrl");
+  Future loadAndCompile() {
+    String shaderRootUrl = "shader/$name"; 
+    Completer completer = new Completer();
+    Shader _this = this;
+    
+    loadStringFromUrl("$shaderRootUrl.vertex.glsl").then((vertexShaderSource) {
+      loadStringFromUrl("$shaderRootUrl.fragment.glsl").then((fragmentShaderSource) {
+        try {
+          create(vertexShaderSource, fragmentShaderSource);
+          completer.complete(_this);
+        } catch (e) {
+          completer.completeError("Failed to create shader $name\r$e");
+        }
+      }).catchError((e)=>completer.completeError(e));
+    }).catchError((e)=>completer.completeError(e));
+    
+/*    print("Trying to load $shaderRootUrl");
     loadString(shaderRootUrl+".vertex.glsl", (vertexString) {
       loadString(shaderRootUrl+".fragment.glsl", (fragmentString) {
         create(vertexString, fragmentString);
         onLoad();
       }, onFail);
-    }, onFail);
+    }, onFail);*/
+    
+    return completer.future;
   }
 
-  void create(vertexShaderSource, fragmentShaderSource) {
+  void create(String vertexShaderSource, String fragmentShaderSource) {
     GL.Shader vertexShader = compile(vertexShaderSource, GL.VERTEX_SHADER);
     GL.Shader fragmentShader = compile(fragmentShaderSource, GL.FRAGMENT_SHADER);
     program = link(vertexShader, fragmentShader);
@@ -51,7 +64,7 @@ class Shader {
     gl.linkProgram(program);
     
     if (!gl.getProgramParameter(program,  GL.LINK_STATUS)) {
-      throw gl.getProgramInfoLog(program);
+      throw "Failed to link\r${gl.getProgramInfoLog(program)}";
     }
     
     return program;
@@ -63,24 +76,9 @@ class Shader {
     gl.compileShader(shader);
     
     if  (!gl.getShaderParameter(shader,  GL.COMPILE_STATUS)) {
-      throw gl.getShaderInfoLog(shader);
+      throw "Failed to compile ${type==GL.VERTEX_SHADER?"vertex":"fragment"} shader\r${gl.getShaderInfoLog(shader)}";
     }
     
     return shader;
   }
-}
-
-void loadString(String url, Function onLoaded, Function onFail) {
-  var request = new HttpRequest();
-  request.open("get",  url);
-  request.responseType = "text";
-  request.onLoadEnd.listen((e) {
-    print("${request.status}");
-    if (request.status~/100==2) {
-      onLoaded(request.response as String);
-    } else {
-      onFail();
-    }
-  });
-  request.send("");
 }

@@ -12,7 +12,8 @@ a {
     width: 640px;
     height: 480px;
     margin: auto;
-    overflow: hidden;
+    overflow-y: auto;
+    word-wrap: break-word;
 }
 
 #game {

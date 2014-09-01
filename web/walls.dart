@@ -62,8 +62,8 @@ class Floors {
     int pp = 0;
     int ip = 0;
 
-    double xSkyTexOffs = flatMap["_sky_"].xAtlasPos.toDouble();
-    double ySkyTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
+    double xSkyTexOffs = resources.flats["_sky_"].xAtlasPos.toDouble();
+    double ySkyTexOffs = resources.flats["_sky_"].yAtlasPos.toDouble();
 
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
       Segment ss = visibleSegs[i];
@@ -141,8 +141,8 @@ class Floors {
         }
       }
       if (floor < pos.y) {
-        double xTexOffs = flatMap[ss.sector.floorTexture].xAtlasPos.toDouble();
-        double yTexOffs = flatMap[ss.sector.floorTexture].yAtlasPos.toDouble();
+        double xTexOffs = resources.flats[ss.sector.floorTexture].xAtlasPos.toDouble();
+        double yTexOffs = resources.flats[ss.sector.floorTexture].yAtlasPos.toDouble();
         double sbr = br;
         if (ss.sector.floorTexture == "F_SKY1") {
           xTexOffs = xSkyTexOffs;
@@ -176,8 +176,8 @@ class Floors {
         pp+=6;
         }
       } else if (ceiling > pos.y) {
-        double xTexOffs = flatMap[ss.sector.ceilingTexture].xAtlasPos.toDouble();
-        double yTexOffs = flatMap[ss.sector.ceilingTexture].yAtlasPos.toDouble();
+        double xTexOffs = resources.flats[ss.sector.ceilingTexture].xAtlasPos.toDouble();
+        double yTexOffs = resources.flats[ss.sector.ceilingTexture].yAtlasPos.toDouble();
         double sbr = br;
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
             fromx, ceiling, fromy, 1.0, xTexOffs, yTexOffs, sbr,
@@ -219,7 +219,7 @@ class Floors {
     int ip = 0;
 
     double xSkyTexOffs = -10.0;
-    double ySkyTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
+    double ySkyTexOffs = resources.flats["_sky_"].yAtlasPos.toDouble();
 
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
       Segment ss = visibleSegs[i];
@@ -406,8 +406,7 @@ class Walls {
     gl.bindTexture(GL.TEXTURE_2D, texture);
 
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
-    int toReplace = walls.length;
-    if (toReplace > MAX_SPRITES) toReplace = MAX_SPRITES;
+    int toReplace = wallCount;
     /*    int pp = 0;
     for (int i=0; i<toReplace; i++) {
       if (walls[i].set(vertexData, pp*FLOATS_PER_VERTEX*4)) {

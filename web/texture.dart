@@ -37,7 +37,7 @@ class ImageAtlas {
     cell = new ImageAtlasCell(0, 0, width, height);
   }
   
-  bool insert(var image) {
+  bool insert(Image image) {
     return cell.insert(image);
   }
   
@@ -57,13 +57,13 @@ class ImageAtlasCell {
   int x, y;
   int width, height;
   
-  var content;
+  Image content;
   ImageAtlasCell child0, child1;
   
   ImageAtlasCell(this.x, this.y, this.width, this.height) {
   }
   
-  bool insert(WAD.Image image) {
+  bool insert(Image image) {
     if (content==null) {
       if (image.width<=width && image.height<=height) {
         content = image;
@@ -103,19 +103,21 @@ class ImageAtlasCell {
 }
 
 class Image {
-  int xOffset, yOffset;
+  int xCenter, yCenter;
   int width, height;
   Uint8List pixelData;
   
   Texture texture;
   ImageAtlas imageAtlas;
-  int xImageAtlasPos, yImageAtlasPos; 
+  int xAtlasPos, yAtlasPos; 
   
   Image.fromWadImage(WAD.Image image) {
-    int width = image.width;
-    int height = image.height;
+    width = image.width;
+    height = image.height;
+    xCenter = image.xCenter;
+    yCenter = image.yCenter;
     
-    pixelData = new Uint8List(width*height);
+    pixelData = new Uint8List(width*height*4);
     
     for (int i=0; i<width*height; i++) {
       int pixel = image.pixels[i];
@@ -126,5 +128,27 @@ class Image {
         pixelData[i*4+3] = 255;
       }
     }    
+  }
+  
+  void render(ImageAtlas atlas, Uint8List pixels, int xOffset, int yOffset) {
+    this.imageAtlas = atlas;
+    this.xAtlasPos = xOffset;
+    this.yAtlasPos = yOffset;
+    for (int y=0; y<height; y++) {
+      int start = (xOffset+(yOffset+y)*atlas.width)*4;
+      int end = start+width*4;
+      pixels.setRange(start, end, pixelData, y*width*4);
+    }
+  }
+  
+  GL.Texture createTexture(WAD.Palette palette) {
+    GL.Texture texture = gl.createTexture();
+    
+    gl.bindTexture(GL.TEXTURE_2D, texture);
+    gl.texImage2DTyped(GL.TEXTURE_2D, 0, GL.RGBA, width, height, 0, GL.RGBA, GL.UNSIGNED_BYTE, pixelData);
+    gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MIN_FILTER, GL.NEAREST);
+    gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
+    
+    return texture;
   }
 }

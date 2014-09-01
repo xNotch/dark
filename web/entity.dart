@@ -8,6 +8,7 @@ class PlayerSpawn {
 }
 
 class Entity {
+  Level level;
   Vector3 pos;
   double radius = 16.0;
   double height = 56.0;
@@ -19,8 +20,8 @@ class Entity {
   bool blocking = false;
   BlockCell blockCell;
   
-  Entity(this.pos) {
-    blockCell = wadFile.level.blockmap.getBlockCell(pos.x, pos.z); 
+  Entity(this.level, this.pos) {
+    blockCell = level.blockmap.getBlockCell(pos.x, pos.z); 
     if (blockCell!=null) {
       blockCell.entities.add(this);
     }
@@ -31,7 +32,7 @@ class Entity {
   
   void addToDisplayList(double playerRot) {
     if (spriteTemplate==null) return;
-    Sector sector = wadFile.level.bsp.findSector(pos.xz);
+    Sector sector = level.bsp.findSector(pos.xz);
     
     double rotDiff = rot - playerRot+PI;
     int rotFrame = (rotDiff * 8 / (PI * 2) + 0.5).floor() & 7;
@@ -40,9 +41,9 @@ class Entity {
     SpriteTemplateRot str = stf.rots[rotFrame];
 
     if (transparent) {
-      transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
     } else {
-      spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
     }
   }  
 }
@@ -52,7 +53,7 @@ class AnimatedStationary extends Entity {
   int animStep = 0;
   double animAccum = 0.0;
   
-  AnimatedStationary(String templateName, String frames, Vector3 pos, double rot) : super(pos) {
+  AnimatedStationary(String templateName, String frames, Level level, Vector3 pos, double rot) : super(level, pos) {
     frames = frames.toUpperCase();
     this.frames = frames;
     spriteTemplate = spriteTemplates[templateName];
@@ -75,25 +76,25 @@ class AnimatedStationary extends Entity {
 }
 
 class Pickup extends AnimatedStationary {
-  Pickup(String templateName, String frames, Vector3 pos, double rot) : super(templateName, frames, pos, rot) {
+  Pickup(String templateName, String frames, Level level, Vector3 pos, double rot) : super(templateName, frames, level, pos, rot) {
   }
 }
 
 class Decoration extends AnimatedStationary {
-  Decoration(String templateName, String frames, Vector3 pos, double rot) : super(templateName, frames, pos, rot)  {
+  Decoration(String templateName, String frames, Level level, Vector3 pos, double rot) : super(templateName, frames, level, pos, rot)  {
   }
 
-  factory Decoration.blocking(String templateName, String frames, Vector3 pos, double rot) {
-    Decoration result = new Decoration(templateName, frames, pos, rot);
+  factory Decoration.blocking(String templateName, String frames, Level level, Vector3 pos, double rot) {
+    Decoration result = new Decoration(templateName, frames, level, pos, rot);
     result.blocking = true;
     return result;
   }
 }
 
-int ldCheckCounterHack = 0;
 class Mob extends Entity {
+  static int checkCounterHack = 0;
   static List<BlockCell> tmpBlockCells = new List<BlockCell>();
-  static Set<Linedef> tmpLinedefs = new Set<Linedef>();
+  static Set<Wall> tmpLinedefs = new Set<Wall>();
   Vector3 motion = new Vector3(0.0, 0.0, 0.0);
   double rotMotion = 0.9;
   double stepUp = 0.0;
@@ -101,7 +102,7 @@ class Mob extends Entity {
   bool collided = false;
   
   
-  Mob(Vector3 pos) : super(pos) {
+  Mob(Level level, Vector3 pos) : super(level, pos) {
     blocking = true;
   }
   
@@ -127,11 +128,11 @@ class Mob extends Entity {
     sectorsInRange.clear();
     List<SubSector> subSectorsInRange = new List<SubSector>();
     for (int i=0; i<steps; i++) {
-      ldCheckCounterHack++;
+      checkCounterHack++;
       pos.x+=motion.x*(passedTime/steps);
       pos.z+=motion.z*(passedTime/steps);
 
-      wadFile.level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+128.0, tmpBlockCells);
+      level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+128.0, tmpBlockCells);
       for (int i=0; i<tmpBlockCells.length; i++) {
         BlockCell bc = tmpBlockCells[i];
         for (int j=0; j<bc.entities.length; j++) {
@@ -140,13 +141,13 @@ class Mob extends Entity {
         }
       }
 
-      wadFile.level.bsp.findSubSectorsInRadius(pos.xz, radius, subSectorsInRange);
+      level.bsp.findSubSectorsInRadius(pos.xz, radius, subSectorsInRange);
       for (int i=0; i<subSectorsInRange.length; i++) {
         SubSector ss = subSectorsInRange[i];
-        for (int j=0; j<ss.linedefs.length; j++) {
-          Linedef ld = ss.linedefs[j];
-          if (ld.ldCheckCounterHackId != ldCheckCounterHack) {
-            ld.ldCheckCounterHackId = ldCheckCounterHack;
+        for (int j=0; j<ss.walls.length; j++) {
+          Wall ld = ss.walls[j];
+          if (ld.checkCounterHack != checkCounterHack) {
+            ld.checkCounterHack = checkCounterHack;
             clipMotion(ld, sectorsInRange);
           }
         }
@@ -156,15 +157,15 @@ class Mob extends Entity {
     pos.y+=motion.y*(passedTime);
 
 
-    BlockCell newBlockCell = wadFile.level.blockmap.getBlockCell(pos.x, pos.z); 
+    BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z); 
     if (blockCell!=newBlockCell) {
       if (blockCell!=null) blockCell.entities.remove(this);
       blockCell = newBlockCell;
       if (blockCell!=null) blockCell.entities.add(this);
     }
 
-    int floorHeight = -10000000;
-    sectorsInRange.add(wadFile.level.bsp.findSector(pos.xz));
+    double floorHeight = -10000000.0;
+    sectorsInRange.add(level.bsp.findSector(pos.xz));
     sectorsInRange.forEach((sector) {
       if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
     });
@@ -203,8 +204,8 @@ class Mob extends Entity {
     }
   }
   
-  void clipMotion(Linedef seg, HashSet<Sector> overlappedSectors) {
-    double xp = pos.x;
+  void clipMotion(Wall seg, HashSet<Sector> overlappedSectors) {
+/*  double xp = pos.x;
     double yp = pos.z;
 
     double xNudge = 0.0;
@@ -263,14 +264,14 @@ class Mob extends Entity {
         overlappedSectors.add(seg.rightSector);
         if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
       }
-    }
+    }*/
   }
 }
 
 class Player extends Mob {
   double bobSpeed = 0.0, bobPhase = 0.0;
-  Player(PlayerSpawn playerSpawn) : super(new Vector3.copy(playerSpawn.pos)) {
-    this.rot = playerSpawn.rot;
+  Player(Level level, Vector3 pos, double rot) : super(level, pos) {
+    this.rot = rot;
     radius = 16.0;
   }
   
@@ -288,7 +289,7 @@ class Monster extends Mob {
   double collideTime = 0.0;
   double rota = 0.0;
   
-  Monster(String templateName, Vector3 pos, double rot, [bool transparent = false]) : super(pos) {
+  Monster(String templateName, Level level, Vector3 pos, double rot, [bool transparent = false]) : super(level, pos) {
     spriteTemplate = spriteTemplates[templateName];
     this.pos = pos;
     this.rot = rot;

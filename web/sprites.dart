@@ -79,7 +79,7 @@ class Sprites {
     spriteCount++;
   }
   
-  void insertGuiSprite(int x, int y, int z, WAD_Image image) {
+  void insertGuiSprite(int x, int y, int z, Image image) {
     double px = x+0.0;
     double py = y+0.0;
     double pz = 0.0-z*0.001;
@@ -137,7 +137,7 @@ class Sprites {
     gl.drawElements(GL.TRIANGLES, spriteCount*6, GL.UNSIGNED_SHORT, 0);
   }
 }
-
+/*
 class Sprite {
   Sector sector;
   Vector3 pos;
@@ -162,12 +162,12 @@ class Sprite {
       spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
     }
   }
-}
+}*/
 
 HashMap<String, SpriteTemplate> spriteTemplates = new HashMap<String, SpriteTemplate>();
 
 class SpriteTemplateRot {
-  WAD_Image image;
+  Image image;
   bool mirror;
   double xOffs0;
   double yOffs0;
@@ -202,7 +202,7 @@ class SpriteTemplateRot {
 class SpriteTemplateFrame {
   List<SpriteTemplateRot> rots;
   
-  void setRot(int rot, WAD_Image image, bool mirror) {
+  void setRot(int rot, Image image, bool mirror) {
     if (rot==0) {
       if (rots==null) rots = new List<SpriteTemplateRot>(1);
       else if (rots.length!=1) throw "Tried to insert a 0 rot in a SpriteTemplateFrame";
@@ -224,12 +224,12 @@ class SpriteTemplate {
   SpriteTemplate(this.name) {
   }
   
-  void addFrame(WAD_Image image, int frame, int rot, bool mirror) {
+  void addFrame(Image image, int frame, int rot, bool mirror) {
     while (frames.length<=frame) frames.add(new SpriteTemplateFrame());
     frames[frame].setRot(rot, image, mirror);
   }
   
-  static void addFrameFromLump(String pname, WAD_Image image) {
+  static void addFrameFromLump(String pname, Image image) {
     String spriteName = pname.substring(0, 4);
     if (!spriteTemplates.containsKey(spriteName)) spriteTemplates[spriteName] = new SpriteTemplate(spriteName);
     SpriteTemplate template = spriteTemplates[spriteName];

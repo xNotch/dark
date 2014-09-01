@@ -20,11 +20,13 @@ class WadFile {
   HashMap<String, LumpInfo> lumpInfoMap = new HashMap<String, LumpInfo>();
 
   List<Image> patchList = new List<Image>();
+  
   HashMap<String, Image> wallTextures = new HashMap<String, Image>();
   HashMap<String, Image> patches = new HashMap<String, Image>();
   HashMap<String, Image> flats = new HashMap<String, Image>();
   HashMap<String, Image> sprites = new HashMap<String, Image>();
   HashMap<String, Image> images = new HashMap<String, Image>();
+  
   HashMap<String, Sample> samples = new HashMap<String, Sample>();
   
   List<Animation> flatAnimations = new List<Animation>();
@@ -121,13 +123,20 @@ class WadFile {
     for (int i = 0; i < lumpInfos.length; i++) {
       LumpInfo lump = lumpInfos[i];
       
-      if (["S_START", "F_START", "P_START"].contains(lump.name)) depthCount++;
-      else if (["S_END", "F_END", "P_END"].contains(lump.name)) depthCount--;
+      if (["F_START", "P_START"].contains(lump.name)) depthCount++;
+      else if (["F_END", "P_END"].contains(lump.name)) depthCount--;
       else if (depthCount==0) {
         if (lump.name.startsWith("DS") && Sample.canBeRead(lump.name, lump.getByteData(data))) {
           samples[lump.name] = new Sample.read(lump.name, lump.getByteData(data));
-        } else if (Image.canBeRead(lump.name, lump.getByteData(data))) {
-          images[lump.name] = new Image.read(lump.name, lump.getByteData(data));
+        } else {
+          
+          if (lump.name=="SHTGA0") {
+            print("Found SHTGA0");
+          }
+          if (Image.canBeRead(lump.name, lump.getByteData(data))) {
+  //          print(lump.name);
+            images[lump.name] = new Image.read(lump.name, lump.getByteData(data));
+          }
         }
       }
     }
@@ -185,7 +194,7 @@ class WadFile {
 
   Level loadLevel(String name) {
     if (!lumpInfoMap.containsKey(name)) throw new FormatException("No level called $name found in wad file");
-    int lumpIndex = lumpInfoMap[name].index;
+    int lumpIndex = lumpInfoMap[name].index+1;
     
     Level level = new Level();
     while (true) {
@@ -630,6 +639,8 @@ class Playpal {
 }
 
 class Sample {
+  int sampleCount;
+  int rate;
   Uint8List samples;
 
   static bool canBeRead(String name, WadByteData data) {
@@ -641,8 +652,8 @@ class Sample {
   }
 
   Sample.read(String name, WadByteData data) {
-    int rate = data.getUint16(2);
-    int sampleCount = data.getUint16(4);
+    rate = data.getUint16(2);
+    sampleCount = data.getUint16(4);
     samples = new Uint8List(sampleCount);
 
     for (int i = 0; i < sampleCount; i++) {
