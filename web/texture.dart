@@ -63,7 +63,7 @@ class ImageAtlasCell {
   ImageAtlasCell(this.x, this.y, this.width, this.height) {
   }
   
-  bool insert(var image) {
+  bool insert(WAD.Image image) {
     if (content==null) {
       if (image.width<=width && image.height<=height) {
         content = image;
@@ -99,5 +99,32 @@ class ImageAtlasCell {
     if (content!=null) content.render(imageAtlas, pixels, x, y);
     if (child0!=null) child0.render(imageAtlas, pixels);
     if (child1!=null) child1.render(imageAtlas, pixels);
+  }
+}
+
+class Image {
+  int xOffset, yOffset;
+  int width, height;
+  Uint8List pixelData;
+  
+  Texture texture;
+  ImageAtlas imageAtlas;
+  int xImageAtlasPos, yImageAtlasPos; 
+  
+  Image.fromWadImage(WAD.Image image) {
+    int width = image.width;
+    int height = image.height;
+    
+    pixelData = new Uint8List(width*height);
+    
+    for (int i=0; i<width*height; i++) {
+      int pixel = image.pixels[i];
+      if (pixel>=0) {
+        pixelData[i*4+0] = pixel%16*8+4;
+        pixelData[i*4+1] = pixel~/16*8+4;
+        pixelData[i*4+2] = 0;
+        pixelData[i*4+3] = 255;
+      }
+    }    
   }
 }

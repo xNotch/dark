@@ -53,7 +53,7 @@ class Floors {
     texAtlasSizeLocation = gl.getUniformLocation(shader.program, "u_texAtlasSize");
   }
 
-  void render(List<Seg> visibleSegs, Vector3 pos) {
+  void render(List<Segment> visibleSegs, Vector3 pos) {
     shader.use();
     gl.bindTexture(GL.TEXTURE_2D, texture);
 
@@ -66,11 +66,11 @@ class Floors {
     double ySkyTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
 
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
-      Seg ss = visibleSegs[i];
+      Segment ss = visibleSegs[i];
       double floor = ss.sector.floorHeight.toDouble();
       double ceiling = ss.sector.ceilingHeight.toDouble();
 
-      double br = (ss.sector.lightLevel / 255.0);
+      double br = ss.sector.lightLevel;
       if (invulnerable) br = 1.0;
 
       double fromx = ss.x0;
@@ -209,7 +209,7 @@ class Floors {
   }
 
 
-  void renderBackWallHack(List<Seg> visibleSegs, Vector3 pos) {
+  void renderBackWallHack(List<Segment> visibleSegs, Vector3 pos) {
     shader.use();
     gl.bindTexture(GL.TEXTURE_2D, texture);
 
@@ -222,13 +222,13 @@ class Floors {
     double ySkyTexOffs = flatMap["_sky_"].yAtlasPos.toDouble();
 
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
-      Seg ss = visibleSegs[i];
+      Segment ss = visibleSegs[i];
       double orgFloor = ss.sector.floorHeight.toDouble();
       double orgCeiling = ss.sector.ceilingHeight.toDouble();
       double floor = -10000000.0;
       double ceiling = 10000000.0;
 
-      double br = ss.sector.lightLevel / 255.0;
+      double br = ss.sector.lightLevel;
       if (invulnerable) br = 1.0;
 
       double fromx = ss.x0;
@@ -317,6 +317,8 @@ class Floors {
   }
 }
 
+typedef bool InsertWallFunction(Float32List, int); 
+
 class Walls {
   // Vertex data:
 
@@ -383,8 +385,8 @@ class Walls {
     wallCount = 0;
   }
 
-  void insertWall(Wall wall) {
-    if (wall.set(vertexData, wallCount * FLOATS_PER_VERTEX * 4)) {
+  void insertWall(InsertWallFunction wallBuilderFunc) {
+    if (wallBuilderFunc(vertexData, wallCount * FLOATS_PER_VERTEX * 4)) {
       wallCount++;
     }
     /*    double br = sector.lightLevel/255.0;
@@ -442,7 +444,7 @@ const int WALL_TYPE_UPPER = 1;
 const int WALL_TYPE_LOWER = 2;
 const int WALL_TYPE_MIDDLE_TRANSPARENT = 3;
 
-class Wall {
+/*class Wall {
   WAD_Image textureImage;
   GL.Texture texture;
   Seg seg;
@@ -578,3 +580,4 @@ class Wall {
     }
   }
 }
+*/

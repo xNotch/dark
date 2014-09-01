@@ -8,13 +8,15 @@ import "dart:typed_data";
 import "dart:web_gl" as GL;
 import "dart:web_audio";
 import "package:vector_math/vector_math.dart";
+import "wad/wad.dart" as WAD;
 
 part "shader.dart";
 part "sprites.dart";
 part "walls.dart";
 part "texture.dart";
-part "wad.dart";
 part "entity.dart";
+part "bsp.dart";
+part "level.dart";
 
 bool GAME_ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
 bool GAME_ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
@@ -68,12 +70,12 @@ void addWallMap(GL.Texture texture) {
   transparentMiddleWalls[texture] = new Walls(wallShader, texture);
 }
 
-void addMiddleTransparentWall(Wall wall) {
-  transparentMiddleWalls[wall.texture].insertWall(wall);
+void addMiddleTransparentWall(Image image, InsertWallFunction wallBuilderFunc) {
+  transparentMiddleWalls[image.texture].insertWall(wallBuilderFunc);
 }
 
-void addWall(Wall wall) {
-  walls[wall.texture].insertWall(wall);
+void addWall(Image image, InsertWallFunction wallBuilderFunc) {
+  walls[image.texture].insertWall(wallBuilderFunc);
 }
 
 AudioContext audioContext;
@@ -144,7 +146,7 @@ void main() {
     floors = new Floors(floorShader, null);
 
     printToConsole("Loading WAD file");
-    wadFile.load("originaldoom/doom.wad", start, (){
+    wadFile.load("originaldoofffm/doom.wad", start, (){
       wadFile.load("freedoom/doom.wad", start, (){
         print("Failed to load wad file!");
       });
