@@ -45,7 +45,7 @@ bool invulnerable = false;
 AudioContext audioContext;
 List<bool> keys = new List<bool>(256);
 
-Shader spriteShader, transparentSpriteShader, wallShader, floorShader, screenBlitShader, skyShader;
+Shader spriteShader, transparentSpriteShader, wallShader, floorShader, heightShader, screenBlitShader, skyShader;
 
 // Init method. Set up WebGL, load textures, etc
 void main() {
@@ -128,6 +128,7 @@ void startup() {
   transparentSpriteShader = new Shader("transparentsprite");
   wallShader = new Shader("wall");
   floorShader = new Shader("floor");
+  heightShader = new Shader("height");
   screenBlitShader = new Shader("screenblit");
   skyShader = new Shader("sky");
   
@@ -177,7 +178,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M6");
+  loadLevel("E1M1");
 }
 
 void loadLevel(String levelName) {
@@ -559,7 +560,7 @@ void renderGame() {
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
-  renderers.floors.render(visibleSegs, cameraPos);
+//  renderers.floors.render(visibleSegs, cameraPos);
   gl.depthFunc(GL.LEQUAL);
 
   renderers.walls.values.forEach((walls) {
@@ -568,9 +569,9 @@ void renderGame() {
   });
 
   gl.depthFunc(GL.ALWAYS);
-  gl.colorMask(false, false, false, false);
+//  gl.colorMask(false, false, false, false);
   // TODO: Fix the floor hack!
-//  floors.renderBackWallHack(visibleSegs, cameraPos);
+  renderers.floorsHeight.render(visibleSegs, cameraPos);
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
 

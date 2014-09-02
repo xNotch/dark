@@ -45,6 +45,7 @@ class Renderers {
   HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
   List<WallAnimation> wallAnimations = new List<WallAnimation>();
   Floors floors;
+  Floors floorsHeight;
   
   void addSpriteMap(GL.Texture texture) {
     guiSprites[texture] = new Sprites(spriteShader, texture);
@@ -62,6 +63,7 @@ class Renderers {
       throw new StateError("More than one texture atlas for flats!");
     }
     floors = new Floors(floorShader, texture);
+    floorsHeight = new Floors(heightShader, texture);
   }
 
 

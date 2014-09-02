@@ -21,5 +21,5 @@ void main() {
 
 
 
-//    gl_FragColor = vec4(texture2D(u_colorLookup, colorIndex/16.0).rgb*inputSample.b, inputSample.a);
+    gl_FragColor = vec4(inputSample.rgb, inputSample.a);
 }

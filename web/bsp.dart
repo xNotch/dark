@@ -1,4 +1,5 @@
 part of Dark;
+int _subSectorCount = 0;
 
 class BSP {
   Level level;
@@ -17,6 +18,7 @@ class BSP {
     culler.init(modelViewMatrix, perspectiveMatrix);
     Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
     List<Segment> result = new List<Segment>();
+    _subSectorCount = 0;
     root.findSortedSegs(culler, pos, result);
     return result;
   }
@@ -157,7 +159,7 @@ class Culler {
   }
   
   static const clipDist = 0.01;
-  void checkOccluders(SubSector subSector, List<Segment> result) {
+  void checkOccluders(SubSector subSector, List<Segment> result, int id) {
     if (clip0>=clip1) return;
     for (int i=0; i<subSector.segs.length; i++) {
       Segment seg = subSector.segs[i];
@@ -205,6 +207,7 @@ class Culler {
           else if (seg.sector.ceilingHeight<=seg.backSector.floorHeight) shouldClip = true;
         }
         if (shouldClip) clipRegion(xp0, xp1);
+        seg.id = id;
         result.add(seg);
       }
     }
@@ -257,22 +260,22 @@ class BSPNode {
     if (p.dot(dir)>d) {
       if (culler.isVisible(leftBounds)) {
         if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(leftSubSector, result);
+        else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
       }
       
       if (culler.isVisible(rightBounds)) {
         if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(rightSubSector, result);
+        else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
       }
     } else {
       if (culler.isVisible(rightBounds)) {
         if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(rightSubSector, result);
+        else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
       }
       
       if (culler.isVisible(leftBounds)) {
         if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(leftSubSector, result);
+        else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
       }
     }
   }

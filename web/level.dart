@@ -252,6 +252,7 @@ class Level {
 
 class Segment {
   WAD.Seg data;
+  int id;
   
   Vector2 startVertex, endVertex;
   double x0, y0;
