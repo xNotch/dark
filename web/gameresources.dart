@@ -45,7 +45,7 @@ class Renderers {
   HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
   List<WallAnimation> wallAnimations = new List<WallAnimation>();
   Floors floors;
-  Floors floorsHeight;
+//  Floors floorsHeight;
   
   void addSpriteMap(GL.Texture texture) {
     guiSprites[texture] = new Sprites(spriteShader, texture);
@@ -62,8 +62,8 @@ class Renderers {
     if (floors!=null) {
       throw new StateError("More than one texture atlas for flats!");
     }
-    floors = new Floors(floorShader, texture);
-    floorsHeight = new Floors(heightShader, texture);
+    floors = new Floors(floorShader, texture, false);
+//    floorsHeight = new Floors(heightShader, texture, true);
   }
 
 
@@ -77,6 +77,7 @@ class Renderers {
   
   void addGuiSprite(int x, int y, String imageName) {
     Image image = resources.sprites[imageName];
+    if (image==null) printToConsole("$imageName does not exist");
     guiSprites[image.imageAtlas.texture].insertGuiSprite(x, y, guiSpriteCount++, image);
   }
   

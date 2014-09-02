@@ -24,10 +24,12 @@ class Floors {
   GL.UniformLocation projectionMatrixLocation;
   GL.UniformLocation viewMatrixLocation;
   GL.UniformLocation texAtlasSizeLocation;
+  
+  bool sectorDepthRender;
 
   Float32List vertexData = new Float32List(MAX_VERICES * FLOATS_PER_VERTEX);
 
-  Floors(this.shader, this.texture) {
+  Floors(this.shader, this.texture, this.sectorDepthRender) {
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     gl.bufferDataTyped(GL.ARRAY_BUFFER, vertexData, GL.DYNAMIC_DRAW);
@@ -140,6 +142,8 @@ class Floors {
         }
       }
       if (floor < pos.y) {
+        if (sectorDepthRender && ss.backSector!=null && (ss.backSector.floorHeight==ss.sector.floorHeight && ss.backSector.ceilingHeight>ss.backSector.floorHeight)) {
+        } else {
         double xTexOffs = resources.flats[ss.sector.floorTexture].xAtlasPos.toDouble();
         double yTexOffs = resources.flats[ss.sector.floorTexture].yAtlasPos.toDouble();
         double sbr = br;
@@ -148,13 +152,13 @@ class Floors {
           yTexOffs = ySkyTexOffs;
           sbr = 1.0;
         } else {
-
-        vertexData.setAll(pp * FLOATS_PER_VERTEX, [
-            tox, floor, toy, dd, xTexOffs, yTexOffs, sbr,
-            fromx, floor, fromy, dd, xTexOffs, yTexOffs, sbr,
-            pos.x, floor, pos.z, dd, xTexOffs, yTexOffs, sbr]);
-
-        pp+=3;
+          vertexData.setAll(pp * FLOATS_PER_VERTEX, [
+              tox, floor, toy, dd, xTexOffs, yTexOffs, sbr,
+              fromx, floor, fromy, dd, xTexOffs, yTexOffs, sbr,
+              pos.x, floor, pos.z, dd, xTexOffs, yTexOffs, sbr]);
+  
+          pp+=3;
+        }
         }
       }
       if (ss.sector.ceilingTexture == "F_SKY1") {
@@ -175,6 +179,9 @@ class Floors {
           pp+=6;
         }
       } else if (ceiling > pos.y) {
+        if (sectorDepthRender && ss.backSector!=null && (ss.backSector.ceilingHeight==ss.sector.ceilingHeight && ss.backSector.ceilingHeight>ss.backSector.floorHeight)) {
+        }
+        else {
         double xTexOffs = resources.flats[ss.sector.ceilingTexture].xAtlasPos.toDouble();
         double yTexOffs = resources.flats[ss.sector.ceilingTexture].yAtlasPos.toDouble();
         double sbr = br;
@@ -183,7 +190,7 @@ class Floors {
             tox, ceiling, toy, dd, xTexOffs, yTexOffs, sbr,
             pos.x, ceiling, pos.z, dd, xTexOffs, yTexOffs, sbr]);
         pp+=3;
-
+        }
       }
     }
 

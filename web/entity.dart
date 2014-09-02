@@ -301,6 +301,8 @@ class Mob extends Entity {
 }
 
 class Player extends Mob {
+  static List<Weapon> weapons = [new Fists(), new Chainsaw(), new Pistol(), new Shotgun(), new SuperShotgun(), new Chaingun(), new RocketLauncher(), new Plasmagun(), new BFG()];
+  Weapon weapon = weapons[3];
   double bobSpeed = 0.0, bobPhase = 0.0;
   Player(Level level, Vector3 pos, double rot) : super(level, pos) {
     this.rot = rot;

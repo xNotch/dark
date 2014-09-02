@@ -22,7 +22,7 @@ void main() {
     v_texOffs = a_texOffs;
     v_brightness = a_brightness;
     vec4 projectedPos = u_projectionMatrix*pos;
-    float steps = 4.0;
+    float steps = 128.0;
     v_col = vec3(fract(floor(a_pos.w/steps/steps)/steps), fract(floor(a_pos.w/steps)/steps), fract(a_pos.w/steps));
     gl_Position = projectedPos;
 }

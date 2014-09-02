@@ -20,6 +20,7 @@ part "texture.dart";
 part "entity.dart";
 part "bsp.dart";
 part "level.dart";
+part "weapon.dart";
 
 
 const TEXTURE_ATLAS_SIZE = 1024;
@@ -44,8 +45,9 @@ bool invulnerable = false;
 
 AudioContext audioContext;
 List<bool> keys = new List<bool>(256);
+bool fireButton = false;
 
-Shader spriteShader, transparentSpriteShader, wallShader, floorShader, heightShader, screenBlitShader, skyShader;
+Shader spriteShader, transparentSpriteShader, wallShader, floorShader, screenBlitShader, skyShader;
 
 // Init method. Set up WebGL, load textures, etc
 void main() {
@@ -98,6 +100,7 @@ void startup() {
     if (!gameVisible) return;
     topLevelCatch((){
       for (int i=0; i<256; i++) keys[i] = false;
+      fireButton = false;
     });
   });
   
@@ -109,10 +112,14 @@ void startup() {
       if (document.pointerLockElement!=canvas) {
         canvas.requestPointerLock();
       } else {
-        playSound(null, "SHOTGN");
+        fireButton = true;
       }
     });
   });
+  
+  canvas.onMouseUp.listen((e) {
+    fireButton=false;
+  });  
   
   window.onMouseMove.listen((e) {
     if (!gameVisible) return;
@@ -128,7 +135,6 @@ void startup() {
   transparentSpriteShader = new Shader("transparentsprite");
   wallShader = new Shader("wall");
   floorShader = new Shader("floor");
-  heightShader = new Shader("height");
   screenBlitShader = new Shader("screenblit");
   skyShader = new Shader("sky");
   
@@ -535,6 +541,7 @@ void updateGameLogic(double passedTime) {
     entity.tick(passedTime);
   });
 
+  player.weapon.tick(fireButton, passedTime);
 }
 
 void renderGame() {
@@ -560,7 +567,7 @@ void renderGame() {
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
-//  renderers.floors.render(visibleSegs, cameraPos);
+  renderers.floors.render(visibleSegs, cameraPos);
   gl.depthFunc(GL.LEQUAL);
 
   renderers.walls.values.forEach((walls) {
@@ -568,12 +575,33 @@ void renderGame() {
     walls.clear();
   });
 
-  gl.depthFunc(GL.ALWAYS);
+  //gl.depthFunc(GL.ALWAYS);
 //  gl.colorMask(false, false, false, false);
   // TODO: Fix the floor hack!
-  renderers.floorsHeight.render(visibleSegs, cameraPos);
-  gl.colorMask(true, true, true, true);
-  gl.depthFunc(GL.LEQUAL);
+  /**
+   * Possible idea:
+   * Since there's no depth buffer texture in WebGL, manually make one by encoding depth into RGBA:
+   * 
+   * (Or maybe store the distance along the normal of the texture?)
+   * (Ie dot(pos, normal))
+   * 
+inline float4 EncodeFloatRGBA( float v ) {
+  float4 enc = float4(1.0, 255.0, 65025.0, 160581375.0) * v;
+  enc = frac(enc);
+  enc -= enc.yzww * float4(1.0/255.0,1.0/255.0,1.0/255.0,0.0);
+  return enc;
+}
+inline float DecodeFloatRGBA( float4 rgba ) {
+  return dot( rgba, float4(1.0, 1/255.0, 1/65025.0, 1/160581375.0) );
+}
+   * 
+   * Then render AGAIN, saving wall and floor normals
+   * Then render sprites and pass the CENTER of the sprite to the fragment shader.
+   * Check if the center of the sprite is in front of the wall 
+   */
+//  renderers.floorsHeight.render(visibleSegs, cameraPos);
+  //gl.colorMask(true, true, true, true);
+  //gl.depthFunc(GL.LEQUAL);
 
 
   Matrix4 oldMatrix = projectionMatrix;
@@ -629,10 +657,8 @@ void renderGui() {
   projectionMatrix = makeOrthographicMatrix(x0, x1, 200.0, 0.0, -10.0, 10.0);
   viewMatrix = new Matrix4.identity();
   
-//  addGuiSprite(0, 0, "TITLEPIC");
-  int x = (sin(player.bobPhase/2.0)*player.bobSpeed*20.5).round();
-  int y = (cos(player.bobPhase/2.0)*player.bobSpeed*10.5).abs().round();
-  renderers.addGuiSprite(x, 32+y, "SHTGA0");
+  player.weapon.render();
+  
   renderers.addGuiText(0, 0, "FPS: ${(1.0/lastFrameSeconds).toStringAsPrecision(4)}");
   renderers.addGuiText(0, 8, "MS: ${(lastFrameLogicSeconds*1000).toStringAsPrecision(4)}");
   renderers.addGuiText(0, 16, "MAX FPS: ${(1.0/lastFrameLogicSeconds).toStringAsPrecision(4)}");
