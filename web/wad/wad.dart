@@ -747,7 +747,7 @@ class Image {
         int sp = (x + y * source.width);
         int dp = (dx + dy * width);
         
-        if (source.pixels[sp]>=0) pixels[dp] = source.pixels[sp];
+        if (source.pixels[sp]>=0 || overwrite) pixels[dp] = source.pixels[sp];
       }
     }
   }

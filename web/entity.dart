@@ -7,6 +7,14 @@ class PlayerSpawn {
   PlayerSpawn(this.pos, this.rot);
 }
 
+class EntityBlockerType {
+  static const NONE = const EntityBlockerType._();
+  static const BLOCKING = const EntityBlockerType._();
+  static const PICKUP = const EntityBlockerType._();
+  
+  const EntityBlockerType._();
+}
+
 class Entity {
   Level level;
   Vector3 pos;
@@ -17,13 +25,19 @@ class Entity {
   bool transparent = false;
   int animFrame = 0;
   bool hanging = false;
-  bool blocking = false;
+  
+  EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
+//  bool blocking = false;
+// bool pickup = false;
+  
   BlockCell blockCell;
   
-  Entity(this.level, this.pos) {
+  Entity(this.level, this.pos, this.blockerType) {
+    if (blockerType==EntityBlockerType.NONE) return;
     blockCell = level.blockmap.getBlockCell(pos.x, pos.z); 
     if (blockCell!=null) {
-      blockCell.entities.add(this);
+      if (blockerType==EntityBlockerType.BLOCKING) blockCell.blockers.add(this);
+      if (blockerType==EntityBlockerType.PICKUP) blockCell.pickups.add(this);
     }
   }
   
@@ -53,7 +67,7 @@ class AnimatedStationary extends Entity {
   int animStep = 0;
   double animAccum = 0.0;
   
-  AnimatedStationary(String templateName, String frames, Level level, Vector3 pos, double rot) : super(level, pos) {
+  AnimatedStationary(String templateName, String frames, Level level, Vector3 pos, double rot, EntityBlockerType blockerType) : super(level, pos, blockerType) {
     frames = frames.toUpperCase();
     this.frames = frames;
     spriteTemplate = spriteTemplates[templateName];
@@ -76,17 +90,17 @@ class AnimatedStationary extends Entity {
 }
 
 class Pickup extends AnimatedStationary {
-  Pickup(String templateName, String frames, Level level, Vector3 pos, double rot) : super(templateName, frames, level, pos, rot) {
+  Pickup(String templateName, String frames, Level level, Vector3 pos, double rot) : super(templateName, frames, level, pos, rot, EntityBlockerType.PICKUP) {
   }
 }
 
 class Decoration extends AnimatedStationary {
-  Decoration(String templateName, String frames, Level level, Vector3 pos, double rot) : super(templateName, frames, level, pos, rot)  {
+  Decoration(String templateName, String frames, Level level, Vector3 pos, double rot, [EntityBlockerType blockerType = EntityBlockerType.NONE]) : super(templateName, frames, level, pos, rot, blockerType)  {
   }
 
   factory Decoration.blocking(String templateName, String frames, Level level, Vector3 pos, double rot) {
-    Decoration result = new Decoration(templateName, frames, level, pos, rot);
-    result.blocking = true;
+    Decoration result = new Decoration(templateName, frames, level, pos, rot, EntityBlockerType.BLOCKING);
+    result.blockerType = EntityBlockerType.BLOCKING;
     return result;
   }
 }
@@ -102,10 +116,11 @@ class Mob extends Entity {
   bool collided = false;
   
   
-  Mob(Level level, Vector3 pos) : super(level, pos) {
-    blocking = true;
+  Mob(Level level, Vector3 pos) : super(level, pos, EntityBlockerType.BLOCKING) {
   }
   
+  HashSet<Sector> sectorsInRange = new HashSet<Sector>();
+  List<SubSector> subSectorsInRange = new List<SubSector>();
   void move(double iX, double iY, double passedTime) {
     collided = false;
     Vector3 oldPos = new Vector3.copy(pos);
@@ -121,34 +136,34 @@ class Mob extends Entity {
     motion.z*=frictionXZ;
     motion.x+=(sin(rot)*iY-cos(rot)*iX)*passedTime*4000.0;
     motion.z+=(cos(rot)*iY+sin(rot)*iX)*passedTime*4000.0;
-    
-    int steps = (motion.length/(radius/3.0)).floor()+1;
-    
-    HashSet<Sector> sectorsInRange = new HashSet<Sector>();
     sectorsInRange.clear();
-    List<SubSector> subSectorsInRange = new List<SubSector>();
-    for (int i=0; i<steps; i++) {
-      checkCounterHack++;
-      pos.x+=motion.x*(passedTime/steps);
-      pos.z+=motion.z*(passedTime/steps);
 
-      level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+64.0, tmpBlockCells);
-      for (int i=0; i<tmpBlockCells.length; i++) {
-        BlockCell bc = tmpBlockCells[i];
-        for (int j=0; j<bc.entities.length; j++) {
-          Entity e = bc.entities[j];
-          if (e!=this && e.blocking) clipMotionEntity(e);
+    if (motion.xz.length2<1.0) {
+      motion.x = 0.0;
+      motion.z = 0.0;
+    } else {
+      int steps = (motion.length/(radius/3.0)).floor()+1;
+      
+      for (int i=0; i<steps; i++) {
+        subSectorsInRange.clear();
+        checkCounterHack++;
+        pos.x+=motion.x*(passedTime/steps);
+        pos.z+=motion.z*(passedTime/steps);
+  
+        level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+64.0, tmpBlockCells);
+        for (int i=0; i<tmpBlockCells.length; i++) {
+          collideAgainstEntitiesIn(tmpBlockCells[i]);
         }
-      }
-
-      level.bsp.findSubSectorsInRadius(pos.xz, radius, subSectorsInRange);
-      for (int i=0; i<subSectorsInRange.length; i++) {
-        SubSector ss = subSectorsInRange[i];
-        for (int j=0; j<ss.walls.length; j++) {
-          Wall ld = ss.walls[j];
-          if (ld.checkCounterHack != checkCounterHack) {
-            ld.checkCounterHack = checkCounterHack;
-            clipMotion(ld, sectorsInRange);
+  
+        level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, subSectorsInRange);
+        for (int i=0; i<subSectorsInRange.length; i++) {
+          SubSector ss = subSectorsInRange[i];
+          for (int j=0; j<ss.walls.length; j++) {
+            Wall ld = ss.walls[j];
+            if (ld.checkCounterHack != checkCounterHack) {
+              ld.checkCounterHack = checkCounterHack;
+              clipMotion(ld, sectorsInRange);
+            }
           }
         }
       }
@@ -157,11 +172,20 @@ class Mob extends Entity {
     pos.y+=motion.y*(passedTime);
 
 
-    BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z); 
-    if (blockCell!=newBlockCell) {
-      if (blockCell!=null) blockCell.entities.remove(this);
-      blockCell = newBlockCell;
-      if (blockCell!=null) blockCell.entities.add(this);
+    if (blockerType==EntityBlockerType.BLOCKING) {
+      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=newBlockCell) {
+        if (blockCell!=null) blockCell.blockers.remove(this);
+        blockCell = newBlockCell;
+        if (blockCell!=null) blockCell.blockers.add(this);
+      }
+    } else if (blockerType==EntityBlockerType.PICKUP) {
+      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=newBlockCell) {
+        if (blockCell!=null) blockCell.pickups.remove(this);
+        blockCell = newBlockCell;
+        if (blockCell!=null) blockCell.pickups.add(this);
+      }
     }
 
 
@@ -182,6 +206,13 @@ class Mob extends Entity {
     }
     
     if (stepUp>32.0) stepUp = 32.0;
+  }
+  
+  void collideAgainstEntitiesIn(BlockCell bc) {
+    for (int j=0; j<bc.blockers.length; j++) {
+      Entity e = bc.blockers[j];
+      if (e!=this) clipMotionEntity(e);
+    }
   }
   
   bool canEnterSector(Sector sector) {
@@ -289,6 +320,7 @@ class Monster extends Mob {
   double turnIn = 0.0;
   double collideTime = 0.0;
   double rota = 0.0;
+  double standStillTime = 0.0;
   
   Monster(String templateName, Level level, Vector3 pos, double rot, [bool transparent = false]) : super(level, pos) {
     spriteTemplate = spriteTemplates[templateName];
@@ -299,8 +331,13 @@ class Monster extends Mob {
   }
   
   void tick(double passedTime) {
+    if (standStillTime>0.0) {
+      standStillTime-=passedTime;
+      move(0.0, 0.0*0.0, passedTime);
+    } else {
+      move(0.0, 1.0*0.2, passedTime);
+    }
     rot+=passedTime*rota;
-    move(0.0, 1.0*0.2, passedTime);
     
     if (collided && collideTime<=0.0) {
       collideTime = random.nextDouble()*0.1+0.1;
@@ -316,8 +353,13 @@ class Monster extends Mob {
     } else {
       rota*=pow(0.000001, passedTime);
       if (turnIn<=0.0) {
-        turnIn = random.nextDouble()*2.0+0.5;
-        rota += (random.nextDouble()*30.0)*(random.nextInt(2)*2-1);
+        if (random.nextInt(3)==0) {
+          standStillTime = random.nextDouble()*1.0+0.5; 
+          turnIn = random.nextDouble()*2.0+0.5;
+        } else {
+          turnIn = random.nextDouble()*2.0+0.5;
+          rota += (random.nextDouble()*30.0)*(random.nextInt(2)*2-1);
+        }
       }
     }
   }

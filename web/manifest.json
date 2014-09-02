@@ -1,0 +1,14 @@
+{
+  "name": "Dark",
+  "version": "1",
+  
+  "manifest_version": 2,
+  
+  "permissions": [ "pointerLock" ], 
+  
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  }
+}

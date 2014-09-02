@@ -60,7 +60,7 @@ void startup() {
   consoleText = querySelector("#consoleText");
 
   printToConsole("-------------------------------------------------");
-  printToConsole("$Game.NAME $Game.VERSION");
+  printToConsole("${Game.NAME} ${Game.VERSION}");
   printToConsole("-------------------------------------------------");
   printToConsole("");
   
@@ -103,7 +103,7 @@ void startup() {
   
   audioContext = new AudioContext();
 
-  window.onClick.listen((e) {
+  canvas.onMouseDown.listen((e) {
     if (!gameVisible) return;
     topLevelCatch((){
       if (document.pointerLockElement!=canvas) {
@@ -177,7 +177,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E3M6");
+  loadLevel("E1M6");
 }
 
 void loadLevel(String levelName) {
@@ -370,7 +370,7 @@ class SoundChannel {
       source.connectNode(audioContext.destination);
     }
     source.buffer = buffer;
-    source.start();
+    source.start(0.0);
   }
   
   void finished() {
@@ -594,7 +594,12 @@ void renderGame() {
     sprites.render();
     sprites.clear();
   });
-
+  
+  renderers.transparentMiddleWalls.values.forEach((walls) {
+    walls.render();
+    walls.clear();
+  });
+  
   gl.colorMask(false, false, true, false);
   gl.depthMask(false);
   gl.enable(GL.BLEND);
@@ -606,11 +611,6 @@ void renderGame() {
   gl.disable(GL.BLEND);
   gl.depthMask(true);
   gl.colorMask(true, true, true, true);
-
-  renderers.transparentMiddleWalls.values.forEach((walls) {
-    walls.render();
-    walls.clear();
-  });
 }
 
 
@@ -695,13 +695,13 @@ void render(double time) {
 
   audioContext.listener.setPosition(player.pos.x, player.pos.y, player.pos.z);
   audioContext.listener.setOrientation(sin(player.rot), 0.0, cos(player.rot), 0.0, -1.0, 0.0);
-  int error = gl.getError();
+/*  int error = gl.getError();
   if (error!=0) {
     crash("OpenGL error", "$error");
     print("Error: $error");
-  } else {
+  } else {*/
     requestAnimationFrame();
-  }
+//  }
 
   if (lastTime==-1.0) lastTime = time;
   double passedTime = (time-lastTime)/1000.0; // in seconds

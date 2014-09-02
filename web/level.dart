@@ -1,7 +1,8 @@
 part of Dark;
 
 class BlockCell {
-  List<Entity> entities = new List<Entity>();
+  List<Entity> blockers = new List<Entity>();
+  List<Entity> pickups = new List<Entity>();
   
   BlockCell(WAD.BlockCell data) {
   }

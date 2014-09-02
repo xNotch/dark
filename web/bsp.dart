@@ -21,16 +21,14 @@ class BSP {
     return result;
   }
   
-  HashSet<Sector> findSectorsInRadius(Vector2 pos, double radius) {
+  HashSet<Sector> findSectorsInRadius(double x, double y, double radius) {
     HashSet<Sector> result = new HashSet<Sector>();
-    root.findSectorsInRadius(pos, radius, result);
+    root.findSectorsInRadius(x, y, radius, result);
     return result;
   }
 
-  List<SubSector> findSubSectorsInRadius(Vector2 pos, double radius, List<SubSector> result) {
-    result.clear();
-    root.findSubSectorsInRadius(pos, radius, result);
-    return result;
+  void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
+    root.findSubSectorsInRadius(x, y, radius, result);
   }
 }
 
@@ -223,6 +221,8 @@ class BSPNode {
   BSP bsp;
   Vector2 pos;
   Vector2 dir;
+  
+  double dx, dy;
   double d;
 
   Bounds leftBounds;
@@ -235,6 +235,8 @@ class BSPNode {
     pos = new Vector2(node.x.toDouble(), node.y.toDouble());
     dir = new Vector2(-node.dy.toDouble(), node.dx.toDouble()).normalize();
     d = pos.dot(dir);
+    dx = dir.x;
+    dy = dir.y;
     
     rightBounds = new Bounds(node.bb0x0+0.0, node.bb0y0+0.0, node.bb0x1+0.0, node.bb0y1+0.0);
     leftBounds = new Bounds(node.bb1x0+0.0, node.bb1y0+0.0, node.bb1x1+0.0, node.bb1y1+0.0);
@@ -275,24 +277,26 @@ class BSPNode {
     }
   }
   
-  void findSubSectorsInRadius(Vector2 p, double radius, List<SubSector> result) {
-    if (p.dot(dir)>d-radius) {
-      if (leftChild!=null) leftChild.findSubSectorsInRadius(p, radius, result);
+  void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
+    double dd = x*dx+y*dy;
+    if (dd>d-radius) {
+      if (leftChild!=null) leftChild.findSubSectorsInRadius(x, y, radius, result);
       else result.add(leftSubSector);
     } 
-    if (p.dot(dir)<d+radius) {
-      if (rightChild!=null) rightChild.findSubSectorsInRadius(p, radius, result);
+    if (dd<d+radius) {
+      if (rightChild!=null) rightChild.findSubSectorsInRadius(x, y, radius, result);
       else result.add(rightSubSector);
     }
   }
   
-  void findSectorsInRadius(Vector2 p, double radius, HashSet<Sector> result) {
-    if (p.dot(dir)>d-radius) {
-      if (leftChild!=null) leftChild.findSectorsInRadius(p, radius, result);
+  void findSectorsInRadius(double x, double y, double radius, HashSet<Sector> result) {
+    double dd = x*dx+y*dy;
+    if (dd>d-radius) {
+      if (leftChild!=null) leftChild.findSectorsInRadius(x, y, radius, result);
       else result.add(leftSubSector.sector);
     } 
-    if (p.dot(dir)<d+radius) {
-      if (rightChild!=null) rightChild.findSectorsInRadius(p, radius, result);
+    if (dd<d+radius) {
+      if (rightChild!=null) rightChild.findSectorsInRadius(x, y, radius, result);
       else result.add(rightSubSector.sector);
     }
   }
