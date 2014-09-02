@@ -39,6 +39,7 @@ var consoleText;
 
 
 ScreenRenderer screenRenderer;
+ScreenRenderer transferRenderer;
 SkyRenderer skyRenderer;
 
 bool invulnerable = false;
@@ -47,7 +48,7 @@ AudioContext audioContext;
 List<bool> keys = new List<bool>(256);
 bool fireButton = false;
 
-Shader spriteShader, transparentSpriteShader, wallShader, floorShader, screenBlitShader, skyShader;
+Shader spriteShader, transparentSpriteShader, wallShader, floorShader, screenBlitShader, screenTransferShader, skyShader;
 
 // Init method. Set up WebGL, load textures, etc
 void main() {
@@ -136,6 +137,7 @@ void startup() {
   wallShader = new Shader("wall");
   floorShader = new Shader("floor");
   screenBlitShader = new Shader("screenblit");
+  screenTransferShader = new Shader("screentransfer");
   skyShader = new Shader("sky");
   
   printToConsole("Loading and compiling shaders");
@@ -409,6 +411,7 @@ void playSound(Vector3 pos, String soundName) {
 }
 
 Level level;
+int frameBufferRes = 512;
 void start(Level _level) {
   level = _level;
   player = new Player(level, level.playerSpawns[0].pos, level.playerSpawns[0].rot);
@@ -416,7 +419,7 @@ void start(Level _level) {
   modelMatrix = new Matrix4.identity();
   viewMatrix = new Matrix4.identity();
 
-  int frameBufferRes = 512;
+  frameBufferRes = 512;
   if (!Game.ORIGINAL_RESOLUTION) frameBufferRes = 2048;
   for (int i=0; i<3; i++) {
     indexColorBuffers[i] = new Framebuffer(frameBufferRes, frameBufferRes);
@@ -464,6 +467,7 @@ void start(Level _level) {
 
   printToConsole("Setting up screen renderer");
   screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffers[0].texture, colorLookupTexture);
+  transferRenderer = new ScreenRenderer(screenTransferShader,  indexColorBuffers[0].texture, colorLookupTexture);
   
   
 
@@ -493,7 +497,7 @@ class Framebuffer {
   int width, height;
   GL.Texture texture;
   GL.Framebuffer framebuffer;
-  GL.Renderbuffer depthbuffer;
+  static GL.Renderbuffer depthbuffer;
 
   Framebuffer(this.width, this.height) {
     framebuffer = gl.createFramebuffer();
@@ -507,10 +511,11 @@ class Framebuffer {
 
     gl.framebufferTexture2D(GL.FRAMEBUFFER,  GL.COLOR_ATTACHMENT0,  GL.TEXTURE_2D,  texture, 0);
 
-    depthbuffer = gl.createRenderbuffer();
-    gl.bindRenderbuffer(GL.RENDERBUFFER, depthbuffer);
-    gl.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, width, height);
-
+    if (depthbuffer==null) {
+      depthbuffer = gl.createRenderbuffer();
+      gl.bindRenderbuffer(GL.RENDERBUFFER, depthbuffer);
+      gl.renderbufferStorage(GL.RENDERBUFFER, GL.DEPTH_COMPONENT16, width, height);
+    }
     gl.framebufferRenderbuffer(GL.FRAMEBUFFER,  GL.DEPTH_ATTACHMENT,  GL.RENDERBUFFER,  depthbuffer);
   }
 }
@@ -545,9 +550,9 @@ void updateGameLogic(double passedTime) {
 }
 
 void renderGame() {
-  indexColorBuffer = indexColorBuffers[indexColorBufferId];
-  screenRenderer.texture = indexColorBuffer.texture;
-  gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffer.framebuffer);
+  indexColorBuffer = indexColorBuffers[indexColorBufferId = 0];
+  screenRenderer.texture = indexColorBuffers[0].texture;
+  gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffers[1].framebuffer);
   gl.viewport(0,  0,  screenWidth,  screenHeight);
 //  gl.clear(GL.DEPTH_BUFFER_BIT | GL.COLOR_BUFFER_BIT);
 
@@ -629,17 +634,29 @@ inline float DecodeFloatRGBA( float4 rgba ) {
     walls.clear();
   });
   
-  gl.colorMask(false, false, true, false);
-  gl.depthMask(false);
-  gl.enable(GL.BLEND);
-  gl.blendFunc(GL.DST_COLOR, GL.ZERO);
+  //gl.colorMask(false, false, true, false);
+//  gl.depthMask(false);
+  //gl.enable(GL.BLEND);
+//  gl.blendFunc(GL.DST_COLOR, GL.ZERO);
+  gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffers[0].framebuffer);
+  
+  Matrix4 oldProjection = projectionMatrix;
+  projectionMatrix = makeOrthographicMatrix(0.0, screenWidth, screenHeight, 0.0, -10.0, 10.0);
+  
+//  skyRenderer.render();
+  gl.disable(GL.DEPTH_TEST);
+  transferRenderer.texture = indexColorBuffers[1].texture;
+  transferRenderer.render();
+  gl.enable(GL.DEPTH_TEST);
+  projectionMatrix = oldProjection;
+  
   renderers.transparentSpriteMaps.values.forEach((sprites) {
     sprites.render();
     sprites.clear();
   });
-  gl.disable(GL.BLEND);
-  gl.depthMask(true);
-  gl.colorMask(true, true, true, true);
+//  gl.disable(GL.BLEND);
+  //gl.depthMask(true);
+//  gl.colorMask(true, true, true, true);
 }
 
 

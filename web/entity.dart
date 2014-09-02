@@ -34,7 +34,7 @@ class Entity {
   
   Entity(this.level, this.pos, this.blockerType) {
     if (blockerType==EntityBlockerType.NONE) return;
-    blockCell = level.blockmap.getBlockCell(pos.x, pos.z); 
+    blockCell = level.blockmap.getBlockCell(pos.x, pos.z);
     if (blockCell!=null) {
       if (blockerType==EntityBlockerType.BLOCKING) blockCell.blockers.add(this);
       if (blockerType==EntityBlockerType.PICKUP) blockCell.pickups.add(this);
@@ -329,6 +329,8 @@ class Monster extends Mob {
     this.pos = pos;
     this.rot = rot;
     this.transparent = transparent;
+    if (random.nextInt(2)==0) this.transparent = true;
+    
     radius = 16.0;
   }
   

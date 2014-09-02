@@ -29,6 +29,8 @@ class Sprites {
   GL.UniformLocation viewMatrixLocation;
   GL.UniformLocation texAtlasSizeLocation;
   GL.UniformLocation timeLocation;
+  GL.UniformLocation viewportSizeLocation;
+  GL.UniformLocation bufferSizeLocation;
 
   Float32List vertexData = new Float32List(MAX_VERICES*FLOATS_PER_VERTEX);
   int spriteCount = 0;
@@ -59,6 +61,13 @@ class Sprites {
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
     texAtlasSizeLocation = gl.getUniformLocation(shader.program, "u_texAtlasSize");
     timeLocation = gl.getUniformLocation(shader.program, "u_time");
+    
+    viewportSizeLocation = gl.getUniformLocation(shader.program, "u_viewportSize");
+    bufferSizeLocation = gl.getUniformLocation(shader.program, "u_bufferSize");
+    
+    GL.UniformLocation frameLocation = gl.getUniformLocation(shader.program, "u_frame");
+    if (frameLocation!=null) gl.uniform1i(frameLocation, 1);
+    if (frameLocation!=null) gl.uniform1i(gl.getUniformLocation(shader.program, "u_tex"), 0);
   }
   
   void clear() {
@@ -109,6 +118,10 @@ class Sprites {
   void render() {
     if (spriteCount==0) return;
     shader.use();
+
+    gl.activeTexture(GL.TEXTURE1);
+    gl.bindTexture(GL.TEXTURE_2D, indexColorBuffers[1].texture);
+    gl.activeTexture(GL.TEXTURE0);
     gl.bindTexture(GL.TEXTURE_2D, texture);
     
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
@@ -121,6 +134,13 @@ class Sprites {
     if (timeLocation!=null) {
       gl.uniform1f(timeLocation, transparentNoiseTime+0.0);
     }
+    if (viewportSizeLocation!=null) {
+      gl.uniform2f(viewportSizeLocation, screenWidth, screenHeight);
+      gl.uniform2f(bufferSizeLocation, frameBufferRes, frameBufferRes);
+    //viewportSizeLocation = gl.getUniformLocation(shader.program, "u_viewportSize");
+//    bufferSizeLocation = gl.getUniformLocation(shader.program, "u_bufferSize")
+    }
+    
     
     gl.enableVertexAttribArray(posLocation);
     gl.enableVertexAttribArray(offsetLocation);
