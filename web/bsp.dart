@@ -158,12 +158,24 @@ class Culler {
     }
   }
   
+  static void enumerateSegs(SubSector subSector, int id) {
+    subSector.sortedSubSectorId = id;
+    for (int i=0; i<subSector.segs.length; i++) {
+      subSector.segs[i].sortedSubSectorId = id;
+    }
+  }
+  
   static const clipDist = 0.01;
   void checkOccluders(SubSector subSector, List<Segment> result, int id) {
-    if (clip0>=clip1) return;
+    if (clip0>=clip1) {
+      enumerateSegs(subSector, id);
+      return;
+    }
+    subSector.sortedSubSectorId = id;
     for (int i=0; i<subSector.segs.length; i++) {
       Segment seg = subSector.segs[i];
-      
+      seg.sortedSubSectorId = id;
+
       double x0 = seg.x0-xc;
       double y0 = seg.y0-yc;
       double x1 = seg.x1-xc;
@@ -207,7 +219,6 @@ class Culler {
           else if (seg.sector.ceilingHeight<=seg.backSector.floorHeight) shouldClip = true;
         }
         if (shouldClip) clipRegion(xp0, xp1);
-        seg.id = id;
         result.add(seg);
       }
     }
@@ -255,38 +266,65 @@ class BSPNode {
       rightSubSector = level.subSectors[node.rightChild&0x7fff];
     }
   }
+ 
+  void enumerateSegsLeft(Vector2 p) {
+    if (leftChild!=null) leftChild.enumerateSegs(p);
+    else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
+  }
+  
+  void enumerateSegsRight(Vector2 p) {
+    if (rightChild!=null) rightChild.enumerateSegs(p);
+    else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
+  }
+  
+  void enumerateSegs(Vector2 p) {
+    if (p.dot(dir)>d) {
+      enumerateSegsLeft(p);
+      enumerateSegsRight(p);
+    } else {
+      enumerateSegsRight(p);
+      enumerateSegsLeft(p);
+    }
+  }
+  
+  
+  void findSortedSegsLeft(Culler culler, Vector2 p, List<Segment> result) {
+    if (culler.isVisible(leftBounds)) {
+      if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
+      else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
+    } else {
+      if (leftChild!=null) leftChild.enumerateSegs(p);
+      else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
+    }
+  }
+  
+  void findSortedSegsRight(Culler culler, Vector2 p, List<Segment> result) {
+    if (culler.isVisible(rightBounds)) {
+      if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
+      else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
+    } else {
+      if (rightChild!=null) rightChild.enumerateSegs(p);
+      else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
+    }
+  }
   
   void findSortedSegs(Culler culler, Vector2 p, List<Segment> result) {
     if (p.dot(dir)>d) {
-      if (culler.isVisible(leftBounds)) {
-        if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
-      }
-      
-      if (culler.isVisible(rightBounds)) {
-        if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
-      }
+      findSortedSegsLeft(culler, p, result);
+      findSortedSegsRight(culler, p, result);
     } else {
-      if (culler.isVisible(rightBounds)) {
-        if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
-      }
-      
-      if (culler.isVisible(leftBounds)) {
-        if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
-        else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
-      }
+      findSortedSegsRight(culler, p, result);
+      findSortedSegsLeft(culler, p, result);
     }
   }
   
   void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
     double dd = x*dx+y*dy;
-    if (dd>d-radius) {
+    if (dd>=d-radius) {
       if (leftChild!=null) leftChild.findSubSectorsInRadius(x, y, radius, result);
       else result.add(leftSubSector);
     } 
-    if (dd<d+radius) {
+    if (dd<=d+radius) {
       if (rightChild!=null) rightChild.findSubSectorsInRadius(x, y, radius, result);
       else result.add(rightSubSector);
     }

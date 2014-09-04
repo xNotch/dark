@@ -25,6 +25,7 @@ class Entity {
   bool transparent = false;
   int animFrame = 0;
   bool hanging = false;
+  List<SubSector> inSubSectors = new List<SubSector>();
   
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
 //  bool blocking = false;
@@ -33,11 +34,14 @@ class Entity {
   BlockCell blockCell;
   
   Entity(this.level, this.pos, this.blockerType) {
-    if (blockerType==EntityBlockerType.NONE) return;
-    blockCell = level.blockmap.getBlockCell(pos.x, pos.z);
-    if (blockCell!=null) {
-      if (blockerType==EntityBlockerType.BLOCKING) blockCell.blockers.add(this);
-      if (blockerType==EntityBlockerType.PICKUP) blockCell.pickups.add(this);
+    level.bsp.findSubSectorsInRadius(pos.x, pos.z, 0.0, inSubSectors);
+
+    if (blockerType!=EntityBlockerType.NONE) {
+      blockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=null) {
+        if (blockerType==EntityBlockerType.BLOCKING) blockCell.blockers.add(this);
+        if (blockerType==EntityBlockerType.PICKUP) blockCell.pickups.add(this);
+      }
     }
   }
   
@@ -54,10 +58,15 @@ class Entity {
     if (stf.rots.length == 1) rotFrame = 0;
     SpriteTemplateRot str = stf.rots[rotFrame];
 
+    int closestSubSectorId = inSubSectors[0].sortedSubSectorId;
+    for (int i=1; i<inSubSectors.length; i++) {
+      if (closestSubSectorId>inSubSectors[i].sortedSubSectorId) closestSubSectorId = inSubSectors[i].sortedSubSectorId;
+    }
+    
     if (transparent) {
-      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
     } else {
-      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, str);
+      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
     }
   }  
 }
@@ -120,7 +129,7 @@ class Mob extends Entity {
   }
   
   HashSet<Sector> sectorsInRange = new HashSet<Sector>();
-  List<SubSector> subSectorsInRange = new List<SubSector>();
+//  List<SubSector> subSectorsInRange = new List<SubSector>();
   void move(double iX, double iY, double passedTime) {
     collided = false;
     Vector3 oldPos = new Vector3.copy(pos);
@@ -145,7 +154,6 @@ class Mob extends Entity {
       int steps = (motion.length/(radius/3.0)).floor()+1;
       
       for (int i=0; i<steps; i++) {
-        subSectorsInRange.clear();
         checkCounterHack++;
         pos.x+=motion.x*(passedTime/steps);
         pos.z+=motion.z*(passedTime/steps);
@@ -155,9 +163,10 @@ class Mob extends Entity {
           collideAgainstEntitiesIn(tmpBlockCells[i]);
         }
   
-        level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, subSectorsInRange);
-        for (int i=0; i<subSectorsInRange.length; i++) {
-          SubSector ss = subSectorsInRange[i];
+        inSubSectors.clear();
+        level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, inSubSectors);
+        for (int i=0; i<inSubSectors.length; i++) {
+          SubSector ss = inSubSectors[i];
           for (int j=0; j<ss.walls.length; j++) {
             Wall ld = ss.walls[j];
             if (ld.checkCounterHack != checkCounterHack) {
@@ -206,6 +215,9 @@ class Mob extends Entity {
     }
     
     if (stepUp>32.0) stepUp = 32.0;
+
+    inSubSectors.clear();
+    level.bsp.findSubSectorsInRadius(pos.x, pos.z, 0.0, inSubSectors);
   }
   
   void collideAgainstEntitiesIn(BlockCell bc) {
@@ -236,7 +248,7 @@ class Mob extends Entity {
     }
   }
   
-  void clipMotion(Wall seg, HashSet<Sector> overlappedSectors) {
+  bool clipMotion(Wall seg, HashSet<Sector> overlappedSectors) {
     double xp = pos.x;
     double yp = pos.z;
 
@@ -292,11 +304,14 @@ class Mob extends Entity {
         collided = true;
         pos.x += xNudge;
         pos.z += yNudge;
+        return true;
       } else if (overlappedSectors!=null) {
         overlappedSectors.add(seg.rightSector);
         if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
+        return false;
       }
     }
+    return false;
   }
 }
 
@@ -329,7 +344,6 @@ class Monster extends Mob {
     this.pos = pos;
     this.rot = rot;
     this.transparent = transparent;
-    if (random.nextInt(2)==0) this.transparent = true;
     
     radius = 16.0;
   }

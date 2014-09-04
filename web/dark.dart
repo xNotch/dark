@@ -48,8 +48,6 @@ AudioContext audioContext;
 List<bool> keys = new List<bool>(256);
 bool fireButton = false;
 
-Shader spriteShader, transparentSpriteShader, wallShader, floorShader, screenBlitShader, screenTransferShader, skyShader;
-
 // Init method. Set up WebGL, load textures, etc
 void main() {
   topLevelCatch(startup);
@@ -131,17 +129,9 @@ void startup() {
       }
     });
   });
-
-  spriteShader = new Shader("sprite");
-  transparentSpriteShader = new Shader("transparentsprite");
-  wallShader = new Shader("wall");
-  floorShader = new Shader("floor");
-  screenBlitShader = new Shader("screenblit");
-  screenTransferShader = new Shader("screentransfer");
-  skyShader = new Shader("sky");
   
   printToConsole("Loading and compiling shaders");
-  Shader.loadAndCompileAll().catchError((e){
+  shaders.loadAndCompileAll().catchError((e){
     crash("Failed to load shaders", e);
   }).then((_) { 
     topLevelCatch(() {
@@ -186,7 +176,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M1");
+  loadLevel("E1M7");
 }
 
 void loadLevel(String levelName) {
@@ -338,6 +328,7 @@ Player player;
 //double playerRot = 0.0;
 
 List<Framebuffer> indexColorBuffers = new List<Framebuffer>(3);
+Framebuffer segDistanceBuffer;
 Framebuffer indexColorBuffer;
 
 GL.Texture skyTexture;
@@ -424,6 +415,7 @@ void start(Level _level) {
   for (int i=0; i<3; i++) {
     indexColorBuffers[i] = new Framebuffer(frameBufferRes, frameBufferRes);
   }
+  segDistanceBuffer = new Framebuffer(frameBufferRes, frameBufferRes);
 
   printToConsole("Creating color lookup texture");
   Uint8List lookupTextureData = new Uint8List(256*256*4);
@@ -466,8 +458,8 @@ void start(Level _level) {
   gl.texParameteri(GL.TEXTURE_2D,  GL.TEXTURE_MAG_FILTER, GL.NEAREST);
 
   printToConsole("Setting up screen renderer");
-  screenRenderer = new ScreenRenderer(screenBlitShader,  indexColorBuffers[0].texture, colorLookupTexture);
-  transferRenderer = new ScreenRenderer(screenTransferShader,  indexColorBuffers[0].texture, colorLookupTexture);
+  screenRenderer = new ScreenRenderer(shaders.screenBlitShader,  indexColorBuffers[0].texture, colorLookupTexture);
+  transferRenderer = new ScreenRenderer(shaders.screenTransferShader,  indexColorBuffers[0].texture, colorLookupTexture);
   
   
 
@@ -478,7 +470,7 @@ void start(Level _level) {
   }
   skyTexture = Image.createTexture(skyImage, resources.wadFile.palette.palettes[0]);
 
-  skyRenderer = new SkyRenderer(skyShader, skyTexture);
+  skyRenderer = new SkyRenderer(shaders.skyShader, skyTexture);
 
   querySelector("#consoleHolder").setAttribute("style",  "display:none;");
   window.onResize.listen((event) => resize());
@@ -569,12 +561,20 @@ void renderGame() {
   List<Segment> visibleSegs = level.bsp.findSortedSegs(invertedViewMatrix, projectionMatrix);
   visibleSegs.forEach((seg) => seg.renderWalls());
 
+  renderers.floors.buildBackWallHackData(visibleSegs, cameraPos);
+  
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
-  renderers.floors.render(visibleSegs, cameraPos);
+  gl.bindFramebuffer(GL.FRAMEBUFFER, segDistanceBuffer.framebuffer);
+  renderers.floors.render(shaders.segNumShader, renderers.floorTexture);
+  
+  gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffers[1].framebuffer);
+  renderers.floors.buildData(visibleSegs, cameraPos);
+  renderers.floors.render(shaders.floorShader, renderers.floorTexture);
   gl.depthFunc(GL.LEQUAL);
 
+  gl.viewport(0,  0,  screenWidth,  screenHeight);
   renderers.walls.values.forEach((walls) {
     walls.render();
     walls.clear();
@@ -624,10 +624,25 @@ inline float DecodeFloatRGBA( float4 rgba ) {
   });
 
 
+  gl.depthFunc(GL.ALWAYS);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render();
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+  });
+  gl.colorMask(false, false, false, false);
+  renderers.transparentSpriteMaps.values.forEach((sprites) {
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+  });
+  gl.colorMask(true, true, true, true);
+  gl.depthFunc(GL.LEQUAL);
+  renderers.spriteMaps.values.forEach((sprites) {
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
     sprites.clear();
   });
+  gl.colorMask(false, false, false, false);
+  renderers.transparentSpriteMaps.values.forEach((sprites) {
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+  });
+  gl.colorMask(true, true, true, true);
   
   renderers.transparentMiddleWalls.values.forEach((walls) {
     walls.render();
@@ -651,7 +666,7 @@ inline float DecodeFloatRGBA( float4 rgba ) {
   projectionMatrix = oldProjection;
   
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render();
+    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture);
     sprites.clear();
   });
 //  gl.disable(GL.BLEND);
@@ -685,7 +700,7 @@ void renderGui() {
   gl.disable(GL.CULL_FACE);
   gl.blendFunc(GL.SRC_ALPHA,  GL.ONE_MINUS_SRC_ALPHA);
   renderers.guiSprites.values.forEach((sprites) {
-    sprites.render();
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
     sprites.clear();
   });  
   guiSpriteCount = 0;

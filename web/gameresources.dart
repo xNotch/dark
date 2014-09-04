@@ -45,25 +45,25 @@ class Renderers {
   HashMap<GL.Texture, Walls> transparentMiddleWalls = new HashMap<GL.Texture, Walls>();
   List<WallAnimation> wallAnimations = new List<WallAnimation>();
   Floors floors;
-//  Floors floorsHeight;
+  GL.Texture floorTexture;
   
   void addSpriteMap(GL.Texture texture) {
-    guiSprites[texture] = new Sprites(spriteShader, texture);
-    spriteMaps[texture] = new Sprites(spriteShader, texture);
-    transparentSpriteMaps[texture] = new Sprites(transparentSpriteShader, texture);
+    guiSprites[texture] = new Sprites(texture);
+    spriteMaps[texture] = new Sprites(texture);
+    transparentSpriteMaps[texture] = new Sprites(texture);
   }
 
   void addWallMap(GL.Texture texture) {
-    walls[texture] = new Walls(wallShader, texture);
-    transparentMiddleWalls[texture] = new Walls(wallShader, texture);
+    walls[texture] = new Walls(shaders.wallShader, texture);
+    transparentMiddleWalls[texture] = new Walls(shaders.wallShader, texture);
   }
 
   void setFlatMap(GL.Texture texture) {
     if (floors!=null) {
       throw new StateError("More than one texture atlas for flats!");
     }
-    floors = new Floors(floorShader, texture, false);
-//    floorsHeight = new Floors(heightShader, texture, true);
+    this.floorTexture = texture;
+    floors = new Floors();
   }
 
 

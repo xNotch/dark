@@ -4,38 +4,26 @@ class Sprites {
   // Vertex data:
 
   // x, y, z      0 + 3 = 3
-  // xo, yo       3 + 2 = 5
-  // u, v         5 + 2 = 7
-  // br           7 + 1 = 8
+  // subSectorId  3 + 1 = 4
+  // xo, yo       4 + 2 = 6
+  // u, v         6 + 2 = 8
+  // br           8 + 1 = 9
   
   static const int BYTES_PER_FLOAT = 4;
 
-  static const int FLOATS_PER_VERTEX = 8;
+  static const int FLOATS_PER_VERTEX = 9;
   static const int MAX_VERICES = 65536;
   static const int MAX_SPRITES = MAX_VERICES~/4;
   
-  Shader shader;
-  
+//  Shader shader;
   GL.Texture texture;
-  GL.Buffer vertexBuffer, indexBuffer;
   
-  int posLocation;
-  int offsetLocation;
-  int uvLocation;
-  int brightnessLocation;
-
-  GL.UniformLocation modelMatrixLocation;    
-  GL.UniformLocation projectionMatrixLocation;    
-  GL.UniformLocation viewMatrixLocation;
-  GL.UniformLocation texAtlasSizeLocation;
-  GL.UniformLocation timeLocation;
-  GL.UniformLocation viewportSizeLocation;
-  GL.UniformLocation bufferSizeLocation;
+  GL.Buffer vertexBuffer, indexBuffer;
 
   Float32List vertexData = new Float32List(MAX_VERICES*FLOATS_PER_VERTEX);
   int spriteCount = 0;
   
-  Sprites(this.shader, this.texture) {
+  Sprites(this.texture) {
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     gl.bufferDataTyped(GL.ARRAY_BUFFER, vertexData, GL.DYNAMIC_DRAW);
@@ -49,9 +37,9 @@ class Sprites {
     indexBuffer = gl.createBuffer();
     gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferDataTyped(GL.ELEMENT_ARRAY_BUFFER, indexData, GL.STATIC_DRAW);
-    
+    /*
     shader.use();
-    posLocation = gl.getAttribLocation(shader.program, "a_pos");
+    subSectorIdLocation = gl.getAttribLocation(shader.program, "a_subSectorId");
     offsetLocation = gl.getAttribLocation(shader.program, "a_offs");
     uvLocation = gl.getAttribLocation(shader.program, "a_uv");
     brightnessLocation = gl.getAttribLocation(shader.program, "a_brightness");
@@ -68,21 +56,23 @@ class Sprites {
     GL.UniformLocation frameLocation = gl.getUniformLocation(shader.program, "u_frame");
     if (frameLocation!=null) gl.uniform1i(frameLocation, 1);
     if (frameLocation!=null) gl.uniform1i(gl.getUniformLocation(shader.program, "u_tex"), 0);
+     */
   }
   
   void clear() {
     spriteCount = 0;
   }
   
-  void insertSprite(Sector sector, Vector3 p, SpriteTemplateRot str) {
+  void insertSprite(Sector sector, Vector3 p, int subSectorId, SpriteTemplateRot str) {
+    double ssid = subSectorId+0.0;
     double br = sector.lightLevel;
     if (invulnerable) br = 1.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
-        p.x, p.y, p.z, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
-        p.x, p.y, p.z, str.xOffs1, str.yOffs0, str.u1, str.v0, br,
-        p.x, p.y, p.z, str.xOffs1, str.yOffs1, str.u1, str.v1, br,
-        p.x, p.y, p.z, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
+        p.x, p.y, p.z, ssid, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
+        p.x, p.y, p.z, ssid, str.xOffs1, str.yOffs0, str.u1, str.v0, br,
+        p.x, p.y, p.z, ssid, str.xOffs1, str.yOffs1, str.u1, str.v1, br,
+        p.x, p.y, p.z, ssid, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
     ]);
     
     spriteCount++;
@@ -105,53 +95,45 @@ class Sprites {
     double v1 = v0+image.height;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
-        px, py, pz, xOffs0, yOffs0, u0, v0, br,
-        px, py, pz, xOffs1, yOffs0, u1, v0, br,
-        px, py, pz, xOffs1, yOffs1, u1, v1, br,
-        px, py, pz, xOffs0, yOffs1, u0, v1, br,
+        px, py, pz, 0.0, xOffs0, yOffs0, u0, v0, br,
+        px, py, pz, 0.0, xOffs1, yOffs0, u1, v0, br,
+        px, py, pz, 0.0, xOffs1, yOffs1, u1, v1, br,
+        px, py, pz, 0.0, xOffs0, yOffs1, u0, v1, br,
     ]);
     
     spriteCount++;
   }
     
   
-  void render() {
+  void render(Shader shader, GL.Texture backTexture) {
     if (spriteCount==0) return;
     shader.use();
 
+    shader.uniform1i("u_backTex", 1);
+    shader.uniform1i("u_tex", 0);
     gl.activeTexture(GL.TEXTURE1);
-    gl.bindTexture(GL.TEXTURE_2D, indexColorBuffers[1].texture);
+    gl.bindTexture(GL.TEXTURE_2D, backTexture);
     gl.activeTexture(GL.TEXTURE0);
     gl.bindTexture(GL.TEXTURE_2D, texture);
     
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData.sublist(0, spriteCount*FLOATS_PER_VERTEX*4) as Float32List);
     
-    gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
-    gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
-    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
-    gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
-    if (timeLocation!=null) {
-      gl.uniform1f(timeLocation, transparentNoiseTime+0.0);
-    }
-    if (viewportSizeLocation!=null) {
-      gl.uniform2f(viewportSizeLocation, screenWidth, screenHeight);
-      gl.uniform2f(bufferSizeLocation, frameBufferRes, frameBufferRes);
-    //viewportSizeLocation = gl.getUniformLocation(shader.program, "u_viewportSize");
-//    bufferSizeLocation = gl.getUniformLocation(shader.program, "u_bufferSize")
-    }
+    shader.uniformMatrix4fv("u_modelMatrix", false, modelMatrix.storage);
+    shader.uniformMatrix4fv("u_viewMatrix", false, viewMatrix.storage);
+    shader.uniformMatrix4fv("u_projectionMatrix", false, projectionMatrix.storage);
+    shader.uniform1f("u_texAtlasSize", TEXTURE_ATLAS_SIZE+0.0);
+    shader.uniform1f("u_time", transparentNoiseTime+0.0);
+    shader.uniform2f("u_viewportSize", screenWidth+0.0, screenHeight+0.0);
+    shader.uniform2f("u_bufferSize", frameBufferRes+0.0, frameBufferRes+0.0);
     
-    
-    gl.enableVertexAttribArray(posLocation);
-    gl.enableVertexAttribArray(offsetLocation);
-    gl.enableVertexAttribArray(uvLocation);
-    gl.enableVertexAttribArray(brightnessLocation);
     
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(posLocation, 3, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 0*BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(offsetLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 3*BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(uvLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 5*BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(brightnessLocation, 1, GL.FLOAT, false, FLOATS_PER_VERTEX*BYTES_PER_FLOAT, 7*BYTES_PER_FLOAT);
+    shader.bindVertexData("a_pos", 3, 0, FLOATS_PER_VERTEX);
+    shader.bindVertexData("a_subSectorId", 1, 3, FLOATS_PER_VERTEX);
+    shader.bindVertexData("a_offs", 2, 4, FLOATS_PER_VERTEX);
+    shader.bindVertexData("a_uv", 2, 6, FLOATS_PER_VERTEX);
+    shader.bindVertexData("a_brightness", 1, 8, FLOATS_PER_VERTEX);
 
     gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.drawElements(GL.TRIANGLES, spriteCount*6, GL.UNSIGNED_SHORT, 0);

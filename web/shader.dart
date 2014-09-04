@@ -2,15 +2,19 @@ part of Dark;
 
 List<Shader> allShaders = new List<Shader>();
 
-class Shader {
-  String name;
-  GL.Program program;
+Shaders shaders = new Shaders();
 
-  Shader(this.name) {
-    allShaders.add(this);
-  }
-
-  static Future loadAndCompileAll() {
+class Shaders {
+  Shader spriteShader = new Shader("sprite");
+  Shader transparentSpriteShader = new Shader("transparentsprite");
+  Shader wallShader = new Shader("wall");
+  Shader floorShader = new Shader("floor");
+  Shader screenBlitShader = new Shader("screenblit");
+  Shader screenTransferShader = new Shader("screentransfer");
+  Shader skyShader = new Shader("sky");
+  Shader segNumShader = new Shader("segnum");
+  
+  Future loadAndCompileAll() {
     List<Future> allFutures = new List<Future>();
     
     for (int i=0; i<allShaders.length; i++) {
@@ -19,6 +23,58 @@ class Shader {
 
     return Future.wait(allFutures);
   }
+}
+
+class Shader {
+  static const int BYTES_PER_FLOAT = 4;
+
+  String name;
+  GL.Program program;
+  HashMap<String, int> attribs = new HashMap<String, int>();
+  HashMap<String, GL.UniformLocation> uniforms = new HashMap<String, GL.UniformLocation>();
+  
+
+  Shader(this.name) {
+    allShaders.add(this);
+  }
+  
+  void uniformMatrix4fv(String name, bool transpose, Float32List data) {
+    if (!uniforms.containsKey(name)) return;
+    gl.uniformMatrix4fv(uniforms[name], transpose, data);
+  }
+
+  void uniform1f(String name, double data) {
+    if (!uniforms.containsKey(name)) return;
+    gl.uniform1f(uniforms[name], data);
+  }
+
+  void uniform2f(String name, double d0, double d1) {
+    if (!uniforms.containsKey(name)) return;
+    gl.uniform2f(uniforms[name], d0, d1);
+  }
+  
+  void uniform1i(String name, int data) {
+    if (!uniforms.containsKey(name)) return;
+    gl.uniform1i(uniforms[name], data);
+  }  
+  
+  void bindVertexData(String name, int length, int offs, int floatsPerVertex) {
+    if (!attribs.containsKey(name)) return;
+    int location = attribs[name]; 
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, length, GL.FLOAT, false, floatsPerVertex * BYTES_PER_FLOAT, offs * BYTES_PER_FLOAT);
+  }
+  
+/*
+ *   int posLocation;
+  int texOffsLocation;
+  int brightnessLocation;
+
+  GL.UniformLocation modelMatrixLocation;
+  GL.UniformLocation projectionMatrixLocation;
+  GL.UniformLocation viewMatrixLocation;
+  GL.UniformLocation texAtlasSizeLocation;
+ */  
 
   Future loadAndCompile() {
     String shaderRootUrl = "shader/$name"; 
@@ -42,6 +98,20 @@ class Shader {
     GL.Shader vertexShader = compile(vertexShaderSource, GL.VERTEX_SHADER);
     GL.Shader fragmentShader = compile(fragmentShaderSource, GL.FRAGMENT_SHADER);
     program = link(vertexShader, fragmentShader);
+    
+    gl.useProgram(program);
+    
+    int uniformCount = gl.getProgramParameter(program,  GL.ACTIVE_UNIFORMS);
+    for (int i=0; i<uniformCount; i++) {
+      String name = gl.getActiveUniform(program,  i).name;
+      uniforms[name] = gl.getUniformLocation(program,  name);
+    }
+    
+    int attributeCount = gl.getProgramParameter(program, GL.ACTIVE_ATTRIBUTES);
+    for (int i=0; i<attributeCount; i++) {
+      String name = gl.getActiveAttrib(program,  i).name;
+      attribs[name] = gl.getAttribLocation(program,  name);
+    }
   }
   
   void use() {

@@ -3,7 +3,8 @@ part of Dark;
 class Floors {
   static const int BYTES_PER_FLOAT = 4;
 
-  // x, y, z, w     0 + 3 = 4
+  // x, y, z        0 + 3 = 3
+  // subSectorId    3 + 1 = 4
   // uo, vo         4 + 2 = 6
   // br             6 + 1 = 7
 
@@ -11,25 +12,21 @@ class Floors {
   static const int MAX_VERICES = 65536;
   static const int MAX_SPRITES = MAX_VERICES ~/ 3;
 
-  Shader shader;
-
-  GL.Texture texture;
   GL.Buffer vertexBuffer, indexBuffer;
 
-  int posLocation;
+/*  int posLocation;
   int texOffsLocation;
   int brightnessLocation;
 
   GL.UniformLocation modelMatrixLocation;
   GL.UniformLocation projectionMatrixLocation;
   GL.UniformLocation viewMatrixLocation;
-  GL.UniformLocation texAtlasSizeLocation;
+  GL.UniformLocation texAtlasSizeLocation;*/
   
-  bool sectorDepthRender;
-
   Float32List vertexData = new Float32List(MAX_VERICES * FLOATS_PER_VERTEX);
 
-  Floors(this.shader, this.texture, this.sectorDepthRender) {
+//  Floors(this.shader, this.texture, this.sectorDepthRender) {
+  Floors() {
     vertexBuffer = gl.createBuffer();
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
     gl.bufferDataTyped(GL.ARRAY_BUFFER, vertexData, GL.DYNAMIC_DRAW);
@@ -44,25 +41,23 @@ class Floors {
     gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferDataTyped(GL.ELEMENT_ARRAY_BUFFER, indexData, GL.STATIC_DRAW);
 
-    shader.use();
-    posLocation = gl.getAttribLocation(shader.program, "a_pos");
+    //shader.use();
+/*  posLocation = gl.getAttribLocation(shader.program, "a_pos");
     texOffsLocation = gl.getAttribLocation(shader.program, "a_texOffs");
     brightnessLocation = gl.getAttribLocation(shader.program, "a_brightness");
 
     modelMatrixLocation = gl.getUniformLocation(shader.program, "u_modelMatrix");
     viewMatrixLocation = gl.getUniformLocation(shader.program, "u_viewMatrix");
     projectionMatrixLocation = gl.getUniformLocation(shader.program, "u_projectionMatrix");
-    texAtlasSizeLocation = gl.getUniformLocation(shader.program, "u_texAtlasSize");
+    texAtlasSizeLocation = gl.getUniformLocation(shader.program, "u_texAtlasSize");*/
   }
 
-  void render(List<Segment> visibleSegs, Vector3 pos) {
-    shader.use();
-    gl.bindTexture(GL.TEXTURE_2D, texture);
-
+  int pp = 0;
+  void buildData(List<Segment> visibleSegs, Vector3 pos) {
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
 
-    int pp = 0;
     int ip = 0;
+    pp = 0;
 
     double xSkyTexOffs = resources.flats["_sky_"].xAtlasPos.toDouble();
     double ySkyTexOffs = resources.flats["_sky_"].yAtlasPos.toDouble();
@@ -80,7 +75,7 @@ class Floors {
       double tox = ss.x1;
       double toy = ss.y1;
 
-      double dd = visibleSegs[i].id+0.0;
+      double dd = visibleSegs[i].sortedSubSectorId+0.0;
       if (ss.backSector == null) {
         double xTexOffs = 0.0;
         double yTexOffs = 0.0;
@@ -142,8 +137,6 @@ class Floors {
         }
       }
       if (floor < pos.y) {
-        if (sectorDepthRender && ss.backSector!=null && (ss.backSector.floorHeight==ss.sector.floorHeight && ss.backSector.ceilingHeight>ss.backSector.floorHeight)) {
-        } else {
         double xTexOffs = resources.flats[ss.sector.floorTexture].xAtlasPos.toDouble();
         double yTexOffs = resources.flats[ss.sector.floorTexture].yAtlasPos.toDouble();
         double sbr = br;
@@ -158,7 +151,6 @@ class Floors {
               pos.x, floor, pos.z, dd, xTexOffs, yTexOffs, sbr]);
   
           pp+=3;
-        }
         }
       }
       if (ss.sector.ceilingTexture == "F_SKY1") {
@@ -179,9 +171,6 @@ class Floors {
           pp+=6;
         }
       } else if (ceiling > pos.y) {
-        if (sectorDepthRender && ss.backSector!=null && (ss.backSector.ceilingHeight==ss.sector.ceilingHeight && ss.backSector.ceilingHeight>ss.backSector.floorHeight)) {
-        }
-        else {
         double xTexOffs = resources.flats[ss.sector.ceilingTexture].xAtlasPos.toDouble();
         double yTexOffs = resources.flats[ss.sector.ceilingTexture].yAtlasPos.toDouble();
         double sbr = br;
@@ -190,38 +179,35 @@ class Floors {
             tox, ceiling, toy, dd, xTexOffs, yTexOffs, sbr,
             pos.x, ceiling, pos.z, dd, xTexOffs, yTexOffs, sbr]);
         pp+=3;
-        }
       }
     }
-
     gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData.sublist(0, pp * FLOATS_PER_VERTEX) as Float32List);
+  }
+  
+  void render(Shader shader, GL.Texture texture) {
+    shader.use();
+    gl.bindTexture(GL.TEXTURE_2D, texture);
 
-    gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
-    gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
-    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
-    gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
+    shader.uniformMatrix4fv("u_modelMatrix", false, modelMatrix.storage);
+    shader.uniformMatrix4fv("u_viewMatrix", false, viewMatrix.storage);
+    shader.uniformMatrix4fv("u_projectionMatrix", false, projectionMatrix.storage);
+    shader.uniform1f("u_texAtlasSize", TEXTURE_ATLAS_SIZE+0.0);
 
-
-    gl.enableVertexAttribArray(posLocation);
-    gl.enableVertexAttribArray(texOffsLocation);
-    gl.enableVertexAttribArray(brightnessLocation);
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(posLocation, 4, GL.FLOAT, false, FLOATS_PER_VERTEX * BYTES_PER_FLOAT, 0 * BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(texOffsLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX * BYTES_PER_FLOAT, 4 * BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(brightnessLocation, 1, GL.FLOAT, false, FLOATS_PER_VERTEX * BYTES_PER_FLOAT, 6 * BYTES_PER_FLOAT);
+    
+    shader.bindVertexData("a_pos", 4, 0, FLOATS_PER_VERTEX);
+    shader.bindVertexData("a_texOffs", 2, 4, FLOATS_PER_VERTEX);
+    shader.bindVertexData("a_brightness", 1, 6, FLOATS_PER_VERTEX);
 
     gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.drawElements(GL.TRIANGLES, pp, GL.UNSIGNED_SHORT, 0);
   }
 
 
-  void renderBackWallHack(List<Segment> visibleSegs, Vector3 pos) {
-    shader.use();
-    gl.bindTexture(GL.TEXTURE_2D, texture);
-
+  void buildBackWallHackData(List<Segment> visibleSegs, Vector3 pos) {
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
 
-    int pp = 0;
+    pp = 0;
     int ip = 0;
 
     double xSkyTexOffs = -10.0;
@@ -231,6 +217,8 @@ class Floors {
     
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
       Segment ss = visibleSegs[i];
+      double dd = ss.sortedSubSectorId+0.0;
+
       double orgFloor = ss.sector.floorHeight.toDouble();
       double orgCeiling = ss.sector.ceilingHeight.toDouble();
       double floor = -10000000.0;
@@ -245,93 +233,76 @@ class Floors {
       double toy = ss.y1;
 
       if (ss.backSector == null || ss.backSector.floorHeight >= ss.backSector.ceilingHeight) {
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
 
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd]);
       } else {
         if (ss.backSector.floorHeight > ss.sector.floorHeight) {
           double backFloor = ss.backSector.floorHeight.toDouble();
 
           if (ss.backSector.floorHeight > pos.y) {
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backFloor, fromy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backFloor, fromy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
 
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd]);
           }
         }
         if (ss.backSector.ceilingHeight < ss.sector.ceilingHeight) {
           double backCeiling = ss.backSector.ceilingHeight.toDouble();
 
           if (ss.backSector.ceilingHeight < pos.y) {
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy, dd]);
 
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backCeiling, toy]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backCeiling, toy, dd]);
           }
         }
       }
       if (orgFloor < pos.y) {
         if (ss.backSector != null && ss.backSector.floorHeight < ss.sector.floorHeight) {
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor, fromy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
 
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd]);
         }
         if (false) { 
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor-floorDepth, toy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor-floorDepth, fromy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgFloor-floorDepth, pos.z]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor-floorDepth, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor-floorDepth, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgFloor-floorDepth, pos.z, dd]);
         }
       }
       if (orgCeiling > pos.y) {
         if (ss.backSector != null && ss.backSector.ceilingHeight > ss.sector.ceilingHeight) {
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
 
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd]);
         }
         if (false) {
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgCeiling+floorDepth, pos.z]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgCeiling+floorDepth, pos.z, dd]);
         }
       }
     }
 
     gl.bufferSubDataTyped(GL.ARRAY_BUFFER, 0, vertexData.sublist(0, pp * FLOATS_PER_VERTEX) as Float32List);
-
-    gl.uniformMatrix4fv(modelMatrixLocation, false, modelMatrix.storage);
-    gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix.storage);
-    gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix.storage);
-    gl.uniform1f(texAtlasSizeLocation, TEXTURE_ATLAS_SIZE);
-
-
-    gl.enableVertexAttribArray(posLocation);
-    gl.enableVertexAttribArray(texOffsLocation);
-    gl.enableVertexAttribArray(brightnessLocation);
-    gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(posLocation, 3, GL.FLOAT, false, FLOATS_PER_VERTEX * BYTES_PER_FLOAT, 0 * BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(texOffsLocation, 2, GL.FLOAT, false, FLOATS_PER_VERTEX * BYTES_PER_FLOAT, 3 * BYTES_PER_FLOAT);
-    gl.vertexAttribPointer(brightnessLocation, 1, GL.FLOAT, false, FLOATS_PER_VERTEX * BYTES_PER_FLOAT, 5 * BYTES_PER_FLOAT);
-
-    gl.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.drawElements(GL.TRIANGLES, pp, GL.UNSIGNED_SHORT, 0);
   }
 }
 

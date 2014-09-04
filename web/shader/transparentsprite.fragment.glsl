@@ -7,7 +7,7 @@ varying float v_brightness;
 varying vec2 v_real_screenPos;
 
 uniform sampler2D u_tex;
-uniform sampler2D u_frame;
+uniform sampler2D u_backTex;
 uniform float u_time;
 uniform vec2 u_viewportSize;
 uniform vec2 u_bufferSize;
@@ -27,7 +27,7 @@ void main() {
     y+=u_time*14.34234;
     float step = fract((x+y)/8.0);
     float transparentBrightness = 0.9-fract(step)/2.0;
-    vec4 lastCol = texture2D(u_frame, v_real_screenPos+vec2(0.0, (step-0.5)*4.0/u_bufferSize.y)); 
+    vec4 lastCol = texture2D(u_backTex, v_real_screenPos+vec2(0.0, (step-0.5)*4.0/u_bufferSize.y)); 
 //    gl_FragColor = vec4(col.rg, transparentBrightness, 1.0);
     lastCol.b*=transparentBrightness;
     gl_FragColor = lastCol;

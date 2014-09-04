@@ -252,7 +252,7 @@ class Level {
 
 class Segment {
   WAD.Seg data;
-  int id;
+  int sortedSubSectorId;
   
   Vector2 startVertex, endVertex;
   double x0, y0;
@@ -369,6 +369,7 @@ class SubSector {
   List<Segment> segs;
   List<Sector> backSectors;
   List<Wall> walls;
+  int sortedSubSectorId;
 
   SubSector(Level level, WAD.SSector sSector) {
     WAD.Level levelData = level.levelData;
