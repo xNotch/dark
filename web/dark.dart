@@ -176,7 +176,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M7");
+  loadLevel("E1M1");
 }
 
 void loadLevel(String levelName) {
@@ -537,9 +537,11 @@ void updateGameLogic(double passedTime) {
   player.rotMotion-=iRot;
   player.move(iX, iY, passedTime);
 
-  level.entities.forEach((entity) {
-    entity.tick(passedTime);
-  });
+  for (int i=0; i<level.entities.length; i++) {
+    Entity e = level.entities[i];
+    e.tick(passedTime);
+    if (e.removed) level.entities.removeAt(i--);
+  }
 
   player.weapon.tick(fireButton, passedTime);
 }
@@ -582,34 +584,6 @@ void renderGame() {
     walls.render();
     walls.clear();
   });
-
-  //gl.depthFunc(GL.ALWAYS);
-//  gl.colorMask(false, false, false, false);
-  // TODO: Fix the floor hack!
-  /**
-   * Possible idea:
-   * Since there's no depth buffer texture in WebGL, manually make one by encoding depth into RGBA:
-   * 
-   * (Or maybe store the distance along the normal of the texture?)
-   * (Ie dot(pos, normal))
-   * 
-inline float4 EncodeFloatRGBA( float v ) {
-  float4 enc = float4(1.0, 255.0, 65025.0, 160581375.0) * v;
-  enc = frac(enc);
-  enc -= enc.yzww * float4(1.0/255.0,1.0/255.0,1.0/255.0,0.0);
-  return enc;
-}
-inline float DecodeFloatRGBA( float4 rgba ) {
-  return dot( rgba, float4(1.0, 1/255.0, 1/65025.0, 1/160581375.0) );
-}
-   * 
-   * Then render AGAIN, saving wall and floor normals
-   * Then render sprites and pass the CENTER of the sprite to the fragment shader.
-   * Check if the center of the sprite is in front of the wall 
-   */
-//  renderers.floorsHeight.render(visibleSegs, cameraPos);
-  //gl.colorMask(true, true, true, true);
-  //gl.depthFunc(GL.LEQUAL);
 
 
   Matrix4 oldMatrix = projectionMatrix;
@@ -758,12 +732,6 @@ void render(double time) {
 
   audioContext.listener.setPosition(player.pos.x, player.pos.y, player.pos.z);
   audioContext.listener.setOrientation(sin(player.rot), 0.0, cos(player.rot), 0.0, -1.0, 0.0);
-/*  int error = gl.getError();
-  if (error!=0) {
-    crash("OpenGL error", "$error");
-    print("Error: $error");
-  } else {*/
-//  }
 
   if (lastTime==-1.0) lastTime = time;
   double passedTime = (time-lastTime)/1000.0; // in seconds
@@ -771,8 +739,8 @@ void render(double time) {
   lastTime = time;
 
   int before = new DateTime.now().millisecondsSinceEpoch;
-  updateAnimations(passedTime);
 
+  updateAnimations(passedTime);
   updateGameLogic(passedTime);
   renderGame();
   renderGui();

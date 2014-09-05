@@ -248,6 +248,10 @@ class Level {
       }*/
     }
   }
+  
+  HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEnemies) {
+    return bsp.hitscan(pos, dir, scanForEnemies);
+  }
 }
 
 class Segment {
@@ -263,6 +267,7 @@ class Segment {
   Wall wall;
   double offset;
   double length;
+  double xn, yn;
   
   Segment(Level level, this.data) {
     this.x0 = data.startVertex.x+0.0;
@@ -272,6 +277,12 @@ class Segment {
     
     startVertex = new Vector2(x0, y0);
     endVertex = new Vector2(x1, y1);
+    
+    Vector2 tangent = (endVertex-startVertex).normalize();
+
+    xn = tangent.y;
+    yn = -tangent.x;
+    
     
     offset = data.offset+0.0;
     length = startVertex.distanceTo(endVertex).floorToDouble();

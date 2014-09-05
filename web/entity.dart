@@ -8,11 +8,12 @@ class PlayerSpawn {
 }
 
 class EntityBlockerType {
-  static const NONE = const EntityBlockerType._();
-  static const BLOCKING = const EntityBlockerType._();
-  static const PICKUP = const EntityBlockerType._();
-  
-  const EntityBlockerType._();
+  static const NONE = const EntityBlockerType._(0);
+  static const BLOCKING = const EntityBlockerType._(1);
+  static const PICKUP = const EntityBlockerType._(2);
+
+  final int type;
+  const EntityBlockerType._(this.type);
 }
 
 class Entity {
@@ -26,6 +27,7 @@ class Entity {
   int animFrame = 0;
   bool hanging = false;
   List<SubSector> inSubSectors = new List<SubSector>();
+  bool removed = false;
   
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
 //  bool blocking = false;
@@ -68,7 +70,17 @@ class Entity {
     } else {
       renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
     }
-  }  
+  }
+  
+  void remove() {
+    if (blockerType==EntityBlockerType.BLOCKING) {
+      if (blockCell!=null) blockCell.blockers.remove(this);
+    } else if (blockerType==EntityBlockerType.PICKUP) {
+      if (blockCell!=null) blockCell.pickups.remove(this);
+    }
+    
+    removed = true;
+  }
 }
 
 class AnimatedStationary extends Entity {
@@ -111,6 +123,81 @@ class Decoration extends AnimatedStationary {
     Decoration result = new Decoration(templateName, frames, level, pos, rot, EntityBlockerType.BLOCKING);
     result.blockerType = EntityBlockerType.BLOCKING;
     return result;
+  }
+}
+
+class Puff extends Entity {
+  String frames;
+  int animStep = 0;
+  double animAccum = 0.0;
+  double speed = 1.0;
+  
+  Puff(String templateName, String frames, Level level, Vector3 pos, double rot) : super(level, pos, EntityBlockerType.NONE) {
+    frames = frames.toUpperCase();
+    this.frames = frames;
+    spriteTemplate = spriteTemplates[templateName];
+    this.pos = pos;
+    this.rot = rot;
+    speed = 1.0/((random.nextDouble()-0.5)*1.0+1.0);
+    animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    radius = 16.0;
+  }
+  
+  void tick(double passedTime) {
+    int lastAnimStep = animStep;
+    animAccum+=passedTime*35.0/4.0*speed;
+    animStep+=animAccum.floor();
+    animAccum-=animAccum.floor();
+    animStep = animStep;
+    pos.y+=passedTime*32;
+    Sector sector = level.bsp.findSector(pos.xz);
+    if (pos.y>sector.ceilingHeight-4.0) pos.y=sector.ceilingHeight-4.0;
+    if (lastAnimStep!=animStep) {
+      if (animStep>=frames.length)
+        remove();
+      else 
+        animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    }
+  }
+}
+
+class Blood extends Entity {
+  String frames;
+  int animStep = 0;
+  double life = 0.0;
+  double xa, ya, za;
+  
+  Blood(String templateName, String frames, Level level, Vector3 pos, double rot) : super(level, pos, EntityBlockerType.NONE) {
+    // TODO: Base blood frame on damage amount.
+    // Cutoffs are apparently 9 and 12
+    frames = frames.toUpperCase();
+    this.frames = frames;
+    spriteTemplate = spriteTemplates[templateName];
+    this.pos = pos;
+    this.rot = rot;
+    life = 0.2/((random.nextDouble()-0.5)*1.0+1.0);
+    animStep = random.nextInt(frames.length);
+    animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    radius = 16.0;
+    
+    Vector3 spread;
+    do {
+      spread = new Vector3(random.nextDouble()-0.5, random.nextDouble()-0.5, random.nextDouble()-0.5)*2.0;
+    } while (spread.length2>1.0);
+    xa = spread.x; 
+    ya = spread.y; 
+    za = spread.z; 
+  }
+  
+  void tick(double passedTime) {
+    life-=passedTime;
+    pos.y+=passedTime*ya*100.0;
+    ya-=passedTime*5.0;
+    Sector sector = level.bsp.findSector(pos.xz);
+    if (pos.y<sector.floorHeight-4.0) pos.y=sector.floorHeight-4.0;
+    if (life<0.0) {
+      remove();
+    }
   }
 }
 
@@ -220,7 +307,7 @@ class Mob extends Entity {
     if (stepUp>32.0) stepUp = 32.0;
 
     inSubSectors.clear();
-    level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius*0.9, inSubSectors);
+    level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius*0.0, inSubSectors);
   }
   
   void collideAgainstEntitiesIn(BlockCell bc) {
@@ -322,9 +409,15 @@ class Player extends Mob {
   static List<Weapon> weapons = [new Fists(), new Chainsaw(), new Pistol(), new Shotgun(), new SuperShotgun(), new Chaingun(), new RocketLauncher(), new Plasmagun(), new BFG()];
   Weapon weapon = weapons[3];
   double bobSpeed = 0.0, bobPhase = 0.0;
+  
+  
   Player(Level level, Vector3 pos, double rot) : super(level, pos) {
     this.rot = rot;
     radius = 16.0;
+    for (int i=0; i<weapons.length; i++) {
+      weapons[i].player = this;
+      weapons[i].level = level;
+    }
   }
   
   void move(double iX, double iY, double passedTime) {
@@ -353,7 +446,7 @@ class Monster extends Mob {
   
   void tick(double passedTime) {
     if (standStillTime>0.0) {
-      standStillTime-=passedTime;
+//      standStillTime-=passedTime;
       move(0.0, 0.0*0.0, passedTime);
     } else {
       move(0.0, 1.0*0.2, passedTime);

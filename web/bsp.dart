@@ -1,6 +1,17 @@
 part of Dark;
 int _subSectorCount = 0;
 
+class HitResult {
+  Segment segment;
+  Entity entity;
+  Vector3 pos;
+  
+  HitResult.seg(this.segment);
+  HitResult.ent(this.entity);
+  HitResult.floor();
+  HitResult.ceiling();
+}
+
 class BSP {
   Level level;
   BSPNode root;
@@ -31,6 +42,148 @@ class BSP {
 
   void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
     BSPNode.findSubSectorsInRadius(root, x, y, radius, result);
+  }
+  
+  HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEntities) {
+    double x0 = pos.x;
+    double y0 = pos.z;
+    double closest = 1000000.0;
+    double x1 = pos.x+dir.x*closest;
+    double y1 = pos.y+dir.z*closest;
+    
+    double xn = dir.x;
+    double yn = dir.z;
+    
+    double xt = yn;
+    double yt = -xn;
+    
+    double dd = x0*xn+y0*yn;
+    double lenD = x0*xt+y0*yt;
+    
+    List<Segment> segs = new List<Segment>();
+    root.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segs);
+    Segment hitSegment = null;
+    Vector3 hitNormal = null;
+    
+    HitResult hitResult = null;
+    
+//    bool hitAnything = false;
+    double closestPossible = 0.0;
+    for (int i=0; i<segs.length; i++) {
+      Segment s = segs[i];
+
+      double d0 = s.x0*xt+s.y0*yt-lenD;
+      double d1 = s.x1*xt+s.y1*yt-lenD;
+      
+      // First check that the segment intersects the ray
+      if (d0<0.0 && 0.0<d1) {
+        double len = d1-d0;
+        double p = (0.0-d0)/len;
+        double xHit = s.x0+(s.x1-s.x0)*p;
+        double yHit = s.y0+(s.y1-s.y0)*p;        
+        
+        // Calculate distance to the ray/segment intersection
+        double hitDist = (xHit*xn+yHit*yn-dd);
+        
+        if (hitDist<0.0) continue;
+        
+        if (!scanForEntities) {
+          // Check if it hits the floor before hitting the segment
+          if (dir.y<0.0 && s.sector.floorHeight<pos.y) {
+            double dist = s.sector.floorHeight-pos.y;
+            double p = dist/dir.y;
+            if (p<closest && p<hitDist && p>closestPossible) {
+              hitNormal = new Vector3(0.0, 1.0, 0.0);
+              hitResult = new HitResult.floor();
+              closest = p;
+            }
+          }
+          
+          // Check if it hits the ceiling before hitting the segment
+          if (dir.y>0.0 && s.sector.ceilingHeight>pos.y) {
+            double dist = s.sector.ceilingHeight-pos.y;
+            double p = dist/dir.y;
+            if (p<closest && p<hitDist && p>closestPossible) {
+              hitNormal = new Vector3(0.0, -1.0, 0.0);
+              hitResult = new HitResult.ceiling();
+              closest = p;
+            }
+          }
+        }
+        
+        // Update the closest possible floor/ceiling distance to the distance to this segment
+        if (closestPossible<hitDist) closestPossible = hitDist;
+        
+        // We hit the wall itself
+        if (hitDist>=0.0 && hitDist<closest) {
+          bool hit = false;
+          if (!s.wall.data.twoSided || s.backSector==null) {
+            hit = true;
+          } else if (s.backSector!=null) {
+            double yHitPos = pos.y+dir.y*hitDist;
+            if (scanForEntities) {
+            } else {
+              if (s.backSector.floorHeight>yHitPos) hit = true;
+              if (s.backSector.ceilingHeight<yHitPos) hit = true;
+            }
+          }
+          if (hit) {
+            double yHitPos = pos.y+dir.y*hitDist;
+            hitNormal = new Vector3(s.xn, 0.0, s.yn);
+            hitSegment = s;
+            closest = hitDist;
+            hitResult = new HitResult.seg(s);
+          }
+        }
+      }
+      if (hitResult!=null) break;
+    }
+    
+    for (int i=0; i<level.entities.length; i++) {
+      Entity e = level.entities[i];
+      if (e.blockerType != EntityBlockerType.BLOCKING) continue;
+
+      // Distance to the entity along the ray
+      double d = e.pos.x*xn+e.pos.z*yn-dd;
+      if (d>0.0 && d<closest) {
+        double hity = pos.y+dir.y*d;
+
+        bool yHit = false;
+        if (scanForEntities) {
+          double yDiffOverZ = (hity-pos.y)/d;
+          double maxAngle = 1.0;
+          if (yDiffOverZ>-maxAngle && yDiffOverZ<maxAngle) {
+            yHit = true;
+          }
+        } else {
+          double rangeBonus = 8.0;
+          if (hity>e.pos.y-rangeBonus && hity<e.pos.y+e.height+rangeBonus) {
+            yHit = true;
+          }
+        }
+          
+        if (yHit) {
+          double widthBonus = 0.0;
+          if (scanForEntities) {
+            widthBonus+=d*0.06;
+          }
+          // Sideways distance to the ray
+          double sd = e.pos.x*xt+e.pos.z*yt-lenD;
+          if (sd>-e.radius-widthBonus && sd<e.radius+widthBonus) {
+            closest = d-cos(asin(sd/e.radius))*e.radius;
+            hitNormal = -dir;
+            hitResult = new HitResult.ent(e);
+          }
+        }
+      }
+    }
+
+    if (hitResult!=null) {
+      hitResult.pos = pos+dir*closest+hitNormal*4.0; 
+      return hitResult;
+    } else {
+      return null;
+    }
   }
 }
 
@@ -235,6 +388,7 @@ class BSPNode {
 //  final Vector2 pos;
   //final Vector2 dir;
   
+  double x0, y0;
   double dx, dy;
   double d;
 
@@ -247,6 +401,8 @@ class BSPNode {
   BSPNode(Level level, WAD.Node node) {
     Vector2 pos = new Vector2(node.x.toDouble(), node.y.toDouble());
     Vector2 dir = new Vector2(-node.dy.toDouble(), node.dx.toDouble()).normalize();
+    x0 = pos.x;
+    y0 = pos.y;
     d = pos.dot(dir);
     dx = dir.x;
     dy = dir.y;
@@ -359,6 +515,28 @@ class BSPNode {
     } else {
       if (rightChild!=null) return rightChild.findSubSector(x, y);
       else return rightSubSector;
+    }
+  }
+  
+  void getPotentiallyIntersectingSegs(double x0, double y0, double xn, double yn, List<Segment> segments) {
+    double distance = x0*dx+y0*dy-d; 
+    double normalDotProduct = xn*dx+yn*dy; 
+    if (distance>0.0) {
+      if (leftChild!=null) leftChild.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segments);
+      else segments.addAll(leftSubSector.segs);
+      
+      if (normalDotProduct<0.0) {
+        if (rightChild!=null) rightChild.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segments);
+        else segments.addAll(rightSubSector.segs);
+      }
+    } else {
+      if (rightChild!=null) rightChild.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segments);
+      else segments.addAll(rightSubSector.segs);
+      
+      if (normalDotProduct>0.0) {
+        if (leftChild!=null) leftChild.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segments);
+        else segments.addAll(leftSubSector.segs);
+      }
     }
   }
 }
