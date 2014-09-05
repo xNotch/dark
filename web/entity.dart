@@ -121,6 +121,7 @@ class Mob extends Entity {
   Vector3 motion = new Vector3(0.0, 0.0, 0.0);
   double rotMotion = 0.9;
   double stepUp = 0.0;
+  double walkTime = 0.0;
   
   bool collided = false;
   
@@ -132,6 +133,7 @@ class Mob extends Entity {
 //  List<SubSector> subSectorsInRange = new List<SubSector>();
   void move(double iX, double iY, double passedTime) {
     collided = false;
+    animFrame=((walkTime*35/6)).floor()%4;
     Vector3 oldPos = new Vector3.copy(pos);
     
     rot+=rotMotion*passedTime;
@@ -152,6 +154,7 @@ class Mob extends Entity {
       motion.z = 0.0;
     } else {
       int steps = (motion.length/(radius/3.0)).floor()+1;
+      walkTime+=passedTime;
       
       for (int i=0; i<steps; i++) {
         checkCounterHack++;
@@ -217,7 +220,7 @@ class Mob extends Entity {
     if (stepUp>32.0) stepUp = 32.0;
 
     inSubSectors.clear();
-    level.bsp.findSubSectorsInRadius(pos.x, pos.z, 0.0, inSubSectors);
+    level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius*0.9, inSubSectors);
   }
   
   void collideAgainstEntitiesIn(BlockCell bc) {

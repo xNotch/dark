@@ -26,7 +26,7 @@ void main() {
     v_brightness = a_brightness;
     vec4 projectedPos = u_projectionMatrix*pos;
     
-    v_ssectorId = a_subSectorId;
+    v_ssectorId = a_subSectorId-0.5;
     
     vec4 screenCoord = projectedPos;    
     screenCoord /= screenCoord.w; // perspective divide

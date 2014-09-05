@@ -15,10 +15,6 @@ uniform vec2 u_bufferSize;
 void main() {
     vec4 col = texture2D(u_tex, v_uv);
     if (col.a<0.9) discard;
-/*    float ib = 1.0-v_brightness;
-    ib = ib*ib*ib;
-    ib = ib*ib;
-    float brightness = ((v_brightness+1.0)/(length(v_pos.z)*ib+v_brightness+1.0));*/
 
     float x = floor(v_screenPos.x);
     float y = floor(v_screenPos.y);
@@ -27,8 +23,8 @@ void main() {
     y+=u_time*14.34234;
     float step = fract((x+y)/8.0);
     float transparentBrightness = 0.9-fract(step)/2.0;
-    vec4 lastCol = texture2D(u_backTex, v_real_screenPos+vec2(0.0, (step-0.5)*4.0/u_bufferSize.y)); 
-//    gl_FragColor = vec4(col.rg, transparentBrightness, 1.0);
+    vec4 lastCol = texture2D(u_backTex, v_real_screenPos+vec2(0.0, (step-0.5)*4.0/200.0)); 
+
     lastCol.b*=transparentBrightness;
     gl_FragColor = lastCol;
 }

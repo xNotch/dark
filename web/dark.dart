@@ -482,6 +482,9 @@ void start(Level _level) {
   pannerNode.distanceModel = "exponential";
   pannerNode.connectNode(audioContext.destination);
 
+  print("DOASJ");
+//  double time = 0.0;
+  //new Timer.periodic(new Duration(milliseconds: 16), (t)=>render(time+=16.0/1000.0));
   requestAnimationFrame();
 }
 
@@ -740,9 +743,10 @@ void updateAnimations(double passedTime) {
   }
 }
 
+double time = 0.0;
 void requestAnimationFrame() {
   if (crashed) return;
-  window.requestAnimationFrame((time)=>topLevelCatch(()=>render(time)));
+  window.animationFrame.then((time)=>topLevelCatch(()=>render(time)));
 }
 
 double lastTime = -1.0;
@@ -759,7 +763,6 @@ void render(double time) {
     crash("OpenGL error", "$error");
     print("Error: $error");
   } else {*/
-    requestAnimationFrame();
 //  }
 
   if (lastTime==-1.0) lastTime = time;
@@ -781,6 +784,7 @@ void render(double time) {
   for (int i=0; i<soundChannels.length; i++) {
     soundChannels[i].update();
   }
+  requestAnimationFrame();
 }
 
 void topLevelCatch(Function f) {

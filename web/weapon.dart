@@ -131,12 +131,12 @@ class Shotgun extends Weapon {
   static GunAnimation reloadAnimation = new GunAnimation([
       new GunAnimationFrame(3, ["SHTGA0", "SHTFA0"]),
       new GunAnimationFrame(3, ["SHTGA0", "SHTFB0"]),
-      new GunAnimationFrame(5, ["SHTGB0"]),
+      new GunAnimationFrame(3, ["SHTGB0"]),
       new GunAnimationFrame(8, ["SHTGC0"]),
-      new GunAnimationFrame(5, ["SHTGD0"]),
-      new GunAnimationFrame(5, ["SHTGC0"]),
-      new GunAnimationFrame(5, ["SHTGB0"]),
-      new GunAnimationFrame(5, ["SHTGA0"]),
+      new GunAnimationFrame(8, ["SHTGD0"]),
+      new GunAnimationFrame(4, ["SHTGC0"]),
+      new GunAnimationFrame(4, ["SHTGB0"]),
+      new GunAnimationFrame(4, ["SHTGA0"]),
   ]);
   
   Shotgun() : super("SHTGA0");

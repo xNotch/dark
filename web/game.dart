@@ -4,7 +4,7 @@ class Game {
   static const String NAME = "DARK";
   static const String VERSION = "0.1";
 
-  static bool ORIGINAL_RESOLUTION = true; // Original doom was 320x200 pixels
+  static bool ORIGINAL_RESOLUTION = false; // Original doom was 320x200 pixels
   static bool ORIGINAL_SCREEN_ASPECT_RATIO = false; // Original doom was 4:3.
   static bool ORIGINAL_PIXEL_ASPECT_RATIO = true; // Original doom used slightly vertically stretched pixels (320x200 pixels in 4:3)
   

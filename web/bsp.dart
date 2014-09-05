@@ -11,7 +11,7 @@ class BSP {
   }
   
   Sector findSector(Vector2 pos) {
-    return root.findSubSector(pos).sector;
+    return root.findSubSector(pos.x, pos.y).sector;
   }
   
   List<Segment> findSortedSegs(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
@@ -19,7 +19,7 @@ class BSP {
     Vector2 pos = (modelViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0))).xz;
     List<Segment> result = new List<Segment>();
     _subSectorCount = 0;
-    root.findSortedSegs(culler, pos, result);
+    root.findSortedSegs(culler, pos.x, pos.y, result);
     return result;
   }
   
@@ -30,7 +30,7 @@ class BSP {
   }
 
   void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
-    root.findSubSectorsInRadius(x, y, radius, result);
+    BSPNode.findSubSectorsInRadius(root, x, y, radius, result);
   }
 }
 
@@ -232,9 +232,8 @@ class Bounds {
 }
 
 class BSPNode {
-  BSP bsp;
-  Vector2 pos;
-  Vector2 dir;
+//  final Vector2 pos;
+  //final Vector2 dir;
   
   double dx, dy;
   double d;
@@ -246,8 +245,8 @@ class BSPNode {
   SubSector leftSubSector, rightSubSector;
   
   BSPNode(Level level, WAD.Node node) {
-    pos = new Vector2(node.x.toDouble(), node.y.toDouble());
-    dir = new Vector2(-node.dy.toDouble(), node.dx.toDouble()).normalize();
+    Vector2 pos = new Vector2(node.x.toDouble(), node.y.toDouble());
+    Vector2 dir = new Vector2(-node.dy.toDouble(), node.dx.toDouble()).normalize();
     d = pos.dot(dir);
     dx = dir.x;
     dy = dir.y;
@@ -267,67 +266,78 @@ class BSPNode {
     }
   }
  
-  void enumerateSegsLeft(Vector2 p) {
-    if (leftChild!=null) leftChild.enumerateSegs(p);
+  void enumerateSegsLeft(double x, double y) {
+    if (leftChild!=null) leftChild.enumerateSegs(x, y);
     else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
   }
   
-  void enumerateSegsRight(Vector2 p) {
-    if (rightChild!=null) rightChild.enumerateSegs(p);
+  void enumerateSegsRight(double x, double y) {
+    if (rightChild!=null) rightChild.enumerateSegs(x, y);
     else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
   }
   
-  void enumerateSegs(Vector2 p) {
-    if (p.dot(dir)>d) {
-      enumerateSegsLeft(p);
-      enumerateSegsRight(p);
+  void enumerateSegs(double x, double y) {
+    if (x*dx+y*dy>d) {
+      enumerateSegsLeft(x, y);
+      enumerateSegsRight(x, y);
     } else {
-      enumerateSegsRight(p);
-      enumerateSegsLeft(p);
+      enumerateSegsRight(x, y);
+      enumerateSegsLeft(x, y);
     }
   }
   
   
-  void findSortedSegsLeft(Culler culler, Vector2 p, List<Segment> result) {
+  void findSortedSegsLeft(Culler culler, double x, double y, List<Segment> result) {
     if (culler.isVisible(leftBounds)) {
-      if (leftChild!=null) leftChild.findSortedSegs(culler, p, result);
+      if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
       else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
     } else {
-      if (leftChild!=null) leftChild.enumerateSegs(p);
+      if (leftChild!=null) leftChild.enumerateSegs(x, y);
       else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
     }
   }
   
-  void findSortedSegsRight(Culler culler, Vector2 p, List<Segment> result) {
+  void findSortedSegsRight(Culler culler, double x, double y, List<Segment> result) {
     if (culler.isVisible(rightBounds)) {
-      if (rightChild!=null) rightChild.findSortedSegs(culler, p, result);
+      if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
       else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
     } else {
-      if (rightChild!=null) rightChild.enumerateSegs(p);
+      if (rightChild!=null) rightChild.enumerateSegs(x, y);
       else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
     }
   }
   
-  void findSortedSegs(Culler culler, Vector2 p, List<Segment> result) {
-    if (p.dot(dir)>d) {
-      findSortedSegsLeft(culler, p, result);
-      findSortedSegsRight(culler, p, result);
+  void findSortedSegs(Culler culler, double x, double y,List<Segment> result) {
+    if (x*dx+y*dy>d) {
+      findSortedSegsLeft(culler, x, y, result);
+      findSortedSegsRight(culler, x, y, result);
     } else {
-      findSortedSegsRight(culler, p, result);
-      findSortedSegsLeft(culler, p, result);
+      findSortedSegsRight(culler, x, y, result);
+      findSortedSegsLeft(culler, x, y, result);
     }
   }
   
-  void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
-    double dd = x*dx+y*dy;
-    if (dd>=d-radius) {
-      if (leftChild!=null) leftChild.findSubSectorsInRadius(x, y, radius, result);
-      else result.add(leftSubSector);
-    } 
-    if (dd<=d+radius) {
-      if (rightChild!=null) rightChild.findSubSectorsInRadius(x, y, radius, result);
-      else result.add(rightSubSector);
-    }
+  static void findSubSectorsInRadius(BSPNode n, double x, double y, double r, List<SubSector> result) {
+  //void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
+    BSPNode next = n;
+    do {
+      n = next;
+      next = null;
+      double dd = x*n.dx+y*n.dy;
+      if (dd>=n.d-r) {
+        if (n.leftChild!=null) next = n.leftChild;
+        else result.add(n.leftSubSector);
+      } 
+      if (dd<=n.d+r) {
+        if (n.rightChild!=null) {
+          if (next==null) {
+            next = n.rightChild;
+          } else {
+            BSPNode.findSubSectorsInRadius(n.rightChild,  x,  y,  r,  result);
+          }
+        } else result.add(n.rightSubSector);
+      }
+    } while (next!=null);
   }
   
   void findSectorsInRadius(double x, double y, double radius, HashSet<Sector> result) {
@@ -342,12 +352,12 @@ class BSPNode {
     }
   }
   
-  SubSector findSubSector(Vector2 p) {
-    if (p.dot(dir)>d) {
-      if (leftChild!=null) return leftChild.findSubSector(p);
+  SubSector findSubSector(double x, double y) {
+    if (x*dx+y*dy>d) {
+      if (leftChild!=null) return leftChild.findSubSector(x, y);
       else return leftSubSector;
     } else {
-      if (rightChild!=null) return rightChild.findSubSector(p);
+      if (rightChild!=null) return rightChild.findSubSector(x, y);
       else return rightSubSector;
     }
   }
