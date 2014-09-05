@@ -12,6 +12,7 @@ uniform mat4 u_projectionMatrix;
 uniform float u_texAtlasSize;
 uniform vec2 u_viewportSize;
 uniform vec2 u_bufferSize;
+uniform float u_clipSegs;
 
 varying vec2 v_uv;
 varying vec3 v_pos;
@@ -26,7 +27,7 @@ void main() {
     v_brightness = a_brightness;
     vec4 projectedPos = u_projectionMatrix*pos;
     
-    v_ssectorId = a_subSectorId-0.5;
+    v_ssectorId = (a_subSectorId*u_clipSegs)-0.5;
     
     vec4 screenCoord = projectedPos;    
     screenCoord /= screenCoord.w; // perspective divide

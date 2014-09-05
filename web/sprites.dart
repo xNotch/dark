@@ -105,7 +105,7 @@ class Sprites {
   }
     
   
-  void render(Shader shader, GL.Texture backTexture) {
+  void render(Shader shader, GL.Texture backTexture, bool clipAgainstSegs) {
     if (spriteCount==0) return;
     shader.use();
 
@@ -126,6 +126,11 @@ class Sprites {
     shader.uniform1f("u_time", transparentNoiseTime+0.0);
     shader.uniform2f("u_viewportSize", screenWidth+0.0, screenHeight+0.0);
     shader.uniform2f("u_bufferSize", frameBufferRes+0.0, frameBufferRes+0.0);
+    if (clipAgainstSegs) {
+      shader.uniform1f("u_clipSegs", 1.0);
+    } else {
+      shader.uniform1f("u_clipSegs", 0.0);
+    }
     
     
     gl.bindBuffer(GL.ARRAY_BUFFER, vertexBuffer);

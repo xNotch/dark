@@ -176,7 +176,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M1");
+  loadLevel("E1M7");
 }
 
 void loadLevel(String levelName) {
@@ -603,21 +603,21 @@ void renderGame() {
 
   gl.depthFunc(GL.ALWAYS);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, true);
   });
   gl.colorMask(false, false, false, false);
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, true);
   });
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
     sprites.clear();
   });
   gl.colorMask(false, false, false, false);
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
   });
   gl.colorMask(true, true, true, true);
   
@@ -643,7 +643,7 @@ void renderGame() {
   projectionMatrix = oldProjection;
   
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture);
+    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture, false);
     sprites.clear();
   });
 //  gl.disable(GL.BLEND);
@@ -677,7 +677,7 @@ void renderGui() {
   gl.disable(GL.CULL_FACE);
   gl.blendFunc(GL.SRC_ALPHA,  GL.ONE_MINUS_SRC_ALPHA);
   renderers.guiSprites.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
     sprites.clear();
   });  
   guiSpriteCount = 0;

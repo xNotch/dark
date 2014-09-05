@@ -236,7 +236,7 @@ class Mob extends Entity {
     motion.z+=(cos(rot)*iY+sin(rot)*iX)*passedTime*4000.0;
     sectorsInRange.clear();
 
-    if (motion.xz.length2<1.0) {
+    if (motion.xz.length2<100.0) {
       motion.x = 0.0;
       motion.z = 0.0;
     } else {
@@ -446,7 +446,7 @@ class Monster extends Mob {
   
   void tick(double passedTime) {
     if (standStillTime>0.0) {
-//      standStillTime-=passedTime;
+      standStillTime-=passedTime;
       move(0.0, 0.0*0.0, passedTime);
     } else {
       move(0.0, 1.0*0.2, passedTime);

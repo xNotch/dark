@@ -156,7 +156,7 @@ class Shotgun extends Weapon {
   Shotgun() : super("SHTGA0");
 
   void update(bool pressed, bool held, double passedTime) {
-    Vector3 shootPos = player.pos+new Vector3(0.0, 40.0, 0.0);
+    Vector3 shootPos = player.pos+new Vector3(0.0, 36.0, 0.0);
     if (held && animation==null) {
       Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
       HitResult scanResult = level.hitscan(shootPos, dir, true);
@@ -177,6 +177,9 @@ class Shotgun extends Weapon {
         HitResult result = level.hitscan(shootPos, (dir+spread*0.1).normalize(), false);
         if (result!=null) {
           if (result.entity!=null) {
+            if (result.entity is Monster) {
+              (result.entity as Monster).motion+=dir*100.0;
+            }
             level.entities.add(new Blood("BLUD", "ABC", level, result.pos, 0.0));
           } else {
             level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
