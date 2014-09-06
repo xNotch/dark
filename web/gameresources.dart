@@ -171,10 +171,10 @@ class GameResources {
         AudioBuffer audioBuffer = audioContext.createBuffer(1, 1000, 11000);
         samples[name] = audioBuffer;
       } else {
-        AudioBuffer audioBuffer = audioContext.createBuffer(1,  sample.sampleCount, sample.rate);
+        AudioBuffer audioBuffer = audioContext.createBuffer(1,  sample.sampleCount*4, sample.rate*4);
         Float32List bufferData = audioBuffer.getChannelData(0);
-        for (int i=0; i<sample.sampleCount; i++) {
-          bufferData[i] = (sample.samples[i]/255.0)*2.0-1.0;
+        for (int i=0; i<sample.sampleCount*4; i++) {
+          bufferData[i] = (sample.samples[i~/4]/255.0)*2.0-1.0;
         }
         samples[name] = audioBuffer;
       }

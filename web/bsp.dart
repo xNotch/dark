@@ -141,7 +141,7 @@ class BSP {
     
     for (int i=0; i<level.entities.length; i++) {
       Entity e = level.entities[i];
-      if (e.blockerType != EntityBlockerType.BLOCKING) continue;
+      if (e.blockerType != EntityBlockerType.BLOCKING || !e.shouldAimAt) continue;
 
       // Distance to the entity along the ray
       double d = e.pos.x*xn+e.pos.z*yn-dd;

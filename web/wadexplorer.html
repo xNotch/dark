@@ -8,14 +8,20 @@
     <style>
       body {
         background-color: #000000;
-        color: #999999;
-        font-size: 20px;
+        color: #777777;
+        font-size: 16px;
+        font-family: monospace;
+      }
+      canvas {
+        position: fixed;
+        top: 200px;
+        left: 400px;
       }
     </style>
   </head>
  
   <body>   
-    <pre><div id="content"></div></pre>
+    <div id="content"></div>
     <script type="application/dart" src="wadexplorer.dart"></script>
     <!-- for this next line to work, your pubspec.yaml file must have a dependency on 'browser' -->
     <script src="packages/browser/dart.js"></script>

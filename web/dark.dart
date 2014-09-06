@@ -335,17 +335,27 @@ GL.Texture skyTexture;
 PannerNode pannerNode;
 AudioBufferSourceNode nodeHack;
 
+Map<String, SoundChannel> uniqueSoundChannels = new Map<String, SoundChannel>();
+
 class SoundChannel {
   PannerNode pannerNode;
   AudioBufferSourceNode source;
   Vector3 pos;
   bool playing = false;
   int startAge;
+  String uniqueId = null;
   
   SoundChannel() {
   }
   
-  void play(Vector3 pos, AudioBuffer buffer) {
+  void play(Vector3 pos, String uniqueId, AudioBuffer buffer, double volume) {
+    if (uniqueId!=null) {
+      if (uniqueSoundChannels.containsKey(uniqueId)) {
+        uniqueSoundChannels[uniqueId].uniqueId = null;
+        uniqueSoundChannels[uniqueId].stop();
+      }
+      uniqueSoundChannels[uniqueId] = this;
+    }
     startAge = new DateTime.now().millisecondsSinceEpoch;
     
     this.pos = pos;
@@ -362,18 +372,34 @@ class SoundChannel {
     
     update();
     
+    double rate = 1.0+((random.nextDouble()-0.5)*0.1);
     source = audioContext.createBufferSource();
+    source.playbackRate.setValueAtTime(rate,  0.0);
     source.onEnded.listen((e)=>finished());
+    AudioNode node = source;
+    if (volume!=1.0) {
+      GainNode gain = audioContext.createGain();
+      gain.gain.setValueAtTime(volume,  0.0);
+      node.connectNode(gain);
+      node = gain;
+    }
     if (pos!=null) {
-      source.connectNode(pannerNode);
+      node.connectNode(pannerNode);
     } else {
-      source.connectNode(audioContext.destination);
+      node.connectNode(audioContext.destination);
     }
     source.buffer = buffer;
     source.start(0.0);
   }
   
+  void stop() {
+    source.stop();
+  }
+  
   void finished() {
+    if (uniqueId!=null) {
+      uniqueSoundChannels.remove(uniqueId);
+    }
     source = null;
     pannerNode = null;
     playing = false;
@@ -394,10 +420,10 @@ class SoundChannel {
 List<SoundChannel> soundChannels = new List<SoundChannel>();
 GameResources resources;
 
-void playSound(Vector3 pos, String soundName) {
+void playSound(Vector3 pos, String soundName, {String uniqueId : null, double volume: 1.0 }) {
   if (pos!=null && pos.distanceToSquared(player.pos)>1200*1200) return;
   SoundChannel soundChannel = new SoundChannel();
-  soundChannel.play(pos, resources.samples["DS$soundName"]);
+  soundChannel.play(pos, uniqueId, resources.samples["DS$soundName"], volume);
   soundChannels.add(soundChannel);
 }
 
@@ -522,6 +548,15 @@ void updateGameLogic(double passedTime) {
   double iRot = 0.0;
   double iY = 0.0;
   double iX = 0.0;
+  
+  if (keys[49]) player.requestWeaponSlot(0);
+  if (keys[50]) player.requestWeaponSlot(1);
+  if (keys[51]) player.requestWeaponSlot(2);
+  if (keys[52]) player.requestWeaponSlot(3);
+  if (keys[53]) player.requestWeaponSlot(4);
+  if (keys[54]) player.requestWeaponSlot(5);
+  if (keys[55]) player.requestWeaponSlot(6);
+
   if (keys[81] || keys[37]) iRot+=1.0;
   if (keys[69] || keys[39]) iRot-=1.0;
 

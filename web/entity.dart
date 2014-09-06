@@ -26,8 +26,12 @@ class Entity {
   bool transparent = false;
   int animFrame = 0;
   bool hanging = false;
+  bool shouldAimAt = false;
+  bool bleeds = false;
   List<SubSector> inSubSectors = new List<SubSector>();
   bool removed = false;
+  bool collided = false;
+  
   
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
 //  bool blocking = false;
@@ -81,6 +85,133 @@ class Entity {
     
     removed = true;
   }
+  
+  static int checkCounterHack = 0;
+  static List<BlockCell> tmpBlockCells = new List<BlockCell>();
+  static Set<Wall> tmpLinedefs = new Set<Wall>();
+
+  void clipMove(Vector3 motion, double passedTime, HashSet<Sector> sectorsInRange) {
+    int steps = (motion.length/(radius/3.0)).floor()+1;
+    
+    for (int i=0; i<steps; i++) {
+      checkCounterHack++;
+      pos.x+=motion.x*(passedTime/steps);
+      pos.z+=motion.z*(passedTime/steps);
+
+      level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+64.0, tmpBlockCells);
+      for (int i=0; i<tmpBlockCells.length; i++) {
+        collideAgainstEntitiesIn(tmpBlockCells[i]);
+      }
+
+      inSubSectors.clear();
+      level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, inSubSectors);
+      for (int i=0; i<inSubSectors.length; i++) {
+        SubSector ss = inSubSectors[i];
+        for (int j=0; j<ss.walls.length; j++) {
+          Wall ld = ss.walls[j];
+          if (ld.checkCounterHack != checkCounterHack) {
+            ld.checkCounterHack = checkCounterHack;
+            clipMotion(ld, sectorsInRange);
+          }
+        }
+      }
+    }
+  }
+  
+
+  void collideAgainstEntitiesIn(BlockCell bc) {
+    for (int j=0; j<bc.blockers.length; j++) {
+      Entity e = bc.blockers[j];
+      if (e!=this) clipMotionEntity(e);
+    }
+  }
+  
+  bool canEnterSector(Sector sector) {
+    if (sector.floorHeight>pos.y+24) return false;
+    if (sector.ceilingHeight-sector.floorHeight==0) return true;
+    if (sector.ceilingHeight-sector.floorHeight<height) return false;
+    return true;
+  }
+  
+  void clipMotionEntity(Entity e) {
+    double xd = pos.x-e.pos.x;
+    double yd = pos.z-e.pos.z;
+    double len2 = xd*xd+yd*yd;
+    double sRad = radius+e.radius;
+    if (len2>0.01 && len2<sRad*sRad) {
+      double len = sqrt(len2);
+      double toPushout = sRad-len;
+      pos.x+=xd/len*toPushout;
+      pos.z+=yd/len*toPushout;
+      collided = true;
+    }
+  }
+  
+  bool clipMotion(Wall seg, HashSet<Sector> overlappedSectors) {
+    double xp = pos.x;
+    double yp = pos.z;
+
+    double xNudge = 0.0;
+    double yNudge = 0.0;
+    bool intersect = false;
+
+    double d = xp*seg.xn+yp*seg.yn - seg.d;
+    double mul = 1.0;
+    if (d>=-radius && d<=radius) {
+      if (d<0) {
+        d=-d;
+        mul = -1.0;
+      }
+      double sd = xp*seg.xt+yp*seg.yt - seg.sd;
+      if (sd>=0.0 && sd<=seg.length) {
+        // Hit the center of the seg
+        double toPushOut = radius-d+0.001;
+        xNudge=seg.xn*toPushOut*mul;
+        yNudge=seg.yn*toPushOut*mul;
+        intersect = true;
+      } else {
+        // Hit either corner of the linedef
+        double xd, yd;
+        if (sd<=0.0) {
+          xd = xp-seg.x0;
+          yd = yp-seg.y0;
+        } else {
+          xd = xp-seg.x1;
+          yd = yp-seg.y1;
+        }
+
+        double distSqr = xd*xd+yd*yd;
+        if (xd*xd+yd*yd<radius*radius) {
+          double dist = sqrt(distSqr);
+          double toPushOut = radius-dist+0.001;
+          xNudge=xd/dist*toPushOut;
+          yNudge=yd/dist*toPushOut;
+          intersect = true;
+        }
+      }
+    }
+
+    if (intersect) {
+      bool collideWall = false;
+      if (seg.data.impassable || seg.leftSector==null) {
+        collideWall = true;
+      } else if (!canEnterSector(seg.leftSector) || !canEnterSector(seg.rightSector)) {
+        collideWall = true;
+      }
+
+      if (collideWall) {
+        collided = true;
+        pos.x += xNudge;
+        pos.z += yNudge;
+        return true;
+      } else if (overlappedSectors!=null) {
+        overlappedSectors.add(seg.rightSector);
+        if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
+        return false;
+      }
+    }
+    return false;
+  }  
 }
 
 class AnimatedStationary extends Entity {
@@ -201,19 +332,47 @@ class Blood extends Entity {
   }
 }
 
+class Projectile extends Entity {
+  Entity owner;
+  Vector3 dir;
+  
+  Projectile(String templateName, Level level, Vector3 pos, this.dir, this.owner) : super(level, pos, EntityBlockerType.NONE) {
+    spriteTemplate = spriteTemplates[templateName];
+    radius = 8.0;
+    height = 8.0;
+    rot = atan2(dir.x, dir.z);
+  }
+  
+  HashSet<Sector> sectorsInRange = new HashSet<Sector>();
+  void tick(double passedTime) {
+    sectorsInRange.clear();
+    clipMove(dir,  passedTime, sectorsInRange);
+    sectorsInRange.add(level.bsp.findSector(pos.xz));
+    sectorsInRange.forEach((sector) {
+      if (sector.floorHeight>pos.y) collided = true;
+      if (sector.ceilingHeight<pos.y+height) collided = true;
+    });
+    pos.y+=dir.y*passedTime;
+    
+    if (collided) {
+      remove();
+    }
+  }
+  
+  void clipMotionEntity(Entity e) {
+    if (e!=owner) super.clipMotionEntity(e);
+  }
+}
+
 class Mob extends Entity {
-  static int checkCounterHack = 0;
-  static List<BlockCell> tmpBlockCells = new List<BlockCell>();
-  static Set<Wall> tmpLinedefs = new Set<Wall>();
   Vector3 motion = new Vector3(0.0, 0.0, 0.0);
   double rotMotion = 0.9;
   double stepUp = 0.0;
   double walkTime = 0.0;
   
-  bool collided = false;
-  
   
   Mob(Level level, Vector3 pos) : super(level, pos, EntityBlockerType.BLOCKING) {
+    bleeds = true;
   }
   
   HashSet<Sector> sectorsInRange = new HashSet<Sector>();
@@ -240,32 +399,8 @@ class Mob extends Entity {
       motion.x = 0.0;
       motion.z = 0.0;
     } else {
-      int steps = (motion.length/(radius/3.0)).floor()+1;
       walkTime+=passedTime;
-      
-      for (int i=0; i<steps; i++) {
-        checkCounterHack++;
-        pos.x+=motion.x*(passedTime/steps);
-        pos.z+=motion.z*(passedTime/steps);
-  
-        level.blockmap.getBlockCellsRadius(pos.x, pos.z, radius+64.0, tmpBlockCells);
-        for (int i=0; i<tmpBlockCells.length; i++) {
-          collideAgainstEntitiesIn(tmpBlockCells[i]);
-        }
-  
-        inSubSectors.clear();
-        level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, inSubSectors);
-        for (int i=0; i<inSubSectors.length; i++) {
-          SubSector ss = inSubSectors[i];
-          for (int j=0; j<ss.walls.length; j++) {
-            Wall ld = ss.walls[j];
-            if (ld.checkCounterHack != checkCounterHack) {
-              ld.checkCounterHack = checkCounterHack;
-              clipMotion(ld, sectorsInRange);
-            }
-          }
-        }
-      }
+      super.clipMove(motion, passedTime, sectorsInRange);
     }
     
     pos.y+=motion.y*(passedTime);
@@ -310,114 +445,39 @@ class Mob extends Entity {
     level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius*0.0, inSubSectors);
   }
   
-  void collideAgainstEntitiesIn(BlockCell bc) {
-    for (int j=0; j<bc.blockers.length; j++) {
-      Entity e = bc.blockers[j];
-      if (e!=this) clipMotionEntity(e);
-    }
-  }
-  
-  bool canEnterSector(Sector sector) {
-    if (sector.floorHeight>pos.y+24) return false;
-    if (sector.ceilingHeight-sector.floorHeight==0) return true;
-    if (sector.ceilingHeight-sector.floorHeight<height) return false;
-    return true;
-  }
-  
-  void clipMotionEntity(Entity e) {
-    double xd = pos.x-e.pos.x;
-    double yd = pos.z-e.pos.z;
-    double len2 = xd*xd+yd*yd;
-    double sRad = radius+e.radius;
-    if (len2>0.01 && len2<sRad*sRad) {
-      double len = sqrt(len2);
-      double toPushout = sRad-len;
-      pos.x+=xd/len*toPushout;
-      pos.z+=yd/len*toPushout;
-      collided = true;
-    }
-  }
-  
-  bool clipMotion(Wall seg, HashSet<Sector> overlappedSectors) {
-    double xp = pos.x;
-    double yp = pos.z;
-
-    double xNudge = 0.0;
-    double yNudge = 0.0;
-    bool intersect = false;
-
-    double d = xp*seg.xn+yp*seg.yn - seg.d;
-    double mul = 1.0;
-    if (d>=-radius && d<=radius) {
-      if (d<0) {
-        d=-d;
-        mul = -1.0;
-      }
-      double sd = xp*seg.xt+yp*seg.yt - seg.sd;
-      if (sd>=0.0 && sd<=seg.length) {
-        // Hit the center of the seg
-        double toPushOut = radius-d+0.001;
-        xNudge=seg.xn*toPushOut*mul;
-        yNudge=seg.yn*toPushOut*mul;
-        intersect = true;
-      } else {
-        // Hit either corner of the linedef
-        double xd, yd;
-        if (sd<=0.0) {
-          xd = xp-seg.x0;
-          yd = yp-seg.y0;
-        } else {
-          xd = xp-seg.x1;
-          yd = yp-seg.y1;
-        }
-
-        double distSqr = xd*xd+yd*yd;
-        if (xd*xd+yd*yd<radius*radius) {
-          double dist = sqrt(distSqr);
-          double toPushOut = radius-dist+0.001;
-          xNudge=xd/dist*toPushOut;
-          yNudge=yd/dist*toPushOut;
-          intersect = true;
-        }
-      }
-    }
-
-    if (intersect) {
-      bool collideWall = false;
-      if (seg.data.impassable || seg.leftSector==null) {
-        collideWall = true;
-      } else if (!canEnterSector(seg.leftSector) || !canEnterSector(seg.rightSector)) {
-        collideWall = true;
-      }
-
-      if (collideWall) {
-        collided = true;
-        pos.x += xNudge;
-        pos.z += yNudge;
-        return true;
-      } else if (overlappedSectors!=null) {
-        overlappedSectors.add(seg.rightSector);
-        if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
-        return false;
-      }
-    }
-    return false;
-  }
 }
 
 class Player extends Mob {
-  static List<Weapon> weapons = [new Fists(), new Chainsaw(), new Pistol(), new Shotgun(), new SuperShotgun(), new Chaingun(), new RocketLauncher(), new Plasmagun(), new BFG()];
-  Weapon weapon = weapons[3];
+  Fists fists = new Fists();
+  Chainsaw chainsaw = new Chainsaw();
+  Pistol pistol = new Pistol();
+  Shotgun shotgun = new Shotgun();
+  SuperShotgun superShotgun = new SuperShotgun();
+  Chaingun chaingun = new Chaingun();
+  RocketLauncher rocketLauncher = new RocketLauncher();
+  Plasmagun plasmaGun = new Plasmagun();
+  BFG bfg = new BFG();
+  
+  Weapon weapon;
+  Weapon nextWeapon;
   double bobSpeed = 0.0, bobPhase = 0.0;
-  
-  
+
   Player(Level level, Vector3 pos, double rot) : super(level, pos) {
     this.rot = rot;
     radius = 16.0;
-    for (int i=0; i<weapons.length; i++) {
-      weapons[i].player = this;
-      weapons[i].level = level;
-    }
+    nextWeapon = weapon = pistol;
+  }
+  
+  void requestWeaponSlot(int slot) {
+    Weapon switchTo = null;
+    if (slot==0) switchTo = nextWeapon == fists?chainsaw:fists;
+    if (slot==1) switchTo = pistol;
+    if (slot==2) switchTo = nextWeapon == shotgun?superShotgun:shotgun;
+    if (slot==3) switchTo = chaingun;
+    if (slot==4) switchTo = rocketLauncher;
+    if (slot==5) switchTo = plasmaGun;
+    if (slot==6) switchTo = bfg;
+    nextWeapon = switchTo;
   }
   
   void move(double iX, double iY, double passedTime) {
@@ -440,6 +500,7 @@ class Monster extends Mob {
     this.pos = pos;
     this.rot = rot;
     this.transparent = transparent;
+    this.shouldAimAt = true;
     
     radius = 16.0;
   }

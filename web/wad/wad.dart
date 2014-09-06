@@ -764,6 +764,22 @@ class Image {
       pixels[i] = data.getUint8(i);
     }
   }
+  
+  Image.mirror(Image source) {
+    this.name = source.name;
+    width = source.width;
+    height = source.height;
+    xCenter = width-source.xCenter-1;
+    yCenter = source.yCenter;
+
+    pixels = new Int16List(width * height);
+
+    for (int y=0; y<height; y++) {
+      for (int x=0; x<width; x++) {
+        pixels[x+y*width] = source.pixels[(width-x-1)+y*width];
+      }
+    }
+  }
 
   Image.read(this.name, WadByteData data) {
     width = data.getInt16(0x00);
