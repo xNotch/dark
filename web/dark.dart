@@ -45,6 +45,7 @@ SkyRenderer skyRenderer;
 bool invulnerable = false;
 
 AudioContext audioContext;
+List<bool> lastFrameKeys = new List<bool>(256);
 List<bool> keys = new List<bool>(256);
 bool fireButton = false;
 
@@ -78,7 +79,7 @@ void startup() {
     return;
   }
 
-  for (int i=0; i<256; i++) keys[i] = false;
+  for (int i=0; i<256; i++) lastFrameKeys[i] = keys[i] = false;
 
   window.onKeyDown.listen((e) {
     if (!gameVisible) return;
@@ -176,7 +177,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M7");
+  loadLevel("E1M1");
 }
 
 void loadLevel(String levelName) {
@@ -335,7 +336,7 @@ GL.Texture skyTexture;
 PannerNode pannerNode;
 AudioBufferSourceNode nodeHack;
 
-Map<String, SoundChannel> uniqueSoundChannels = new Map<String, SoundChannel>();
+Map<Object, SoundChannel> uniqueSoundChannels = new Map<Object, SoundChannel>();
 
 class SoundChannel {
   PannerNode pannerNode;
@@ -348,7 +349,14 @@ class SoundChannel {
   SoundChannel() {
   }
   
-  void play(Vector3 pos, String uniqueId, AudioBuffer buffer, double volume) {
+  static void stopSoundAtUniqueId(Object uniqueId) {
+    if (uniqueSoundChannels.containsKey(uniqueId)) {
+      uniqueSoundChannels[uniqueId].uniqueId = null;
+      uniqueSoundChannels[uniqueId].stop();
+    }
+  }
+
+  void play(Vector3 pos, Object uniqueId, AudioBuffer buffer, double volume) {
     if (uniqueId!=null) {
       if (uniqueSoundChannels.containsKey(uniqueId)) {
         uniqueSoundChannels[uniqueId].uniqueId = null;
@@ -420,7 +428,11 @@ class SoundChannel {
 List<SoundChannel> soundChannels = new List<SoundChannel>();
 GameResources resources;
 
-void playSound(Vector3 pos, String soundName, {String uniqueId : null, double volume: 1.0 }) {
+void stopSoundAtUniqueId(Object uniqueId) {
+  SoundChannel.stopSoundAtUniqueId(uniqueId);
+}
+
+void playSound(Vector3 pos, String soundName, {Object uniqueId : null, double volume: 1.0 }) {
   if (pos!=null && pos.distanceToSquared(player.pos)>1200*1200) return;
   SoundChannel soundChannel = new SoundChannel();
   soundChannel.play(pos, uniqueId, resources.samples["DS$soundName"], volume);
@@ -549,13 +561,13 @@ void updateGameLogic(double passedTime) {
   double iY = 0.0;
   double iX = 0.0;
   
-  if (keys[49]) player.requestWeaponSlot(0);
-  if (keys[50]) player.requestWeaponSlot(1);
-  if (keys[51]) player.requestWeaponSlot(2);
-  if (keys[52]) player.requestWeaponSlot(3);
-  if (keys[53]) player.requestWeaponSlot(4);
-  if (keys[54]) player.requestWeaponSlot(5);
-  if (keys[55]) player.requestWeaponSlot(6);
+  if (!lastFrameKeys[49] && keys[49]) player.requestWeaponSlot(0);
+  if (!lastFrameKeys[50] && keys[50]) player.requestWeaponSlot(1);
+  if (!lastFrameKeys[51] && keys[51]) player.requestWeaponSlot(2);
+  if (!lastFrameKeys[52] && keys[52]) player.requestWeaponSlot(3);
+  if (!lastFrameKeys[53] && keys[53]) player.requestWeaponSlot(4);
+  if (!lastFrameKeys[54] && keys[54]) player.requestWeaponSlot(5);
+  if (!lastFrameKeys[55] && keys[55]) player.requestWeaponSlot(6);
 
   if (keys[81] || keys[37]) iRot+=1.0;
   if (keys[69] || keys[39]) iRot-=1.0;
@@ -788,6 +800,8 @@ void render(double time) {
     soundChannels[i].update();
   }
   requestAnimationFrame();
+  for (int i=0; i<keys.length; i++)
+    lastFrameKeys[i] = keys[i];
 }
 
 void topLevelCatch(Function f) {

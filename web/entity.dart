@@ -31,6 +31,7 @@ class Entity {
   List<SubSector> inSubSectors = new List<SubSector>();
   bool removed = false;
   bool collided = false;
+  bool fullBright = false;
   
   
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
@@ -69,10 +70,12 @@ class Entity {
       if (closestSubSectorId>inSubSectors[i].sortedSubSectorId) closestSubSectorId = inSubSectors[i].sortedSubSectorId;
     }
     
+    double br = fullBright?1.0:sector.lightLevel;
+    
     if (transparent) {
-      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
+      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, closestSubSectorId, str);
     } else {
-      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
+      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, closestSubSectorId, str);
     }
   }
   
@@ -82,6 +85,8 @@ class Entity {
     } else if (blockerType==EntityBlockerType.PICKUP) {
       if (blockCell!=null) blockCell.pickups.remove(this);
     }
+    
+    stopSoundAtUniqueId(this);
     
     removed = true;
   }
@@ -128,7 +133,7 @@ class Entity {
   
   bool canEnterSector(Sector sector) {
     if (sector.floorHeight>pos.y+24) return false;
-    if (sector.ceilingHeight-sector.floorHeight==0) return true;
+    if (sector.ceilingHeight<pos.y+height) return false;
     if (sector.ceilingHeight-sector.floorHeight<height) return false;
     return true;
   }
@@ -272,6 +277,7 @@ class Puff extends Entity {
     speed = 1.0/((random.nextDouble()-0.5)*1.0+1.0);
     animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
     radius = 16.0;
+    fullBright = true;
   }
   
   void tick(double passedTime) {
@@ -283,6 +289,38 @@ class Puff extends Entity {
     pos.y+=passedTime*32;
     Sector sector = level.bsp.findSector(pos.xz);
     if (pos.y>sector.ceilingHeight-4.0) pos.y=sector.ceilingHeight-4.0;
+    if (lastAnimStep!=animStep) {
+      if (animStep>=frames.length)
+        remove();
+      else 
+        animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    }
+  }
+}
+
+class Explosion extends Entity {
+  String frames;
+  int animStep = 0;
+  double animAccum = 0.0;
+  double speed = 1.0;
+  
+  Explosion(String templateName, String frames, Level level, Vector3 pos, double rot) : super(level, pos, EntityBlockerType.NONE) {
+    frames = frames.toUpperCase();
+    this.frames = frames;
+    spriteTemplate = spriteTemplates[templateName];
+    this.pos = pos;
+    this.rot = rot;
+    speed = 1.0/((random.nextDouble()-0.5)*1.0+1.0);
+    animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    radius = 16.0;
+  }
+  
+  void tick(double passedTime) {
+    int lastAnimStep = animStep;
+    animAccum+=passedTime*35.0/4.0*speed;
+    animStep+=animAccum.floor();
+    animAccum-=animAccum.floor();
+    animStep = animStep;
     if (lastAnimStep!=animStep) {
       if (animStep>=frames.length)
         remove();
@@ -335,16 +373,31 @@ class Blood extends Entity {
 class Projectile extends Entity {
   Entity owner;
   Vector3 dir;
+  String frames;
+  int animStep;
+  double animAccum = 0.0;
   
-  Projectile(String templateName, Level level, Vector3 pos, this.dir, this.owner) : super(level, pos, EntityBlockerType.NONE) {
+  Projectile(String templateName, this.frames, Level level, Vector3 pos, this.dir, this.owner) : super(level, pos, EntityBlockerType.NONE) {
     spriteTemplate = spriteTemplates[templateName];
     radius = 8.0;
     height = 8.0;
     rot = atan2(dir.x, dir.z);
+    animStep = 0;
+    animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    radius = 16.0;
   }
   
   HashSet<Sector> sectorsInRange = new HashSet<Sector>();
   void tick(double passedTime) {
+    int lastAnimStep = animStep;
+    animAccum+=passedTime*35.0/2.0;
+    animStep+=animAccum.floor();
+    animAccum-=animAccum.floor();
+    animStep = animStep%frames.length;
+    if (lastAnimStep!=animStep) {
+      animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    }
+
     sectorsInRange.clear();
     clipMove(dir,  passedTime, sectorsInRange);
     sectorsInRange.add(level.bsp.findSector(pos.xz));
@@ -355,12 +408,97 @@ class Projectile extends Entity {
     pos.y+=dir.y*passedTime;
     
     if (collided) {
-      remove();
+      hit();
     }
+  }
+  
+  void hit() {
+    remove();
   }
   
   void clipMotionEntity(Entity e) {
     if (e!=owner) super.clipMotionEntity(e);
+  }
+}
+
+class Missile extends Projectile {
+  Missile(Level level, Vector3 pos, Vector3 dir, Entity owner) : super("MISL", "A", level, pos, dir, owner) {
+    fullBright = true;
+  }
+  
+  void hit() {
+    Explosion e = new Explosion("MISL", "BCD", level, pos, rot)..fullBright = true;
+    level.entities.add(e);
+    playSound(pos, "BAREXP", uniqueId: e);
+    remove();
+  }
+}
+
+class Plasma extends Projectile {
+  Plasma(Level level, Vector3 pos, Vector3 dir, Entity owner) : super("PLSS", "AB", level, pos, dir, owner) {
+    fullBright = true;
+  }
+  
+  void hit() {
+    Explosion e = new Explosion("PLSE", "ABCDE", level, pos, rot)..fullBright = true;
+    level.entities.add(e);
+    
+    playSound(pos, "FIRXPL", uniqueId: e);
+    remove();
+  }
+}
+
+class BfgShot extends Projectile {
+  double orgRot;
+  double blowUpIn = 0.0;
+  BfgShot(Level level, Vector3 pos, Vector3 dir, Entity owner) : super("BFS1", "AB", level, pos, dir, owner) {
+    orgRot = owner.rot;
+    fullBright = true;
+  }
+
+  void tick(double passedTime) {
+    if (blowUpIn>0.0) {
+      blowUpIn-=passedTime;
+      if (blowUpIn<=0.0) {
+        int amount = 40;
+        for (int i=0; i<amount; i++) {
+          Vector3 shootPos = owner.pos+new Vector3(0.0, 32.0, 0.0);
+          double rot = orgRot-PI/4+PI/2*i/amount;
+          Vector3 dir = new Vector3(sin(rot), 0.0, cos(rot));
+  
+          HitResult scanResult = level.hitscan(shootPos, dir, true);
+          if (scanResult!=null && scanResult.entity!=null) {
+            double yAim = scanResult.entity.pos.y+scanResult.entity.height/2.0;
+            dir*=(scanResult.entity.pos-shootPos).length;
+            dir.y = yAim-shootPos.y;
+            dir.normalize();
+          }
+          
+          HitResult result = level.hitscan(shootPos, dir, false);
+          if (result!=null) {
+//            level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
+            if (result.entity!=null) {
+              if (result.entity is Monster) {
+                (result.entity as Monster).motion+=dir*100.0;
+              }
+              level.entities.add(new Explosion("BFE2", "ABCD", level, result.entity.pos+new Vector3(0.0, result.entity.height/2.0, 0.0), 0.0));
+            }
+          }
+        }
+        remove();
+      }
+    } else {
+      super.tick(passedTime);
+    }
+  }
+  
+  void hit() {
+    Explosion e = new Explosion("BFE1", "ABCDEF", level, pos, rot)..fullBright = true;
+    level.entities.add(e);
+
+    spriteTemplate = null;
+    playSound(pos, "RXPLOD", uniqueId: e);
+    blowUpIn = 12/35.0;
   }
 }
 

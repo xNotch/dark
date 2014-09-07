@@ -63,9 +63,9 @@ class Sprites {
     spriteCount = 0;
   }
   
-  void insertSprite(Sector sector, Vector3 p, int subSectorId, SpriteTemplateRot str) {
+  void insertSprite(double br, Vector3 p, int subSectorId, SpriteTemplateRot str) {
     double ssid = subSectorId+0.0;
-    double br = sector.lightLevel;
+//    double br = sector.lightLevel;
     if (invulnerable) br = 1.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
