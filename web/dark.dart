@@ -1,3 +1,15 @@
+
+/**
+ * 
+ * TODO:
+ * To fix sprite rendering, make sprites clip against the MOST DISTANT part of a seg, if it's closer than the sprite.
+ * Good luck.
+ * 
+ */
+
+
+
+
 library Dark;
 
 import "dart:html";
@@ -177,7 +189,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M1");
+  loadLevel("E1M7");
 }
 
 void loadLevel(String levelName) {
@@ -520,7 +532,6 @@ void start(Level _level) {
   pannerNode.distanceModel = "exponential";
   pannerNode.connectNode(audioContext.destination);
 
-  print("DOASJ");
 //  double time = 0.0;
   //new Timer.periodic(new Duration(milliseconds: 16), (t)=>render(time+=16.0/1000.0));
   requestAnimationFrame();
@@ -610,8 +621,49 @@ void renderGame() {
   Matrix4 invertedViewMatrix = new Matrix4.copy(viewMatrix)..invert();
   Vector3 cameraPos = invertedViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0));
 
+
+  double xp = player.pos.x;
+  double yp = player.pos.z;
+  double xnp = sin(player.rot);
+  double ynp = cos(player.rot);
+  double dp = xp*xnp+yp*ynp; 
+
   List<Segment> visibleSegs = level.bsp.findSortedSegs(invertedViewMatrix, projectionMatrix);
-  visibleSegs.forEach((seg) => seg.renderWalls());
+  HashSet<Sector> visibleSectors = new HashSet<Sector>();
+  List<Object> entitiesToSort = new List<Object>(); 
+  for (int i=0; i<visibleSegs.length; i++) {
+    Segment seg = visibleSegs[i];
+    double d = xp*seg.xn+yp*seg.yn-seg.d;
+    seg.sortDistance = d*d;
+
+    entitiesToSort.add(seg);
+    visibleSectors.add(seg.sector);
+    seg.renderWalls();
+  }
+  
+  visibleSectors.forEach((sector)=>sector.entities.forEach((e) {
+    double dx = e.pos.x-xp;
+    double dy = e.pos.z-yp;
+    e.sortDistance = dx*dx+dy*dy;
+    
+    entitiesToSort.add(e);    
+  }));
+  
+  entitiesToSort.sort((o0, o1) {
+    if (o0.sortDistance<o1.sortDistance) return -1;
+    if (o0.sortDistance>o1.sortDistance) return 1;
+    return 0;
+  });
+  
+  List<Entity> visibleEntities = new List<Entity>();
+  for (int i=0; i<entitiesToSort.length; i++) {
+    if (entitiesToSort[i] is Segment) {
+      (entitiesToSort[i] as Segment).sortedSubSectorId = i;
+    } else {
+      (entitiesToSort[i] as Entity).sortedSubSectorId = i;
+      visibleEntities.add((entitiesToSort[i] as Entity));
+    }
+  }
 
   renderers.floors.buildBackWallHackData(visibleSegs, cameraPos);
   
@@ -631,6 +683,7 @@ void renderGame() {
     walls.render();
     walls.clear();
   });
+  gl.depthMask(true);
 
 
   Matrix4 oldMatrix = projectionMatrix;
@@ -643,7 +696,7 @@ void renderGame() {
   gl.disable(GL.BLEND);
   projectionMatrix = oldMatrix;
 
-  level.entities.forEach((entity) {
+  visibleEntities.forEach((entity) {
     entity.addToDisplayList(player.rot);
   });
 

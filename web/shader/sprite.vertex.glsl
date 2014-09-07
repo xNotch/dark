@@ -22,12 +22,13 @@ varying float v_ssectorId;
 
 void main() {
     v_uv = a_uv/u_texAtlasSize;
-    vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0)+vec4(a_offs, 0.0, 0.0);
+    vec4 pos = u_modelMatrix*u_viewMatrix*vec4(a_pos, 1.0);
     v_pos = pos.xyz;
+    pos+=vec4(a_offs, 0.0, 0.0);
     v_brightness = a_brightness;
     vec4 projectedPos = u_projectionMatrix*pos;
     
-    v_ssectorId = (a_subSectorId*u_clipSegs)-0.5;
+    v_ssectorId = u_clipSegs;
     
     vec4 screenCoord = projectedPos;    
     screenCoord /= screenCoord.w; // perspective divide

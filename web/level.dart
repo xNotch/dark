@@ -108,7 +108,7 @@ class Level {
   
   void loadThing(WAD.Thing thing) {
     Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
-    Sector sector = bsp.findSector(spritePos.xz);
+    Sector sector = bsp.findSector(spritePos.x, spritePos.z);
     spritePos.y = sector.floorHeight.toDouble();
     double rot = ((90-thing.angle-22)~/45)*PI*2/8.0;
     
@@ -268,6 +268,12 @@ class Segment {
   double offset;
   double length;
   double xn, yn;
+  double xt, yt;
+  double d;
+  double brightness;
+  double dir;
+  
+  double sortDistance;
   
   Segment(Level level, this.data) {
     this.x0 = data.startVertex.x+0.0;
@@ -279,9 +285,23 @@ class Segment {
     endVertex = new Vector2(x1, y1);
     
     Vector2 tangent = (endVertex-startVertex).normalize();
+    xt = tangent.x;
+    yt = tangent.y;
 
     xn = tangent.y;
     yn = -tangent.x;
+    
+    d = x0*xn+y0*yn;
+    
+    dir = atan2(xn, yn);
+    print("$xn, $yn ($dir) -> ${sin(dir)}, ${cos(dir)}");
+        
+    
+    brightness = 1.0;
+    if (yn*yn>0.99*0.99) {
+      brightness = 0.9;      
+    }
+//    if (brightness>1.0) brightness=2.0-brightness;
     
     
     offset = data.offset+0.0;
@@ -364,6 +384,7 @@ class Sector {
   double floorHeight, ceilingHeight;
   String floorTexture, ceilingTexture;
   double lightLevel;
+  List<Entity> entities = new List<Entity>();
   
   Sector(Level level, this.data) {
     floorHeight = data.floorHeight+0.0;

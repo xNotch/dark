@@ -217,7 +217,7 @@ class Floors {
     
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
       Segment ss = visibleSegs[i];
-      double dd = ss.sortedSubSectorId+0.0;
+      double dd = ss.dir-player.rot;
 
       double orgFloor = ss.sector.floorHeight.toDouble();
       double orgCeiling = ss.sector.ceilingHeight.toDouble();
@@ -543,7 +543,7 @@ class WallRenderer {
       double texCoordxOffs = textureImage.xAtlasPos.toDouble();
       double texCoordyOffs = textureImage.yAtlasPos.toDouble();
       double texWidth = textureImage.width.toDouble();
-      double br = frontSector.lightLevel; //*seg.brightness; // TODO: Add this again
+      double br = frontSector.lightLevel*seg.brightness;
       if (invulnerable) br = 1.0;
   
       data.setAll(offset, [v1.x, ceiling.toDouble(), v1.y, texCoordx1, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, ceiling.toDouble(), v0.y, texCoordx0, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, floor.toDouble(), v0.y, texCoordx0, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br, v1.x, floor.toDouble(), v1.y, texCoordx1, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br,]);

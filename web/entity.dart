@@ -28,20 +28,22 @@ class Entity {
   bool hanging = false;
   bool shouldAimAt = false;
   bool bleeds = false;
-  List<SubSector> inSubSectors = new List<SubSector>();
   bool removed = false;
   bool collided = false;
   bool fullBright = false;
+  Sector inSector;
+  
+  int sortedSubSectorId = 0;
+  double sortDistance;
   
   
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
-//  bool blocking = false;
-// bool pickup = false;
   
   BlockCell blockCell;
   
   Entity(this.level, this.pos, this.blockerType) {
-    level.bsp.findSubSectorsInRadius(pos.x, pos.z, 0.0, inSubSectors);
+    inSector = level.bsp.findSector(pos.x, pos.z);
+    inSector.entities.add(this);
 
     if (blockerType!=EntityBlockerType.NONE) {
       blockCell = level.blockmap.getBlockCell(pos.x, pos.z);
@@ -57,7 +59,6 @@ class Entity {
   
   void addToDisplayList(double playerRot) {
     if (spriteTemplate==null) return;
-    Sector sector = level.bsp.findSector(pos.xz);
     
     double rotDiff = rot - playerRot+PI;
     int rotFrame = (rotDiff * 8 / (PI * 2) + 0.5).floor() & 7;
@@ -65,12 +66,13 @@ class Entity {
     if (stf.rots.length == 1) rotFrame = 0;
     SpriteTemplateRot str = stf.rots[rotFrame];
 
-    int closestSubSectorId = inSubSectors[0].sortedSubSectorId;
+/*  int closestSubSectorId = inSubSectors[0].sortedSubSectorId;
     for (int i=1; i<inSubSectors.length; i++) {
       if (closestSubSectorId>inSubSectors[i].sortedSubSectorId) closestSubSectorId = inSubSectors[i].sortedSubSectorId;
-    }
+    }*/
+    int closestSubSectorId = sortedSubSectorId; 
     
-    double br = fullBright?1.0:sector.lightLevel;
+    double br = fullBright?1.0:inSector.lightLevel;
     
     if (transparent) {
       renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, closestSubSectorId, str);
@@ -80,12 +82,14 @@ class Entity {
   }
   
   void remove() {
+    if (removed) return;
+    
     if (blockerType==EntityBlockerType.BLOCKING) {
       if (blockCell!=null) blockCell.blockers.remove(this);
     } else if (blockerType==EntityBlockerType.PICKUP) {
       if (blockCell!=null) blockCell.pickups.remove(this);
     }
-    
+    inSector.entities.remove(this);
     stopSoundAtUniqueId(this);
     
     removed = true;
@@ -94,6 +98,7 @@ class Entity {
   static int checkCounterHack = 0;
   static List<BlockCell> tmpBlockCells = new List<BlockCell>();
   static Set<Wall> tmpLinedefs = new Set<Wall>();
+  static List<SubSector> tmpSubSectorsInRange = new List<SubSector>();
 
   void clipMove(Vector3 motion, double passedTime, HashSet<Sector> sectorsInRange) {
     int steps = (motion.length/(radius/3.0)).floor()+1;
@@ -108,10 +113,10 @@ class Entity {
         collideAgainstEntitiesIn(tmpBlockCells[i]);
       }
 
-      inSubSectors.clear();
-      level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, inSubSectors);
-      for (int i=0; i<inSubSectors.length; i++) {
-        SubSector ss = inSubSectors[i];
+      tmpSubSectorsInRange.clear();
+      level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, tmpSubSectorsInRange);
+      for (int i=0; i<tmpSubSectorsInRange.length; i++) {
+        SubSector ss = tmpSubSectorsInRange[i];
         for (int j=0; j<ss.walls.length; j++) {
           Wall ld = ss.walls[j];
           if (ld.checkCounterHack != checkCounterHack) {
@@ -119,6 +124,30 @@ class Entity {
             clipMotion(ld, sectorsInRange);
           }
         }
+      }
+    }
+
+    
+    Sector newSector = level.bsp.findSector(pos.x,  pos.z);
+    if (newSector!=inSector) {
+      inSector.entities.remove(this);
+      newSector.entities.add(this);
+      inSector = newSector;
+    }
+
+    if (blockerType==EntityBlockerType.BLOCKING) {
+      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=newBlockCell) {
+        if (blockCell!=null) blockCell.blockers.remove(this);
+        blockCell = newBlockCell;
+        if (blockCell!=null) blockCell.blockers.add(this);
+      }
+    } else if (blockerType==EntityBlockerType.PICKUP) {
+      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=newBlockCell) {
+        if (blockCell!=null) blockCell.pickups.remove(this);
+        blockCell = newBlockCell;
+        if (blockCell!=null) blockCell.pickups.add(this);
       }
     }
   }
@@ -132,6 +161,7 @@ class Entity {
   }
   
   bool canEnterSector(Sector sector) {
+    if (sector.floorHeight==sector.ceilingHeight) return true;
     if (sector.floorHeight>pos.y+24) return false;
     if (sector.ceilingHeight<pos.y+height) return false;
     if (sector.ceilingHeight-sector.floorHeight<height) return false;
@@ -287,9 +317,11 @@ class Puff extends Entity {
     animAccum-=animAccum.floor();
     animStep = animStep;
     pos.y+=passedTime*32;
-    Sector sector = level.bsp.findSector(pos.xz);
+    Sector sector = level.bsp.findSector(pos.x, pos.z);
     if (pos.y>sector.ceilingHeight-4.0) pos.y=sector.ceilingHeight-4.0;
     if (lastAnimStep!=animStep) {
+      fullBright = animStep <= 1;
+
       if (animStep>=frames.length)
         remove();
       else 
@@ -362,7 +394,7 @@ class Blood extends Entity {
     life-=passedTime;
     pos.y+=passedTime*ya*100.0;
     ya-=passedTime*5.0;
-    Sector sector = level.bsp.findSector(pos.xz);
+    Sector sector = level.bsp.findSector(pos.x, pos.z);
     if (pos.y<sector.floorHeight-4.0) pos.y=sector.floorHeight-4.0;
     if (life<0.0) {
       remove();
@@ -400,7 +432,7 @@ class Projectile extends Entity {
 
     sectorsInRange.clear();
     clipMove(dir,  passedTime, sectorsInRange);
-    sectorsInRange.add(level.bsp.findSector(pos.xz));
+    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
     sectorsInRange.forEach((sector) {
       if (sector.floorHeight>pos.y) collided = true;
       if (sector.ceilingHeight<pos.y+height) collided = true;
@@ -544,25 +576,8 @@ class Mob extends Entity {
     pos.y+=motion.y*(passedTime);
 
 
-    if (blockerType==EntityBlockerType.BLOCKING) {
-      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
-      if (blockCell!=newBlockCell) {
-        if (blockCell!=null) blockCell.blockers.remove(this);
-        blockCell = newBlockCell;
-        if (blockCell!=null) blockCell.blockers.add(this);
-      }
-    } else if (blockerType==EntityBlockerType.PICKUP) {
-      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
-      if (blockCell!=newBlockCell) {
-        if (blockCell!=null) blockCell.pickups.remove(this);
-        blockCell = newBlockCell;
-        if (blockCell!=null) blockCell.pickups.add(this);
-      }
-    }
-
-
     double floorHeight = -10000000.0;
-    sectorsInRange.add(level.bsp.findSector(pos.xz));
+    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
     sectorsInRange.forEach((sector) {
       if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
     });
@@ -578,9 +593,6 @@ class Mob extends Entity {
     }
     
     if (stepUp>32.0) stepUp = 32.0;
-
-    inSubSectors.clear();
-    level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius*0.0, inSubSectors);
   }
   
 }

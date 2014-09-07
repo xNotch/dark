@@ -21,8 +21,8 @@ class BSP {
     root = new BSPNode(level, level.levelData.nodes.last);
   }
   
-  Sector findSector(Vector2 pos) {
-    return root.findSubSector(pos.x, pos.y).sector;
+  Sector findSector(double x, double y) {
+    return root.findSubSector(x, y).sector;
   }
   
   List<Segment> findSortedSegs(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
@@ -447,9 +447,9 @@ class BSPNode {
     if (culler.isVisible(leftBounds)) {
       if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
       else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
-    } else {
+/*    } else {
       if (leftChild!=null) leftChild.enumerateSegs(x, y);
-      else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
+      else Culler.enumerateSegs(leftSubSector, _subSectorCount++);*/
     }
   }
   
@@ -457,9 +457,9 @@ class BSPNode {
     if (culler.isVisible(rightBounds)) {
       if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
       else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
-    } else {
+/*    } else {
       if (rightChild!=null) rightChild.enumerateSegs(x, y);
-      else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
+      else Culler.enumerateSegs(rightSubSector, _subSectorCount++);*/
     }
   }
   
