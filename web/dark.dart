@@ -1,15 +1,3 @@
-
-/**
- * 
- * TODO:
- * To fix sprite rendering, make sprites clip against the MOST DISTANT part of a seg, if it's closer than the sprite.
- * Good luck.
- * 
- */
-
-
-
-
 library Dark;
 
 import "dart:html";
@@ -341,6 +329,7 @@ Player player;
 //double playerRot = 0.0;
 
 List<Framebuffer> indexColorBuffers = new List<Framebuffer>(3);
+Framebuffer segNormalBuffer;
 Framebuffer segDistanceBuffer;
 Framebuffer indexColorBuffer;
 
@@ -466,6 +455,7 @@ void start(Level _level) {
     indexColorBuffers[i] = new Framebuffer(frameBufferRes, frameBufferRes);
   }
   segDistanceBuffer = new Framebuffer(frameBufferRes, frameBufferRes);
+  segNormalBuffer = new Framebuffer(frameBufferRes, frameBufferRes);
 
   printToConsole("Creating color lookup texture");
   Uint8List lookupTextureData = new Uint8List(256*256*4);
@@ -633,8 +623,17 @@ void renderGame() {
   List<Object> entitiesToSort = new List<Object>(); 
   for (int i=0; i<visibleSegs.length; i++) {
     Segment seg = visibleSegs[i];
+    double d0 = seg.x0*xnp+seg.y0*ynp-dp;
+    double d1 = seg.x1*xnp+seg.y1*ynp-dp;
+    if (d0<8.0) d0 = 8.0;
+    if (d1<8.0) d1 = 8.0;
+    double low = d0<d1?d0:d1;
+    double high = d0<d1?d1:d0;
+
     double d = xp*seg.xn+yp*seg.yn-seg.d;
     seg.sortDistance = d*d;
+    seg.lowDistance = low;
+    seg.highDistance = high;
 
     entitiesToSort.add(seg);
     visibleSectors.add(seg.sector);
@@ -670,12 +669,16 @@ void renderGame() {
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
+  gl.bindFramebuffer(GL.FRAMEBUFFER, segNormalBuffer.framebuffer);
+  renderers.floors.render(shaders.segNormalShader, renderers.floorTexture);
+  
   gl.bindFramebuffer(GL.FRAMEBUFFER, segDistanceBuffer.framebuffer);
-  renderers.floors.render(shaders.segNumShader, renderers.floorTexture);
+  renderers.floors.render(shaders.segDistanceShader, renderers.floorTexture);
   
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffers[1].framebuffer);
   renderers.floors.buildData(visibleSegs, cameraPos);
   renderers.floors.render(shaders.floorShader, renderers.floorTexture);
+//  renderers.floors.render(shaders.segDistanceShader, renderers.floorTexture);
   gl.depthFunc(GL.LEQUAL);
 
   gl.viewport(0,  0,  screenWidth,  screenHeight);
@@ -703,21 +706,21 @@ void renderGame() {
 
   gl.depthFunc(GL.ALWAYS);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, true);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
   });
   gl.colorMask(false, false, false, false);
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, true);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
   });
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
     sprites.clear();
   });
   gl.colorMask(false, false, false, false);
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
   });
   gl.colorMask(true, true, true, true);
   
@@ -743,7 +746,7 @@ void renderGame() {
   projectionMatrix = oldProjection;
   
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture, false);
+    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture, indexColorBuffers[1].texture, false);
     sprites.clear();
   });
 //  gl.disable(GL.BLEND);
@@ -777,7 +780,7 @@ void renderGui() {
   gl.disable(GL.CULL_FACE);
   gl.blendFunc(GL.SRC_ALPHA,  GL.ONE_MINUS_SRC_ALPHA);
   renderers.guiSprites.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, false);
     sprites.clear();
   });  
   guiSpriteCount = 0;

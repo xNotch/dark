@@ -273,7 +273,7 @@ class Culler {
   }
   
   bool rangeVisible(double x0, double x1) {
-    if (x1<clip0 || x0>clip1) return false;
+    if (x1<=clip0 || x0>=clip1) return false;
     
     for (int i=0; i<clipRangeCount; i++) {
       ClipRange cr = clipRanges[i];
@@ -283,11 +283,11 @@ class Culler {
   }
   
   void clipRegion(double x0, double x1) {
-    x0-=0.001;
-    x1+=0.001;
+    x0-=0.0001;
+    x1+=0.0001;
     for (int i=0; i<clipRangeCount; i++) {
       ClipRange cr = clipRanges[i];
-      if (cr.x0>=x1 || cr.x1<=x0) {
+      if (cr.x0>x1 || cr.x1<x0) {
         // It's not inside this range
       } else {
         // Expand to include the other one, and remove it
@@ -298,10 +298,11 @@ class Culler {
       }
     }
     if (x0>clip0 && x1<clip1) {
-      if (x1-x0>4.0/320) { // Only add a clip range if it's wider than these many original doom pixels
+      if (true || x1-x0>4.0/320) { // Only add a clip range if it's wider than these many original doom pixels
         if (clipRangeCount==clipRanges.length) {
           print("Adding cliprange");
           clipRanges.add(new ClipRange(x0, x1));
+          clipRangeCount++;
         }
         else clipRanges[clipRangeCount++].set(x0, x1);
       }
@@ -318,12 +319,8 @@ class Culler {
     }
   }
   
-  static const clipDist = 0.01;
+  static const clipDist = 8.00;
   void checkOccluders(SubSector subSector, List<Segment> result, int id) {
-    if (clip0>=clip1) {
-      enumerateSegs(subSector, id);
-      return;
-    }
     subSector.sortedSubSectorId = id;
     for (int i=0; i<subSector.segs.length; i++) {
       Segment seg = subSector.segs[i];
@@ -360,16 +357,17 @@ class Culler {
       double xp0 = x0r/y0r;
       double xp1 = x1r/y1r;
 
-      if (xp0>xp1) continue;
+      if (xp0>=xp1) continue;
       
       if (rangeVisible(xp0, xp1)) {
         bool shouldClip = false;
-        if (!seg.wall.data.twoSided) {
+        if (seg.backSector==null || !seg.wall.data.twoSided) {
           shouldClip = true;
         } else if (seg.backSector!=null) {
           if (seg.backSector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
           else if (seg.sector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
           else if (seg.sector.ceilingHeight<=seg.backSector.floorHeight) shouldClip = true;
+//          else if (seg.sector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
         }
         if (shouldClip) clipRegion(xp0, xp1);
         result.add(seg);
@@ -421,55 +419,24 @@ class BSPNode {
       rightSubSector = level.subSectors[node.rightChild&0x7fff];
     }
   }
- 
-  void enumerateSegsLeft(double x, double y) {
-    if (leftChild!=null) leftChild.enumerateSegs(x, y);
-    else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
-  }
-  
-  void enumerateSegsRight(double x, double y) {
-    if (rightChild!=null) rightChild.enumerateSegs(x, y);
-    else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
-  }
-  
-  void enumerateSegs(double x, double y) {
-    if (x*dx+y*dy>d) {
-      enumerateSegsLeft(x, y);
-      enumerateSegsRight(x, y);
-    } else {
-      enumerateSegsRight(x, y);
-      enumerateSegsLeft(x, y);
-    }
-  }
-  
-  
-  void findSortedSegsLeft(Culler culler, double x, double y, List<Segment> result) {
-    if (culler.isVisible(leftBounds)) {
-      if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
-      else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
-/*    } else {
-      if (leftChild!=null) leftChild.enumerateSegs(x, y);
-      else Culler.enumerateSegs(leftSubSector, _subSectorCount++);*/
-    }
-  }
-  
-  void findSortedSegsRight(Culler culler, double x, double y, List<Segment> result) {
-    if (culler.isVisible(rightBounds)) {
-      if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
-      else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
-/*    } else {
-      if (rightChild!=null) rightChild.enumerateSegs(x, y);
-      else Culler.enumerateSegs(rightSubSector, _subSectorCount++);*/
-    }
-  }
   
   void findSortedSegs(Culler culler, double x, double y,List<Segment> result) {
     if (x*dx+y*dy>d) {
-      findSortedSegsLeft(culler, x, y, result);
-      findSortedSegsRight(culler, x, y, result);
+      if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
+      else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
+      
+      if (culler.isVisible(rightBounds)) {
+        if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
+        else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
+      }
     } else {
-      findSortedSegsRight(culler, x, y, result);
-      findSortedSegsLeft(culler, x, y, result);
+      if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
+      else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
+      
+      if (culler.isVisible(leftBounds)) {
+        if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
+        else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
+      }
     }
   }
   

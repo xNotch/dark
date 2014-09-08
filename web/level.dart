@@ -274,6 +274,7 @@ class Segment {
   double dir;
   
   double sortDistance;
+  double lowDistance, highDistance;
   
   Segment(Level level, this.data) {
     this.x0 = data.startVertex.x+0.0;

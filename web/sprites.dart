@@ -105,14 +105,17 @@ class Sprites {
   }
     
   
-  void render(Shader shader, GL.Texture backTexture, bool clipAgainstSegs) {
+  void render(Shader shader, GL.Texture segDistanceTexture, GL.Texture segNormalTexture, bool clipAgainstSegs) {
     if (spriteCount==0) return;
     shader.use();
 
-    shader.uniform1i("u_backTex", 1);
+    shader.uniform1i("u_distanceTex", 2);
+    shader.uniform1i("u_normalTex", 1);
     shader.uniform1i("u_tex", 0);
+    gl.activeTexture(GL.TEXTURE2);
+    gl.bindTexture(GL.TEXTURE_2D, segDistanceTexture);
     gl.activeTexture(GL.TEXTURE1);
-    gl.bindTexture(GL.TEXTURE_2D, backTexture);
+    gl.bindTexture(GL.TEXTURE_2D, segNormalTexture);
     gl.activeTexture(GL.TEXTURE0);
     gl.bindTexture(GL.TEXTURE_2D, texture);
     

@@ -24,7 +24,7 @@ void main() {
     
     float dist = floor(pos.x*xn+pos.z*zn);
     
-    float steps = 64.0;
+    float steps = 128.0;
     v_col.r = fract(floor(dist/steps/steps)/steps)+(0.5/steps);
     v_col.g = fract(floor(dist/steps)/steps)+(0.5/steps);
     v_col.b = fract(dist/steps)+(0.5/steps);
