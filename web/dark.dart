@@ -177,7 +177,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M7");
+  loadLevel("E1M1");
 }
 
 void loadLevel(String levelName) {
@@ -620,7 +620,6 @@ void renderGame() {
 
   List<Segment> visibleSegs = level.bsp.findSortedSegs(invertedViewMatrix, projectionMatrix);
   HashSet<Sector> visibleSectors = new HashSet<Sector>();
-  List<Object> entitiesToSort = new List<Object>(); 
   for (int i=0; i<visibleSegs.length; i++) {
     Segment seg = visibleSegs[i];
     double d0 = seg.x0*xnp+seg.y0*ynp-dp;
@@ -635,34 +634,12 @@ void renderGame() {
     seg.lowDistance = low;
     seg.highDistance = high;
 
-    entitiesToSort.add(seg);
     visibleSectors.add(seg.sector);
     seg.renderWalls();
   }
   
-  visibleSectors.forEach((sector)=>sector.entities.forEach((e) {
-    double dx = e.pos.x-xp;
-    double dy = e.pos.z-yp;
-    e.sortDistance = dx*dx+dy*dy;
-    
-    entitiesToSort.add(e);    
-  }));
-  
-  entitiesToSort.sort((o0, o1) {
-    if (o0.sortDistance<o1.sortDistance) return -1;
-    if (o0.sortDistance>o1.sortDistance) return 1;
-    return 0;
-  });
-  
   List<Entity> visibleEntities = new List<Entity>();
-  for (int i=0; i<entitiesToSort.length; i++) {
-    if (entitiesToSort[i] is Segment) {
-      (entitiesToSort[i] as Segment).sortedSubSectorId = i;
-    } else {
-      (entitiesToSort[i] as Entity).sortedSubSectorId = i;
-      visibleEntities.add((entitiesToSort[i] as Entity));
-    }
-  }
+  visibleSectors.forEach((sector)=>visibleEntities.addAll(sector.entities));
 
   renderers.floors.buildBackWallHackData(visibleSegs, cameraPos);
   

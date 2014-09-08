@@ -110,12 +110,22 @@ class Weapon {
   }
   
   Vector3 findAimDir(Vector3 pos, Vector3 dir) {
-    HitResult scanResult = level.hitscan(pos, dir, true);
-    if (scanResult!=null && scanResult.entity!=null) {
-      double yAim = scanResult.entity.pos.y+scanResult.entity.height/2.0;
-      dir*=(scanResult.entity.pos-pos).length;
-      dir.y = yAim-pos.y;
-      dir.normalize();
+    // First check for entities
+    HitResult checkEnemyScan = level.hitscan(pos, dir, true);
+    if (checkEnemyScan!=null && checkEnemyScan.entity!=null) {
+      // Then check we can actually HIT that entity
+      Vector3 p = new Vector3.copy(checkEnemyScan.pos);
+      for (int i=0; i<8; i++) {
+        p.y = checkEnemyScan.entity.pos.y+checkEnemyScan.entity.height*i/7; 
+        HitResult scanResult = level.hitscan(pos, (p-pos).normalize(), false);
+        if (scanResult!=null && scanResult.entity!=null) {
+          double yAim = scanResult.entity.pos.y+scanResult.entity.height/2.0;
+          dir*=(scanResult.entity.pos-pos).length;
+          dir.y = yAim-pos.y;
+          dir.normalize();
+          return dir;
+        }
+      }
     }
     return dir;
   }
@@ -144,6 +154,29 @@ class Weapon {
     }
   }
   
+  bool punch(Vector3 pos, Vector3 dir, double maxDistance) {
+    HitResult result = level.hitscan(pos, dir.normalize(), false);
+    if (result!=null) {
+      if (result.pos.distanceToSquared(pos)>maxDistance*maxDistance) {
+        return false;
+      }
+      if (result.entity!=null) {
+        if (result.entity is Monster) {
+          (result.entity as Monster).motion+=dir*100.0;
+        }
+        if (result.entity.bleeds) 
+          level.entities.add(new Blood("BLUD", "ABC", level, result.pos, 0.0));
+        else 
+          level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
+        return true;
+      } else {
+        level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
+        return true;
+      }
+    }
+    return false;
+  }
+
   void switchTo() {
   }
 }
@@ -161,7 +194,11 @@ class Fists extends Weapon {
   
   void update(bool pressed, bool held, double passedTime) {
     if (held && animation==null) {
-      playSound(null, "PUNCH", uniqueId: "weapon");
+      Vector3 shootPos = player.pos+new Vector3(0.0, 36.0, 0.0);
+      Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
+      if (punch(shootPos, dir, 64.0)) {
+        playSound(null, "PUNCH", uniqueId: "weapon");
+      }
       playAnimation(reloadAnimation);
     }
   }
@@ -180,7 +217,13 @@ class Chainsaw extends Weapon {
   
   void update(bool pressed, bool held, double passedTime) {
     if (held && animation==null) {
-      playSound(null, "SAWFUL", uniqueId: "weapon");
+      Vector3 shootPos = player.pos+new Vector3(0.0, 36.0, 0.0);
+      Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
+      if (punch(shootPos, dir, 64.0)) {
+        playSound(null, "SAWHIT", uniqueId: "weapon");
+      } else {
+        playSound(null, "SAWFUL", uniqueId: "weapon");
+      }
       playAnimation(reloadAnimation);
       idleTime = 0.0;
     } else {
@@ -327,7 +370,7 @@ class RocketLauncher extends Weapon {
 class Plasmagun extends Weapon {
   static GunAnimation fireAnimation = new GunAnimation([
       new GunAnimationFrame(1, ["PLSFA0"]),
-      new GunAnimationFrame(1, ["PLSFB0"]),
+      new GunAnimationFrame(2, ["PLSFB0"]),
   ]);
 
   static GunAnimation reloadAnimation = new GunAnimation([

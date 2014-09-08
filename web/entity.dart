@@ -32,11 +32,7 @@ class Entity {
   bool collided = false;
   bool fullBright = false;
   Sector inSector;
-  
-  int sortedSubSectorId = 0;
-  double sortDistance;
-  
-  
+    
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
   
   BlockCell blockCell;
@@ -70,14 +66,12 @@ class Entity {
     for (int i=1; i<inSubSectors.length; i++) {
       if (closestSubSectorId>inSubSectors[i].sortedSubSectorId) closestSubSectorId = inSubSectors[i].sortedSubSectorId;
     }*/
-    int closestSubSectorId = sortedSubSectorId; 
-    
     double br = fullBright?1.0:inSector.lightLevel;
     
     if (transparent) {
-      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, closestSubSectorId, str);
+      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, str);
     } else {
-      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, closestSubSectorId, str);
+      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, str);
     }
   }
   

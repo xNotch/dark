@@ -63,16 +63,14 @@ class Sprites {
     spriteCount = 0;
   }
   
-  void insertSprite(double br, Vector3 p, int subSectorId, SpriteTemplateRot str) {
-    double ssid = subSectorId+0.0;
-//    double br = sector.lightLevel;
+  void insertSprite(double br, Vector3 p, SpriteTemplateRot str) {
     if (invulnerable) br = 1.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
-        p.x, p.y, p.z, ssid, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
-        p.x, p.y, p.z, ssid, str.xOffs1, str.yOffs0, str.u1, str.v0, br,
-        p.x, p.y, p.z, ssid, str.xOffs1, str.yOffs1, str.u1, str.v1, br,
-        p.x, p.y, p.z, ssid, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
+        p.x, p.y, p.z, 0.0, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
+        p.x, p.y, p.z, 0.0, str.xOffs1, str.yOffs0, str.u1, str.v0, br,
+        p.x, p.y, p.z, 0.0, str.xOffs1, str.yOffs1, str.u1, str.v1, br,
+        p.x, p.y, p.z, 0.0, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
     ]);
     
     spriteCount++;

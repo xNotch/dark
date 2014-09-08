@@ -69,25 +69,25 @@ class BSP {
     
 //    bool hitAnything = false;
     double closestPossible = 0.0;
-    for (int i=0; i<segs.length; i++) {
-      Segment s = segs[i];
-
-      double d0 = s.x0*xt+s.y0*yt-lenD;
-      double d1 = s.x1*xt+s.y1*yt-lenD;
-      
-      // First check that the segment intersects the ray
-      if (d0<0.0 && 0.0<d1) {
-        double len = d1-d0;
-        double p = (0.0-d0)/len;
-        double xHit = s.x0+(s.x1-s.x0)*p;
-        double yHit = s.y0+(s.y1-s.y0)*p;        
+    if (!scanForEntities) {
+      for (int i=0; i<segs.length; i++) {
+        Segment s = segs[i];
+  
+        double d0 = s.x0*xt+s.y0*yt-lenD;
+        double d1 = s.x1*xt+s.y1*yt-lenD;
         
-        // Calculate distance to the ray/segment intersection
-        double hitDist = (xHit*xn+yHit*yn-dd);
-        
-        if (hitDist<0.0) continue;
-        
-        if (!scanForEntities) {
+        // First check that the segment intersects the ray
+        if (d0<0.0 && 0.0<d1) {
+          double len = d1-d0;
+          double p = (0.0-d0)/len;
+          double xHit = s.x0+(s.x1-s.x0)*p;
+          double yHit = s.y0+(s.y1-s.y0)*p;        
+          
+          // Calculate distance to the ray/segment intersection
+          double hitDist = (xHit*xn+yHit*yn-dd);
+          
+          if (hitDist<0.0) continue;
+          
           // Check if it hits the floor before hitting the segment
           if (dir.y<0.0 && s.sector.floorHeight<pos.y) {
             double dist = s.sector.floorHeight-pos.y;
@@ -109,39 +109,40 @@ class BSP {
               closest = p;
             }
           }
-        }
-        
-        // Update the closest possible floor/ceiling distance to the distance to this segment
-        if (closestPossible<hitDist) closestPossible = hitDist;
-        
-        // We hit the wall itself
-        if (hitDist>=0.0 && hitDist<closest) {
-          bool hit = false;
-          if (!s.wall.data.twoSided || s.backSector==null) {
-            hit = true;
-          } else if (s.backSector!=null) {
-            double yHitPos = pos.y+dir.y*hitDist;
-            if (scanForEntities) {
-            } else {
-              if (s.backSector.floorHeight>yHitPos) hit = true;
-              if (s.backSector.ceilingHeight<yHitPos) hit = true;
+          
+          // Update the closest possible floor/ceiling distance to the distance to this segment
+          if (closestPossible<hitDist) closestPossible = hitDist;
+          
+          // We hit the wall itself
+          if (hitDist>=0.0 && hitDist<closest) {
+            bool hit = false;
+            if (!s.wall.data.twoSided || s.backSector==null) {
+              hit = true;
+            } else if (s.backSector!=null) {
+              double yHitPos = pos.y+dir.y*hitDist;
+              if (scanForEntities) {
+              } else {
+                if (s.backSector.floorHeight>yHitPos) hit = true;
+                if (s.backSector.ceilingHeight<yHitPos) hit = true;
+              }
+            }
+            if (hit) {
+              double yHitPos = pos.y+dir.y*hitDist;
+              hitNormal = new Vector3(s.xn, 0.0, s.yn);
+              hitSegment = s;
+              closest = hitDist;
+              hitResult = new HitResult.seg(s);
             }
           }
-          if (hit) {
-            double yHitPos = pos.y+dir.y*hitDist;
-            hitNormal = new Vector3(s.xn, 0.0, s.yn);
-            hitSegment = s;
-            closest = hitDist;
-            hitResult = new HitResult.seg(s);
-          }
         }
+        if (hitResult!=null) break;
       }
-      if (hitResult!=null) break;
     }
     
     for (int i=0; i<level.entities.length; i++) {
       Entity e = level.entities[i];
-      if (e.blockerType != EntityBlockerType.BLOCKING || !e.shouldAimAt) continue;
+      if (e.blockerType != EntityBlockerType.BLOCKING) continue;
+      if (scanForEntities && !e.shouldAimAt) continue;
 
       // Distance to the entity along the ray
       double d = e.pos.x*xn+e.pos.z*yn-dd;
@@ -165,14 +166,17 @@ class BSP {
         if (yHit) {
           double widthBonus = 0.0;
           if (scanForEntities) {
-            widthBonus+=d*0.06;
+            widthBonus+=d*0.5;
           }
           // Sideways distance to the ray
           double sd = e.pos.x*xt+e.pos.z*yt-lenD;
           if (sd>-e.radius-widthBonus && sd<e.radius+widthBonus) {
-            closest = d-cos(asin(sd/e.radius))*e.radius;
-            hitNormal = -dir;
-            hitResult = new HitResult.ent(e);
+            double dist = d-cos(asin(sd/e.radius))*e.radius;
+            if (dist<closest) {
+              closest = dist; 
+              hitNormal = -dir;
+              hitResult = new HitResult.ent(e);
+            }
           }
         }
       }
@@ -312,19 +316,11 @@ class Culler {
     }
   }
   
-  static void enumerateSegs(SubSector subSector, int id) {
-    subSector.sortedSubSectorId = id;
-    for (int i=0; i<subSector.segs.length; i++) {
-      subSector.segs[i].sortedSubSectorId = id;
-    }
-  }
-  
   static const clipDist = 8.00;
   void checkOccluders(SubSector subSector, List<Segment> result, int id) {
     subSector.sortedSubSectorId = id;
     for (int i=0; i<subSector.segs.length; i++) {
       Segment seg = subSector.segs[i];
-      seg.sortedSubSectorId = id;
 
       double x0 = seg.x0-xc;
       double y0 = seg.y0-yc;

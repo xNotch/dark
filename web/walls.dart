@@ -75,7 +75,7 @@ class Floors {
       double tox = ss.x1;
       double toy = ss.y1;
 
-      double dd = visibleSegs[i].sortedSubSectorId+0.0;
+      double dd = 0.0;
       if (ss.backSector == null) {
         double xTexOffs = 0.0;
         double yTexOffs = 0.0;
