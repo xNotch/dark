@@ -74,6 +74,8 @@ class Level {
   List<PlayerSpawn> deathmatchSpawns = new List<PlayerSpawn>();
   List<Entity> entities = new List<Entity>();
   Blockmap blockmap;
+  
+  HashMap<int, List<Sector>> sectorsWithTag = new HashMap<int, List<Sector>>();
 
   Level(this.levelData) {
     sectors = new List<Sector>(levelData.sectors.length);
@@ -84,6 +86,10 @@ class Level {
     
     for (int i=0; i<sectors.length; i++) {
       sectors[i] = new Sector(this, levelData.sectors[i]);
+      if (!sectorsWithTag.containsKey(sectors[i].data.tag)) {
+        sectorsWithTag[sectors[i].data.tag] = new List<Sector>();
+      }
+      sectorsWithTag[sectors[i].data.tag].add(sectors[i]);
     }
     for (int i=0; i<walls.length; i++) {
       walls[i] = new Wall(this, levelData.linedefs[i]);
@@ -97,6 +103,10 @@ class Level {
     for (int i=0; i<subSectors.length; i++) {
       subSectors[i] = new SubSector(this, levelData.sSectors[i]);
     }
+    for (int i=0; i<sectors.length; i++) {
+      sectors[i].findNeighbors(segments);
+    }
+    
 
     blockmap = new Blockmap(levelData.blockmap);
     bsp = new BSP(this);
@@ -104,6 +114,10 @@ class Level {
     for (int i=0; i<levelData.things.length; i++) {
       loadThing(levelData.things[i]);
     }
+  }
+  
+  List<Sector> getSectorsWithTag(int tag) {
+    return sectorsWithTag.containsKey(tag)?sectorsWithTag[tag]:new List<Sector>();
   }
   
   void loadThing(WAD.Thing thing) {
@@ -249,6 +263,11 @@ class Level {
     }
   }
   
+  void tick(double passedTime) {
+    for (int i=0; i<sectors.length; i++) {
+      sectors[i].tick(passedTime);
+    }
+  }
   HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEnemies) {
     return bsp.hitscan(pos, dir, scanForEnemies);
   }
@@ -294,12 +313,13 @@ class Segment {
     d = x0*xn+y0*yn;
     
     dir = atan2(xn, yn);
-    print("$xn, $yn ($dir) -> ${sin(dir)}, ${cos(dir)}");
-        
     
     brightness = 1.0;
     if (yn*yn>0.99*0.99) {
       brightness = 0.9;      
+    }
+    if (xn*xn>0.99*0.99) {
+      brightness = 1.1;      
     }
 //    if (brightness>1.0) brightness=2.0-brightness;
     
@@ -385,13 +405,98 @@ class Sector {
   String floorTexture, ceilingTexture;
   double lightLevel;
   List<Entity> entities = new List<Entity>();
+  List<Sector> neighborSectors;
+  double originalLightLevel;
+  double darkestNeighbor;
+
+  double lightChangeAccum = 0.0;
+  int lightOffset = 0;
+
+  SectorEffect effect = null;
   
+  Vector3 centerPos;
+
   Sector(Level level, this.data) {
     floorHeight = data.floorHeight+0.0;
     ceilingHeight = data.ceilingHeight+0.0;
     floorTexture = data.floorTexture;
     ceilingTexture = data.ceilingTexture;
-    lightLevel = data.lightLevel/255.0;
+    originalLightLevel = lightLevel = data.lightLevel/255.0;
+    
+    lightOffset = random.nextInt(8);
+  }
+  
+  void findNeighbors(List<Segment> segments) {
+    HashSet<Sector> neighbors = new HashSet();
+    double x0 = 100000000000.0;
+    double x1 = -100000000000.0;
+    double y0 = 100000000000.0;
+    double y1 = -100000000000.0;
+    segments.forEach((segment) {
+      if (segment.sector==this) {
+        if (segment.x0<x0) x0 = segment.x0;
+        if (segment.y0<y0) y0 = segment.y0;
+        if (segment.x0>x1) x1 = segment.x0;
+        if (segment.y0>y1) y1 = segment.y0;
+        if (segment.backSector!=null) neighbors.add(segment.backSector);
+      }
+    });
+    neighborSectors = new List<Sector>.from(neighbors);
+    darkestNeighbor = -1.0;
+    neighborSectors.forEach((sector) {
+      if (darkestNeighbor<0.0 || sector.lightLevel<darkestNeighbor) {
+        darkestNeighbor = sector.lightLevel;
+      }
+    });
+    if (darkestNeighbor>=lightLevel) darkestNeighbor = 0.0;
+    centerPos = new Vector3((x1+x0)/2.0, floorHeight, (y0+y1)/2.0);
+  }
+  
+  void setEffect(SectorEffect effect) {
+    if (this.effect == null) {
+      this.effect = effect;
+      if (effect!=null) effect.start(this);
+    } else {
+      this.effect.replaceWithEffect(effect);
+    }
+  }
+
+  void tick(double passedTime) {
+    if (effect!=null) effect.tick(passedTime);
+    if (data.special==0x01) {
+      lightChangeAccum+=passedTime*35.0/4.0;
+      int ticks = 0;
+      ticks = lightChangeAccum.floor();
+      lightChangeAccum-=ticks;
+      if (ticks>0) {
+        lightLevel = random.nextInt(5)==0?darkestNeighbor:originalLightLevel;
+      }
+    }
+    if (data.special==0x08) {
+      lightChangeAccum+=passedTime*20.0/35.0;
+      lightChangeAccum-=lightChangeAccum.floorToDouble();
+      double t = lightChangeAccum*2.0;
+      if (t>1.0) t = 2.0-t;
+      lightLevel = darkestNeighbor+(originalLightLevel-darkestNeighbor)*t;
+    }
+    if (data.special==0x02 || data.special==0x03 || data.special==0x04 || data.special==0x0c || data.special==0x0d) {
+      lightChangeAccum+=passedTime*31.0/35.0;
+      if (data.special==0x02 || data.special==0x04 || data.special==0x0c) {
+        lightChangeAccum+=passedTime*31.0/35.0;
+      }
+      lightChangeAccum-=lightChangeAccum.floor();
+      int tick = ((lightChangeAccum*31.0).floor());
+      if (data.special<0x0c) tick+=lightOffset;
+      lightLevel = (tick%31)>4?darkestNeighbor:originalLightLevel;
+    }
+    // 0x04 hurt player 20% (+ light above)
+    // 0x05 hurt player 10%
+    // 0x07 hurt player 5%
+    // 0x09 secret
+    // 0x0a close after 30 seconds
+    // 0x0b hurt 20%, switch level if health is < 11%
+    // 0x0e open after 300 seconds
+    // 0x10 hurt player 20%
   }
 }
 

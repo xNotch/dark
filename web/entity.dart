@@ -155,7 +155,6 @@ class Entity {
   }
   
   bool canEnterSector(Sector sector) {
-    if (sector.floorHeight==sector.ceilingHeight) return true;
     if (sector.floorHeight>pos.y+24) return false;
     if (sector.ceilingHeight<pos.y+height) return false;
     if (sector.ceilingHeight-sector.floorHeight<height) return false;
@@ -622,6 +621,27 @@ class Player extends Mob {
     if (slot==5) switchTo = plasmaGun;
     if (slot==6) switchTo = bfg;
     nextWeapon = switchTo;
+  }
+  
+  void use() {
+    double x0 = pos.x;
+    double y0 = pos.y;
+    List<HitResult> hits = level.bsp.getIntersectingSegs(pos, new Vector3(sin(rot), 0.0, cos(rot)));
+    double maxDist = 64.0;
+    for (int i=0; i<hits.length; i++) {
+      HitResult hr = hits[i];
+      double xd = hr.pos.x-pos.x;
+      double zd = hr.pos.z-pos.z;
+      if (xd*xd+zd*zd>maxDist*maxDist) break;
+      Wall wall = hits[i].segment.wall;
+      if (wall.data.type!=0) {
+        LinedefTrigger trigger = linedefTriggers.triggers[wall.data.type];
+        if (trigger.activator == LinedefTriggers.TOUCH) {
+          trigger.use(hits[i].segment);
+          return;
+        }
+      }
+    }
   }
   
   void move(double iX, double iY, double passedTime) {

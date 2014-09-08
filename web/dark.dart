@@ -21,6 +21,7 @@ part "entity.dart";
 part "bsp.dart";
 part "level.dart";
 part "weapon.dart";
+part "linedeftriggers.dart";
 
 
 const TEXTURE_ATLAS_SIZE = 1024;
@@ -562,6 +563,7 @@ void updateGameLogic(double passedTime) {
   double iY = 0.0;
   double iX = 0.0;
   
+  if (!lastFrameKeys[32] && keys[32]) player.use();
   if (!lastFrameKeys[49] && keys[49]) player.requestWeaponSlot(0);
   if (!lastFrameKeys[50] && keys[50]) player.requestWeaponSlot(1);
   if (!lastFrameKeys[51] && keys[51]) player.requestWeaponSlot(2);
@@ -579,6 +581,7 @@ void updateGameLogic(double passedTime) {
   if (keys[87]) iY+=1.0;
   if (keys[83]) iY-=1.0;
   
+  level.tick(passedTime);
   
 //  player.rot-=iRot*passedTime*3;
   if (iRot==0.0) player.rotMotion = 0.0;

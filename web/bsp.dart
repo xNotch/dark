@@ -44,6 +44,45 @@ class BSP {
     BSPNode.findSubSectorsInRadius(root, x, y, radius, result);
   }
   
+  List<HitResult> getIntersectingSegs(Vector3 pos, Vector3 dir) {
+    List<HitResult> result = new List<HitResult>();
+    double x0 = pos.x;
+    double y0 = pos.z;
+    double closest = 1000000.0;
+    double x1 = pos.x+dir.x*closest;
+    double y1 = pos.y+dir.z*closest;
+    
+    double xn = dir.x;
+    double yn = dir.z;
+    
+    double xt = yn;
+    double yt = -xn;
+    
+    double dd = x0*xn+y0*yn;
+    double lenD = x0*xt+y0*yt;
+    
+    List<Segment> segs = new List<Segment>();
+    root.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segs);
+    
+    for (int i=0; i<segs.length; i++) {
+      Segment s = segs[i];
+
+      double d0 = s.x0*xt+s.y0*yt-lenD;
+      double d1 = s.x1*xt+s.y1*yt-lenD;
+      
+      // First check that the segment intersects the ray
+      if (d0<0.0 && 0.0<d1) {
+        double len = d1-d0;
+        double p = (0.0-d0)/len;
+        double xHit = s.x0+(s.x1-s.x0)*p;
+        double yHit = s.y0+(s.y1-s.y0)*p;        
+        
+        result.add(new HitResult.seg(s)..pos=new Vector3(xHit, pos.y, yHit));
+      }
+    }
+    return result;
+  }
+  
   HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEntities) {
     double x0 = pos.x;
     double y0 = pos.z;
