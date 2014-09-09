@@ -98,7 +98,7 @@ class LinedefTrigger {
     this.once = true;
   }
   
-  void use(Segment segment) {
+  void trigger(Wall wall, bool rightSide) {
   }
 }
 
@@ -114,15 +114,28 @@ class DoorTrigger extends LinedefTrigger {
     this.keyNeeded = keyNeeded;
   }
   
-  void use(Segment segment) {
-    level.getSectorsWithTag(segment.wall.data.tag).forEach((sector)=>trigger(sector));
+  void trigger(Wall wall, bool rightSide) {
+    if (once) {
+      wall.triggerUsable = false;
+    }
+    bool triggered = false;
+    level.getSectorsWithTag(wall.data.tag).forEach((sector) {
+      if (sector.effect==null) {
+        triggerOnSector(sector, wall, rightSide);
+        triggered = true;
+      }
+    });
+    
+    if (triggered) {
+      wall.triggerSwitch(wall, rightSide, this);
+    }
   }
   
-  void trigger(Sector sector) {
-    if (type==LinedefTriggers.DOOR_OPEN) sector.setEffect(new DoorOpenEffect(speed));
-    if (type==LinedefTriggers.DOOR_CLOSE) sector.setEffect(new DoorCloseEffect(speed));
-    if (type==LinedefTriggers.DOOR_OPEN_CLOSE) sector.setEffect(new DoorOpenCloseEffect(speed));
-    if (type==LinedefTriggers.DOOR_CLOSE_OPEN) sector.setEffect(new DoorCloseOpenEffect(speed));
+  void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
+    if (type==LinedefTriggers.DOOR_OPEN) sector.setEffect(new DoorOpenEffect(this, speed));
+    if (type==LinedefTriggers.DOOR_CLOSE) sector.setEffect(new DoorCloseEffect(this, speed));
+    if (type==LinedefTriggers.DOOR_OPEN_CLOSE) sector.setEffect(new DoorOpenCloseEffect(this, speed));
+    if (type==LinedefTriggers.DOOR_CLOSE_OPEN) sector.setEffect(new DoorCloseOpenEffect(this, speed));
   }
 }
 
@@ -130,8 +143,9 @@ class LocalDoorTrigger extends DoorTrigger {
   LocalDoorTrigger(int type, int speed) : super(type, speed) {
   }
   
-  void use(Segment segment) {
-    trigger(segment.wall.leftSector);
+  void trigger(Wall wall, bool rightSide) {
+    wall.triggerSwitch(wall, rightSide, this);
+    triggerOnSector(wall.leftSector, wall, false);
   }
 }
 
@@ -152,9 +166,10 @@ class SectorEffect {
 }
 
 class DoorEffect extends SectorEffect {
+  DoorTrigger trigger; 
   int speed;
   
-  DoorEffect(this.speed);
+  DoorEffect(this.trigger, this.speed);
 
   bool openDoor(double passedTime) {
     double lowestNeighborCeiling = 10000000.0; 
@@ -174,16 +189,25 @@ class DoorEffect extends SectorEffect {
   
   bool closeDoor(double passedTime) {
     sector.ceilingHeight-=passedTime*35.0*2.0;
+    sector.entities.forEach((e){
+      if (e.pos.y+e.height+1.0>=sector.ceilingHeight) {
+        hitEntityOnClose(e, e.pos.y+e.height+1.0);
+      }
+    });
     if (sector.ceilingHeight<sector.floorHeight) {
       sector.ceilingHeight = sector.floorHeight;
       return true;
     }
     return false;
   }
+  
+  void hitEntityOnClose(Entity e, double entityTopHeight) {
+    sector.ceilingHeight = entityTopHeight;
+  }
 }
 
 class DoorOpenEffect extends DoorEffect {
-  DoorOpenEffect(int speed) : super(speed);
+  DoorOpenEffect(DoorTrigger trigger, int speed) : super(trigger, speed);
 
   void start(Sector sector) {
     super.start(sector);
@@ -199,7 +223,7 @@ class DoorOpenEffect extends DoorEffect {
 }
 
 class DoorCloseEffect extends DoorEffect {
-  DoorCloseEffect(int speed) : super(speed);
+  DoorCloseEffect(DoorTrigger trigger, int speed) : super(trigger, speed);
 
   void start(Sector sector) {
     super.start(sector);
@@ -218,7 +242,7 @@ class DoorOpenCloseEffect extends DoorEffect {
   int phase = 0;
   double waitTime = 0.0;
   
-  DoorOpenCloseEffect(int speed) : super(speed);
+  DoorOpenCloseEffect(DoorTrigger trigger, int speed) : super(trigger, speed);
   
   void start(Sector sector) {
     super.start(sector);
@@ -227,7 +251,6 @@ class DoorOpenCloseEffect extends DoorEffect {
   }
 
   void tick(double passedTime) {
-    print("phase: $phase");
     if (phase==0) {
       if (openDoor(passedTime)) {
         phase = 1;
@@ -248,7 +271,6 @@ class DoorOpenCloseEffect extends DoorEffect {
   }
   
   void replaceWithEffect(SectorEffect effect) {
-    print("Replace with : $effect");
     if (effect is DoorOpenCloseEffect) {
       if (phase!=2) phase = 2;
       else phase = 0;
@@ -256,13 +278,18 @@ class DoorOpenCloseEffect extends DoorEffect {
       super.replaceWithEffect(effect);
     }
   }
+  
+  void hitEntityOnClose(Entity e, double entityTopHeight) {
+    sector.ceilingHeight = entityTopHeight;
+    phase = 0;
+  }
 }
 
 class DoorCloseOpenEffect extends DoorEffect {
   int phase = 0;
   double waitTime = 0.0;
   
-  DoorCloseOpenEffect(int speed) : super(speed);
+  DoorCloseOpenEffect(DoorTrigger trigger, int speed) : super(trigger, speed);
 
   void tick(double passedTime) {
     if (phase==0) {

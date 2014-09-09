@@ -57,7 +57,13 @@ class Blockmap {
       }
     }
   }
+}
+
+class PerformLater {
+  double time;
+  Function toPerform;
   
+  PerformLater(this.time, this.toPerform);
 }
 
 class Level {
@@ -91,11 +97,11 @@ class Level {
       }
       sectorsWithTag[sectors[i].data.tag].add(sectors[i]);
     }
-    for (int i=0; i<walls.length; i++) {
-      walls[i] = new Wall(this, levelData.linedefs[i]);
-    }
     for (int i=0; i<sidedefs.length; i++) {
       sidedefs[i] = new Sidedef(this, levelData.sidedefs[i]);
+    }
+    for (int i=0; i<walls.length; i++) {
+      walls[i] = new Wall(this, levelData.linedefs[i]);
     }
     for (int i=0; i<segments.length; i++) {
       segments[i] = new Segment(this, levelData.segs[i]);
@@ -115,6 +121,13 @@ class Level {
       loadThing(levelData.things[i]);
     }
   }
+
+  List<PerformLater> toPerformLater = new List<PerformLater>();
+
+  void performLater(double time, Function toPerform) {
+    toPerformLater.add(new PerformLater(time, toPerform));
+  }
+  
   
   List<Sector> getSectorsWithTag(int tag) {
     return sectorsWithTag.containsKey(tag)?sectorsWithTag[tag]:new List<Sector>();
@@ -267,6 +280,12 @@ class Level {
     for (int i=0; i<sectors.length; i++) {
       sectors[i].tick(passedTime);
     }
+    for (int i=0; i<toPerformLater.length; i++) {
+      if ((toPerformLater[i].time-=passedTime)<=0.0) {
+        toPerformLater[i].toPerform();
+        toPerformLater.removeAt(i--);
+      }
+    }
   }
   HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEnemies) {
     return bsp.hitscan(pos, dir, scanForEnemies);
@@ -349,15 +368,22 @@ class Wall {
   Sector rightSector;
   
   Vector2 startVertex, endVertex;
+  Sidedef leftSidedef;
+  Sidedef rightSidedef;
 
   double x0, y0, x1, y1;
   double xn, yn, xt, yt;
+  double xc, yc;
   double d, sd;
   double length;
+  
+  bool triggerUsable = true;
   
   Wall(Level level, this.data) {
     if (data.leftSectorId!=-1) leftSector = level.sectors[data.leftSectorId];
     if (data.rightSectorId!=-1) rightSector = level.sectors[data.rightSectorId];
+    if (data.leftSidedefId!=-1) leftSidedef = level.sidedefs[data.leftSidedefId];
+    if (data.rightSidedefId!=-1) rightSidedef = level.sidedefs[data.rightSidedefId];
 
     startVertex = new Vector2(data.fromVertex.x+0.0, data.fromVertex.y+0.0);
     endVertex = new Vector2(data.toVertex.x+0.0, data.toVertex.y+0.0);
@@ -365,6 +391,10 @@ class Wall {
     y0 = startVertex.y;
     x1 = endVertex.x;
     y1 = endVertex.y;
+    
+    xc = (x0+x1)/2.0;
+    yc = (y0+y1)/2.0;
+    
     
     double xd = x1-x0;
     double yd = y1-y0;
@@ -380,6 +410,29 @@ class Wall {
 
     d = x0*xn+y0*yn;
     sd = x0*xt+y0*yt;    
+  }
+  
+  void triggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
+    Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
+    Sector sector = rightSide?wall.rightSector:wall.leftSector; 
+    bool changed = false;
+    if (s.lowerTexture.startsWith("SW1"))  {s.lowerTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
+    if (s.middleTexture.startsWith("SW1")) {s.middleTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
+    if (s.upperTexture.startsWith("SW1")) {s.upperTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;}
+    
+    if (changed) {
+      double yc = (sector.floorHeight+sector.ceilingHeight)/2.0;
+      Vector3 pos = new Vector3(wall.xc, yc, wall.yc);
+      playSound(pos, "SWTCHN", uniqueId: wall);
+      if (!trigger.once) level.performLater(35.0/35.0, ()=>untriggerSwitch(wall, rightSide, trigger));
+    }
+  }
+  
+  void untriggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
+    Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
+    if (s.lowerTexture.startsWith("SW2")) s.lowerTexture = "SW1${s.lowerTexture.substring(3)}"; 
+    if (s.middleTexture.startsWith("SW2")) s.middleTexture = "SW1${s.lowerTexture.substring(3)}"; 
+    if (s.upperTexture.startsWith("SW2")) s.upperTexture = "SW1${s.lowerTexture.substring(3)}"; 
   }
 }
 

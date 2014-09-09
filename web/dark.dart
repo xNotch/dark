@@ -372,8 +372,10 @@ class SoundChannel {
     if (pos!=null) {
       pannerNode = audioContext.createPanner();
       pannerNode.refDistance = 300.0;
-      pannerNode.rolloffFactor = 3.5;
-      pannerNode.distanceModel = "exponential";
+//      pannerNode.rolloffFactor = 3.5;
+//      pannerNode.distanceModel = "exponential";
+      pannerNode.distanceModel = "linear";
+      pannerNode.maxDistance = 1000.0;
       pannerNode.panningModel = "equalpower";
       pannerNode.connectNode(audioContext.destination);
     }
@@ -641,7 +643,7 @@ void renderGame() {
     seg.renderWalls();
   }
   
-  List<Entity> visibleEntities = new List<Entity>();
+  Set<Entity> visibleEntities = new Set<Entity>();
   visibleSectors.forEach((sector)=>visibleEntities.addAll(sector.entities));
 
   renderers.floors.buildBackWallHackData(visibleSegs, cameraPos);
@@ -658,7 +660,6 @@ void renderGame() {
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffers[1].framebuffer);
   renderers.floors.buildData(visibleSegs, cameraPos);
   renderers.floors.render(shaders.floorShader, renderers.floorTexture);
-//  renderers.floors.render(shaders.segDistanceShader, renderers.floorTexture);
   gl.depthFunc(GL.LEQUAL);
 
   gl.viewport(0,  0,  screenWidth,  screenHeight);

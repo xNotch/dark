@@ -180,7 +180,9 @@ void wadFileLoaded(WAD.WadFile wadFile) {
       
       a.onMouseOver.listen((e) {
         if (lastSelectedName!=null) {
-          lastSelectedName.setAttribute("style",  "");          
+          lastSelectedName.setAttribute("style",  "");
+        }
+        if (lastSelectedA!=null) {
           lastSelectedA.setAttribute("style",  "");          
         }
         setFrame(x0, y0, x1, y1, canvas, image, palette);
@@ -193,6 +195,42 @@ void wadFileLoaded(WAD.WadFile wadFile) {
       a.text = "$frameName";
     }
   });
+
+  List<String> wallTextureNames = new List<String>.from(wadFile.wallTextures.keys);
+  wallTextureNames.sort((s0, s1)=>s0.compareTo(s1));
+  wallTextureNames.forEach((name) {
+    print(name);
+    if (!first) {
+      content.appendHtml("<br>");
+    } else {
+      first = false;
+    }
+    int frame = 0;
+    
+    WAD.Image image = wadFile.wallTextures[name];
+    
+    int x0 = -image.xCenter;
+    int y0 = -image.yCenter;
+    int x1 = -image.xCenter+image.width;
+    int y1 = -image.yCenter+image.height;
+    
+    AnchorElement a = new AnchorElement(href: "${image.name}");
+    a.text = name;
+    content.append(a);
+    
+    a.onMouseOver.listen((e) {
+      if (lastSelectedName!=null) {
+        lastSelectedName.setAttribute("style",  "");
+      }
+      if (lastSelectedA!=null) {
+        lastSelectedA.setAttribute("style",  "");          
+      }
+      setFrame(x0, y0, x1, y1, canvas, image, palette);
+      a.setAttribute("style", "color:#ffffFF;");
+      lastSelectedName = null;
+      lastSelectedA = a;
+    });
+  });  
 }
 
 WAD.Image findFrame(WAD.WadFile wadFile, String spriteName, int frame) {

@@ -32,6 +32,7 @@ class Entity {
   bool collided = false;
   bool fullBright = false;
   Sector inSector;
+  Set<Sector> inSectors = new Set<Sector>();
     
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
   
@@ -39,7 +40,9 @@ class Entity {
   
   Entity(this.level, this.pos, this.blockerType) {
     inSector = level.bsp.findSector(pos.x, pos.z);
-    inSector.entities.add(this);
+//    inSector.entities.add(this);
+    inSectors = level.bsp.findSectorsInRadius(pos.x, pos.z, radius*0.9);
+    inSectors.forEach((s)=>s.entities.add(this));
 
     if (blockerType!=EntityBlockerType.NONE) {
       blockCell = level.blockmap.getBlockCell(pos.x, pos.z);
@@ -83,7 +86,7 @@ class Entity {
     } else if (blockerType==EntityBlockerType.PICKUP) {
       if (blockCell!=null) blockCell.pickups.remove(this);
     }
-    inSector.entities.remove(this);
+    inSectors.forEach((s)=>s.entities.remove(this));
     stopSoundAtUniqueId(this);
     
     removed = true;
@@ -93,9 +96,14 @@ class Entity {
   static List<BlockCell> tmpBlockCells = new List<BlockCell>();
   static Set<Wall> tmpLinedefs = new Set<Wall>();
   static List<SubSector> tmpSubSectorsInRange = new List<SubSector>();
+  static Set<Sector> tmpSectorsInRange = new Set<Sector>();
+  static Set<Wall> tmpWallsInRange = new Set<Wall>();
 
   void clipMove(Vector3 motion, double passedTime, HashSet<Sector> sectorsInRange) {
+    double oldx = pos.x;
+    double oldy = pos.z;
     int steps = (motion.length/(radius/3.0)).floor()+1;
+    tmpWallsInRange.clear();
     
     for (int i=0; i<steps; i++) {
       checkCounterHack++;
@@ -115,19 +123,33 @@ class Entity {
           Wall ld = ss.walls[j];
           if (ld.checkCounterHack != checkCounterHack) {
             ld.checkCounterHack = checkCounterHack;
-            clipMotion(ld, sectorsInRange);
+            if (!clipMotion(ld, sectorsInRange)) {
+              if (ld.data.type>=0) tmpWallsInRange.add(ld);
+            }
           }
         }
       }
     }
-
     
-    Sector newSector = level.bsp.findSector(pos.x,  pos.z);
-    if (newSector!=inSector) {
-      inSector.entities.remove(this);
-      newSector.entities.add(this);
-      inSector = newSector;
-    }
+    tmpWallsInRange.forEach((wall) {
+      double oldDist = oldx*wall.xn+oldy*wall.yn;
+      double newDist = pos.x*wall.xn+pos.z*wall.yn;
+      if ((oldDist<wall.d && newDist>=wall.d)||
+          (oldDist>=wall.d && newDist<wall.d)) {
+        passWall(wall);
+      }
+    });
+    
+    inSector = level.bsp.findSector(pos.x,  pos.z);
+    
+    tmpSectorsInRange.clear();
+    tmpSectorsInRange.addAll(sectorsInRange);
+    tmpSectorsInRange.add(inSector);
+    
+    inSectors.difference(tmpSectorsInRange).forEach((s)=>s.entities.remove(this));
+    tmpSectorsInRange.difference(inSectors).forEach((s)=>s.entities.add(this));
+    inSectors.clear();
+    inSectors.addAll(tmpSectorsInRange);
 
     if (blockerType==EntityBlockerType.BLOCKING) {
       BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
@@ -146,6 +168,8 @@ class Entity {
     }
   }
   
+  void passWall(Wall wall) {
+  }
 
   void collideAgainstEntitiesIn(BlockCell bc) {
     for (int j=0; j<bc.blockers.length; j++) {
@@ -232,10 +256,12 @@ class Entity {
         pos.x += xNudge;
         pos.z += yNudge;
         return true;
-      } else if (overlappedSectors!=null) {
-        overlappedSectors.add(seg.rightSector);
-        if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
-        return false;
+      } else {
+        if (overlappedSectors!=null) {
+          overlappedSectors.add(seg.rightSector);
+          if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
+          return false;
+        }
       }
     }
     return false;
@@ -425,8 +451,8 @@ class Projectile extends Entity {
 
     sectorsInRange.clear();
     clipMove(dir,  passedTime, sectorsInRange);
-    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
-    sectorsInRange.forEach((sector) {
+//    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
+    inSectors.forEach((sector) {
       if (sector.floorHeight>pos.y) collided = true;
       if (sector.ceilingHeight<pos.y+height) collided = true;
     });
@@ -570,8 +596,8 @@ class Mob extends Entity {
 
 
     double floorHeight = -10000000.0;
-    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
-    sectorsInRange.forEach((sector) {
+//    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
+    inSectors.forEach((sector) {
       if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
     });
     motion = (pos-oldPos)/passedTime;
@@ -635,14 +661,38 @@ class Player extends Mob {
       if (xd*xd+zd*zd>maxDist*maxDist) break;
       Wall wall = hits[i].segment.wall;
       if (wall.data.type!=0) {
-        LinedefTrigger trigger = linedefTriggers.triggers[wall.data.type];
-        if (trigger.activator == LinedefTriggers.TOUCH) {
-          trigger.use(hits[i].segment);
-          return;
+        // only trigger from the front, and only if the trigger isn't in use
+        if (wall.rightSidedef == hits[i].segment.sidedef && wall.triggerUsable) {
+          LinedefTrigger trigger = linedefTriggers.triggers[wall.data.type];
+          if (trigger==null) {
+            print("NO LINDEFTRIGGER FOR ${wall.data.type}");
+          } else {
+            if (trigger.activator == LinedefTriggers.TOUCH) {
+              trigger.trigger(hits[i].segment.wall, hits[i].segment.sidedef==hits[i].segment.wall.rightSidedef);
+              return;
+            }
+          }
         }
       }
     }
   }
+  
+  void passWall(Wall wall) {
+    if (wall.data.type!=0) {
+      if (wall.triggerUsable) {
+        LinedefTrigger trigger = linedefTriggers.triggers[wall.data.type];
+        if (trigger==null) {
+          print("NO LINDEFTRIGGER FOR ${wall.data.type}");
+        } else {
+          if (trigger.activator == LinedefTriggers.WALK) {
+            trigger.trigger(wall, true);
+            return;
+          }
+        }
+      }
+    }
+  }
+  
   
   void move(double iX, double iY, double passedTime) {
     super.move(iX,  iY,  passedTime);
