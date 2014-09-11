@@ -416,9 +416,9 @@ class Wall {
     Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
     Sector sector = rightSide?wall.rightSector:wall.leftSector; 
     bool changed = false;
-    if (s.lowerTexture.startsWith("SW1"))  {s.lowerTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
-    if (s.middleTexture.startsWith("SW1")) {s.middleTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
-    if (s.upperTexture.startsWith("SW1")) {s.upperTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;}
+    if (s.lowerTexture!=null && s.lowerTexture.length>3 && s.lowerTexture.startsWith("SW1"))  {s.lowerTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
+    if (s.middleTexture!=null && s.middleTexture.length>3 && s.middleTexture.startsWith("SW1")) {s.middleTexture = "SW2${s.middleTexture.substring(3)}"; changed = true;} 
+    if (s.upperTexture!=null && s.upperTexture.length>3 && s.upperTexture.startsWith("SW1")) {s.upperTexture = "SW2${s.upperTexture.substring(3)}"; changed = true;}
     
     if (changed) {
       double yc = (sector.floorHeight+sector.ceilingHeight)/2.0;
@@ -430,9 +430,9 @@ class Wall {
   
   void untriggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
     Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
-    if (s.lowerTexture.startsWith("SW2")) s.lowerTexture = "SW1${s.lowerTexture.substring(3)}"; 
-    if (s.middleTexture.startsWith("SW2")) s.middleTexture = "SW1${s.lowerTexture.substring(3)}"; 
-    if (s.upperTexture.startsWith("SW2")) s.upperTexture = "SW1${s.lowerTexture.substring(3)}"; 
+    if (s.lowerTexture!=null && s.lowerTexture.length>3 && s.lowerTexture.startsWith("SW2")) s.lowerTexture = "SW1${s.lowerTexture.substring(3)}"; 
+    if (s.middleTexture!=null && s.middleTexture.length>3 && s.middleTexture.startsWith("SW2")) s.middleTexture = "SW1${s.middleTexture.substring(3)}"; 
+    if (s.upperTexture!=null && s.upperTexture.length>3 && s.upperTexture.startsWith("SW2")) s.upperTexture = "SW1${s.upperTexture.substring(3)}"; 
   }
 }
 
@@ -503,6 +503,10 @@ class Sector {
     });
     if (darkestNeighbor>=lightLevel) darkestNeighbor = 0.0;
     centerPos = new Vector3((x1+x0)/2.0, floorHeight, (y0+y1)/2.0);
+  }
+  
+  void endEffect() {
+    this.effect = null;
   }
   
   void setEffect(SectorEffect effect) {

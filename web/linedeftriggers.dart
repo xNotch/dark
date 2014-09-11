@@ -15,7 +15,8 @@ class LinedefTriggers {
   
   static const int SPEED_SLOW = 0;
   static const int SPEED_MED = 1;
-  static const int SPEED_TURBO = 2;
+  static const int SPEED_FAST = 2;
+  static const int SPEED_TURBO = 3;
   
   static const int TOUCH = 0;
   static const int BULLET = 1;
@@ -24,6 +25,7 @@ class LinedefTriggers {
   HashMap<int, LinedefTrigger> triggers = new HashMap<int, LinedefTrigger>();
   
   LinedefTriggers() {
+    // Local doors
     triggers[1] = new LocalDoorTrigger(DOOR_OPEN_CLOSE, SPEED_MED)..activatedBy(TOUCH)..setMonsterActivatable();
     triggers[26] = new LocalDoorTrigger(DOOR_OPEN_CLOSE, SPEED_MED)..requireKey(KEY_BLUE)..activatedBy(TOUCH);
     triggers[28] = new LocalDoorTrigger(DOOR_OPEN_CLOSE, SPEED_MED)..requireKey(KEY_RED)..activatedBy(TOUCH);
@@ -39,6 +41,7 @@ class LinedefTriggers {
     triggers[117] = new LocalDoorTrigger(DOOR_OPEN_CLOSE, SPEED_TURBO)..activatedBy(TOUCH);
     triggers[118] = new LocalDoorTrigger(DOOR_OPEN, SPEED_TURBO)..activatedBy(TOUCH)..setOnce();
 
+    // Remote doors
     triggers[4] = new DoorTrigger(DOOR_OPEN_CLOSE, SPEED_MED)..activatedBy(WALK)..setOnce();
     triggers[29] = new DoorTrigger(DOOR_OPEN_CLOSE, SPEED_MED)..activatedBy(TOUCH)..setOnce();
     triggers[90] = new DoorTrigger(DOOR_OPEN_CLOSE, SPEED_MED)..activatedBy(WALK);
@@ -78,6 +81,27 @@ class LinedefTriggers {
     triggers[134] = new DoorTrigger(DOOR_OPEN, SPEED_TURBO)..activatedBy(TOUCH)..requireKey(KEY_RED);
     triggers[137] = new DoorTrigger(DOOR_OPEN, SPEED_TURBO)..activatedBy(TOUCH)..setOnce()..requireKey(KEY_YELLOW);
     triggers[136] = new DoorTrigger(DOOR_OPEN, SPEED_TURBO)..activatedBy(TOUCH)..requireKey(KEY_YELLOW);
+    
+
+    // Ceilings
+    triggers[40] = new CeilingRaiseTrigger()..activatedBy(WALK)..setOnce();
+    triggers[41] = new CeilingLowerTrigger(0.0)..activatedBy(TOUCH)..setOnce();
+    triggers[43] = new CeilingLowerTrigger(0.0)..activatedBy(TOUCH);
+    triggers[44] = new CeilingLowerTrigger(8.0)..activatedBy(WALK)..setOnce();
+    triggers[49] = new CeilingLowerTrigger(8.0)..activatedBy(TOUCH)..setOnce();
+    triggers[72] = new CeilingLowerTrigger(8.0)..activatedBy(WALK);
+    
+    
+    // Lifts
+    triggers[10] = new LiftTrigger(SPEED_FAST)..activatedBy(WALK)..setOnce();
+    triggers[21] = new LiftTrigger(SPEED_FAST)..activatedBy(TOUCH)..setOnce();
+    triggers[88] = new LiftTrigger(SPEED_FAST)..activatedBy(WALK)..setMonsterActivatable();
+    triggers[62] = new LiftTrigger(SPEED_FAST)..activatedBy(TOUCH);
+    triggers[121] = new LiftTrigger(SPEED_TURBO)..activatedBy(WALK)..setOnce();
+    triggers[122] = new LiftTrigger(SPEED_TURBO)..activatedBy(TOUCH)..setOnce();
+    triggers[120] = new LiftTrigger(SPEED_TURBO)..activatedBy(WALK);
+    triggers[123] = new LiftTrigger(SPEED_TURBO)..activatedBy(TOUCH);
+    
   }
 }
 
@@ -85,34 +109,6 @@ class LinedefTrigger {
   int activator;
   bool monsterActivatable = false;
   bool once = false;
-  
-  void activatedBy(int activator) {
-    this.activator = activator;
-  }
-  
-  void setMonsterActivatable() {
-    this.monsterActivatable = true;
-  }
-  
-  void setOnce() {
-    this.once = true;
-  }
-  
-  void trigger(Wall wall, bool rightSide) {
-  }
-}
-
-class DoorTrigger extends LinedefTrigger {
-  int type;
-  int keyNeeded = LinedefTriggers.KEY_NONE;
-  int speed;
-  
-  DoorTrigger(this.type, this.speed) {
-  }
-  
-  void requireKey(int keyNeeded) {
-    this.keyNeeded = keyNeeded;
-  }
   
   void trigger(Wall wall, bool rightSide) {
     if (once) {
@@ -129,6 +125,34 @@ class DoorTrigger extends LinedefTrigger {
     if (triggered) {
       wall.triggerSwitch(wall, rightSide, this);
     }
+  }
+  
+  void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
+  }
+  
+  void activatedBy(int activator) {
+    this.activator = activator;
+  }
+  
+  void setMonsterActivatable() {
+    this.monsterActivatable = true;
+  }
+  
+  void setOnce() {
+    this.once = true;
+  }
+}
+
+class DoorTrigger extends LinedefTrigger {
+  int type;
+  int keyNeeded = LinedefTriggers.KEY_NONE;
+  int speed;
+  
+  DoorTrigger(this.type, this.speed) {
+  }
+  
+  void requireKey(int keyNeeded) {
+    this.keyNeeded = keyNeeded;
   }
   
   void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
@@ -149,6 +173,34 @@ class LocalDoorTrigger extends DoorTrigger {
   }
 }
 
+class CeilingRaiseTrigger extends LinedefTrigger {
+  void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
+    sector.effect = new CeilingRaiseEffect();
+  }
+}
+
+class CeilingLowerTrigger extends LinedefTrigger {
+  double gap;
+  
+  CeilingLowerTrigger(this.gap);
+  
+  void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
+    sector.effect = new CeilingLowerEffect(gap);
+  }
+}
+
+class LiftTrigger extends LinedefTrigger {
+  int speed;
+  
+  LiftTrigger(this.speed);
+  
+  void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
+    sector.setEffect(new LiftEffect(speed));
+  }
+}
+
+
+
 class SectorEffect {
   Sector sector;
   
@@ -156,13 +208,127 @@ class SectorEffect {
   }
   
   void replaceWithEffect(SectorEffect effect) {
-    sector.effect = effect;
-    if (effect!=null) effect.start(sector);
+    return; // Do not replace effects?
+//    sector.effect = effect;
+//    if (effect!=null) effect.start(sector);
   }
   
   void start(Sector sector) {
     this.sector = sector;
   }
+}
+
+class LiftEffect extends SectorEffect {
+  int speed;
+  int phase = 0;
+  double waitTime = 0.0;
+  double startHeight;
+  
+  LiftEffect(this.speed);
+  
+  void start(Sector sector) {
+    super.start(sector);
+    startHeight = sector.floorHeight;
+    playSound(sector.centerPos, "PSTART");
+  }
+  
+  bool lower(double passedTime) {
+    double lowestNeighborFloor = startHeight; 
+    for (int i=0; i<sector.neighborSectors.length; i++) {
+      if (sector.neighborSectors[i].floorHeight<lowestNeighborFloor)
+        lowestNeighborFloor = sector.neighborSectors[i].floorHeight; 
+    }
+
+    sector.floorHeight-=passedTime*35.0*4.0;
+    
+    if (sector.floorHeight<lowestNeighborFloor) {
+      sector.floorHeight=lowestNeighborFloor;
+      return true;
+    }
+    return false;
+  }
+  
+  bool raise(double passedTime) {
+    sector.floorHeight+=passedTime*35.0*4.0;
+    
+    if (sector.floorHeight>startHeight) {
+      sector.floorHeight=startHeight;
+      return true;
+    }
+    return false;
+  }
+  
+
+  void tick(double passedTime) {
+    if (phase==0) {
+      if (lower(passedTime)) {
+        phase = 1;
+        waitTime = 0.0;
+        playSound(sector.centerPos, "PSTOP");
+      }
+    } else if (phase==1) {
+      waitTime+=passedTime;
+      if (waitTime>3.0) {
+        waitTime = 0.0;
+        phase = 2;
+        playSound(sector.centerPos, "PSTART");
+      }
+    } else if (phase==2) {
+      if (raise(passedTime)) {
+        sector.endEffect();
+        playSound(sector.centerPos, "PSTOP");
+      }
+    }
+  }
+  
+  void hitEntityOnClose(Entity e, double entityTopHeight) {
+    sector.ceilingHeight = entityTopHeight;
+    phase = 0;
+  }
+}
+
+
+class CeilingRaiseEffect extends SectorEffect {
+  CeilingRaiseEffect();
+  
+  void tick(double passedTime) {
+    double highestNeighborCeiling = 10000000.0; 
+    for (int i=0; i<sector.neighborSectors.length; i++) {
+      if (sector.neighborSectors[i].ceilingHeight>highestNeighborCeiling)
+        highestNeighborCeiling = sector.neighborSectors[i].ceilingHeight; 
+    }
+
+    sector.ceilingHeight+=passedTime*35.0*2.0;
+    
+    if (sector.ceilingHeight>highestNeighborCeiling-4.0) {
+      sector.ceilingHeight=highestNeighborCeiling-4.0;
+      sector.endEffect();
+    }
+  }
+}
+
+class CeilingLowerEffect extends SectorEffect {
+  double gap;
+
+  CeilingLowerEffect(this.gap);
+  
+  void tick(double passedTime) {
+    sector.ceilingHeight-=passedTime*35.0*2.0;
+    
+    double lowest = sector.floorHeight+gap;
+    sector.entities.forEach((e){
+      if (e.pos.y+e.height+1.0>lowest) {
+        lowest = e.pos.y+e.height+1.0;
+      }
+    });
+    
+    if (sector.ceilingHeight<sector.floorHeight+gap) {
+      sector.ceilingHeight=sector.floorHeight+gap;
+      sector.endEffect();
+    } else if (sector.ceilingHeight<lowest) {
+      sector.ceilingHeight = lowest;
+    }
+  }  
 }
 
 class DoorEffect extends SectorEffect {
@@ -217,7 +383,7 @@ class DoorOpenEffect extends DoorEffect {
 
   void tick(double passedTime) {
     if (openDoor(passedTime)) {
-      sector.setEffect(null);
+      sector.endEffect();
     }
   }
 }
@@ -233,7 +399,7 @@ class DoorCloseEffect extends DoorEffect {
   
   void tick(double passedTime) {
     if (closeDoor(passedTime)) {
-      sector.setEffect(null);
+      sector.endEffect();
     }
   }
 }
@@ -265,7 +431,7 @@ class DoorOpenCloseEffect extends DoorEffect {
       }
     } else if (phase==2) {
       if (closeDoor(passedTime)) {
-        sector.setEffect(null);
+        sector.endEffect();
       }
     }
   }
@@ -290,6 +456,11 @@ class DoorCloseOpenEffect extends DoorEffect {
   double waitTime = 0.0;
   
   DoorCloseOpenEffect(DoorTrigger trigger, int speed) : super(trigger, speed);
+  
+  void start(Sector sector) {
+    super.start(sector);
+    playSound(sector.centerPos, "DORCLS");
+  }
 
   void tick(double passedTime) {
     if (phase==0) {
@@ -302,10 +473,12 @@ class DoorCloseOpenEffect extends DoorEffect {
       if (waitTime>30.0) {
         waitTime = 0.0;
         phase = 2;
+        if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN");
+        if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN");
       }
     } else if (phase==2) {
       if (openDoor(passedTime)) {
-        sector.setEffect(null);
+        sector.endEffect();
       }
     }
   }  

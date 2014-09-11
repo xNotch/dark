@@ -178,7 +178,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M1");
+  loadLevel("E1M2");
 }
 
 void loadLevel(String levelName) {
