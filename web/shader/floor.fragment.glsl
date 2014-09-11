@@ -9,10 +9,10 @@ uniform float u_texAtlasSize;
 uniform sampler2D u_tex;
 
 void main() {
-    float ib = 1.0-v_brightness;
-    ib = ib*ib*ib;
-    ib = ib*ib;
-    float brightness = ((v_brightness+1.0)/(length(v_pos.z)*ib+v_brightness+1.0));
+    float dist = length(v_pos.z);
+    float scale = 1.0-120.0/(dist+120.0);
+    float brightness = clamp(0.0, v_brightness*2.0, v_brightness*2.0-clamp(0.0, 1.0, scale));
+    
     vec2 uv = clamp(fract(v_uv/64.0)*64.0, 0.5, 63.5);
     vec4 texCol = texture2D(u_tex, (uv+v_texOffs)/u_texAtlasSize);
     gl_FragColor = vec4(texCol.rg, brightness, texCol.a);

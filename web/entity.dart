@@ -28,19 +28,21 @@ class Entity {
   bool hanging = false;
   bool shouldAimAt = false;
   bool bleeds = false;
-  List<SubSector> inSubSectors = new List<SubSector>();
   bool removed = false;
   bool collided = false;
-  
-  
+  bool fullBright = false;
+  Sector inSector;
+  Set<Sector> inSectors = new Set<Sector>();
+    
   EntityBlockerType blockerType = EntityBlockerType.BLOCKING;
-//  bool blocking = false;
-// bool pickup = false;
   
   BlockCell blockCell;
   
   Entity(this.level, this.pos, this.blockerType) {
-    level.bsp.findSubSectorsInRadius(pos.x, pos.z, 0.0, inSubSectors);
+    inSector = level.bsp.findSector(pos.x, pos.z);
+//    inSector.entities.add(this);
+    inSectors = level.bsp.findSectorsInRadius(pos.x, pos.z, radius*0.9);
+    inSectors.forEach((s)=>s.entities.add(this));
 
     if (blockerType!=EntityBlockerType.NONE) {
       blockCell = level.blockmap.getBlockCell(pos.x, pos.z);
@@ -56,7 +58,6 @@ class Entity {
   
   void addToDisplayList(double playerRot) {
     if (spriteTemplate==null) return;
-    Sector sector = level.bsp.findSector(pos.xz);
     
     double rotDiff = rot - playerRot+PI;
     int rotFrame = (rotDiff * 8 / (PI * 2) + 0.5).floor() & 7;
@@ -64,24 +65,29 @@ class Entity {
     if (stf.rots.length == 1) rotFrame = 0;
     SpriteTemplateRot str = stf.rots[rotFrame];
 
-    int closestSubSectorId = inSubSectors[0].sortedSubSectorId;
+/*  int closestSubSectorId = inSubSectors[0].sortedSubSectorId;
     for (int i=1; i<inSubSectors.length; i++) {
       if (closestSubSectorId>inSubSectors[i].sortedSubSectorId) closestSubSectorId = inSubSectors[i].sortedSubSectorId;
-    }
+    }*/
+    double br = fullBright?1.0:inSector.lightLevel;
     
     if (transparent) {
-      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
+      renderers.transparentSpriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, str);
     } else {
-      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(sector, pos, closestSubSectorId, str);
+      renderers.spriteMaps[str.image.imageAtlas.texture].insertSprite(br, pos, str);
     }
   }
   
   void remove() {
+    if (removed) return;
+    
     if (blockerType==EntityBlockerType.BLOCKING) {
       if (blockCell!=null) blockCell.blockers.remove(this);
     } else if (blockerType==EntityBlockerType.PICKUP) {
       if (blockCell!=null) blockCell.pickups.remove(this);
     }
+    inSectors.forEach((s)=>s.entities.remove(this));
+    stopSoundAtUniqueId(this);
     
     removed = true;
   }
@@ -89,9 +95,15 @@ class Entity {
   static int checkCounterHack = 0;
   static List<BlockCell> tmpBlockCells = new List<BlockCell>();
   static Set<Wall> tmpLinedefs = new Set<Wall>();
+  static List<SubSector> tmpSubSectorsInRange = new List<SubSector>();
+  static Set<Sector> tmpSectorsInRange = new Set<Sector>();
+  static Set<Wall> tmpWallsInRange = new Set<Wall>();
 
   void clipMove(Vector3 motion, double passedTime, HashSet<Sector> sectorsInRange) {
+    double oldx = pos.x;
+    double oldy = pos.z;
     int steps = (motion.length/(radius/3.0)).floor()+1;
+    tmpWallsInRange.clear();
     
     for (int i=0; i<steps; i++) {
       checkCounterHack++;
@@ -103,21 +115,61 @@ class Entity {
         collideAgainstEntitiesIn(tmpBlockCells[i]);
       }
 
-      inSubSectors.clear();
-      level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, inSubSectors);
-      for (int i=0; i<inSubSectors.length; i++) {
-        SubSector ss = inSubSectors[i];
+      tmpSubSectorsInRange.clear();
+      level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius, tmpSubSectorsInRange);
+      for (int i=0; i<tmpSubSectorsInRange.length; i++) {
+        SubSector ss = tmpSubSectorsInRange[i];
         for (int j=0; j<ss.walls.length; j++) {
           Wall ld = ss.walls[j];
           if (ld.checkCounterHack != checkCounterHack) {
             ld.checkCounterHack = checkCounterHack;
-            clipMotion(ld, sectorsInRange);
+            if (!clipMotion(ld, sectorsInRange)) {
+              if (ld.data.type>=0) tmpWallsInRange.add(ld);
+            }
           }
         }
       }
     }
+    
+    tmpWallsInRange.forEach((wall) {
+      double oldDist = oldx*wall.xn+oldy*wall.yn;
+      double newDist = pos.x*wall.xn+pos.z*wall.yn;
+      if ((oldDist<wall.d && newDist>=wall.d)||
+          (oldDist>=wall.d && newDist<wall.d)) {
+        passWall(wall);
+      }
+    });
+    
+    inSector = level.bsp.findSector(pos.x,  pos.z);
+    
+    tmpSectorsInRange.clear();
+    tmpSectorsInRange.addAll(sectorsInRange);
+    tmpSectorsInRange.add(inSector);
+    
+    inSectors.difference(tmpSectorsInRange).forEach((s)=>s.entities.remove(this));
+    tmpSectorsInRange.difference(inSectors).forEach((s)=>s.entities.add(this));
+    inSectors.clear();
+    inSectors.addAll(tmpSectorsInRange);
+
+    if (blockerType==EntityBlockerType.BLOCKING) {
+      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=newBlockCell) {
+        if (blockCell!=null) blockCell.blockers.remove(this);
+        blockCell = newBlockCell;
+        if (blockCell!=null) blockCell.blockers.add(this);
+      }
+    } else if (blockerType==EntityBlockerType.PICKUP) {
+      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
+      if (blockCell!=newBlockCell) {
+        if (blockCell!=null) blockCell.pickups.remove(this);
+        blockCell = newBlockCell;
+        if (blockCell!=null) blockCell.pickups.add(this);
+      }
+    }
   }
   
+  void passWall(Wall wall) {
+  }
 
   void collideAgainstEntitiesIn(BlockCell bc) {
     for (int j=0; j<bc.blockers.length; j++) {
@@ -128,7 +180,7 @@ class Entity {
   
   bool canEnterSector(Sector sector) {
     if (sector.floorHeight>pos.y+24) return false;
-    if (sector.ceilingHeight-sector.floorHeight==0) return true;
+    if (sector.ceilingHeight<pos.y+height) return false;
     if (sector.ceilingHeight-sector.floorHeight<height) return false;
     return true;
   }
@@ -204,10 +256,12 @@ class Entity {
         pos.x += xNudge;
         pos.z += yNudge;
         return true;
-      } else if (overlappedSectors!=null) {
-        overlappedSectors.add(seg.rightSector);
-        if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
-        return false;
+      } else {
+        if (overlappedSectors!=null) {
+          overlappedSectors.add(seg.rightSector);
+          if (seg.leftSector!=null) overlappedSectors.add(seg.leftSector);
+          return false;
+        }
       }
     }
     return false;
@@ -272,6 +326,7 @@ class Puff extends Entity {
     speed = 1.0/((random.nextDouble()-0.5)*1.0+1.0);
     animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
     radius = 16.0;
+    fullBright = true;
   }
   
   void tick(double passedTime) {
@@ -281,8 +336,42 @@ class Puff extends Entity {
     animAccum-=animAccum.floor();
     animStep = animStep;
     pos.y+=passedTime*32;
-    Sector sector = level.bsp.findSector(pos.xz);
+    Sector sector = level.bsp.findSector(pos.x, pos.z);
     if (pos.y>sector.ceilingHeight-4.0) pos.y=sector.ceilingHeight-4.0;
+    if (lastAnimStep!=animStep) {
+      fullBright = animStep <= 1;
+
+      if (animStep>=frames.length)
+        remove();
+      else 
+        animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    }
+  }
+}
+
+class Explosion extends Entity {
+  String frames;
+  int animStep = 0;
+  double animAccum = 0.0;
+  double speed = 1.0;
+  
+  Explosion(String templateName, String frames, Level level, Vector3 pos, double rot) : super(level, pos, EntityBlockerType.NONE) {
+    frames = frames.toUpperCase();
+    this.frames = frames;
+    spriteTemplate = spriteTemplates[templateName];
+    this.pos = pos;
+    this.rot = rot;
+    speed = 1.0/((random.nextDouble()-0.5)*1.0+1.0);
+    animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    radius = 16.0;
+  }
+  
+  void tick(double passedTime) {
+    int lastAnimStep = animStep;
+    animAccum+=passedTime*35.0/4.0*speed;
+    animStep+=animAccum.floor();
+    animAccum-=animAccum.floor();
+    animStep = animStep;
     if (lastAnimStep!=animStep) {
       if (animStep>=frames.length)
         remove();
@@ -324,7 +413,7 @@ class Blood extends Entity {
     life-=passedTime;
     pos.y+=passedTime*ya*100.0;
     ya-=passedTime*5.0;
-    Sector sector = level.bsp.findSector(pos.xz);
+    Sector sector = level.bsp.findSector(pos.x, pos.z);
     if (pos.y<sector.floorHeight-4.0) pos.y=sector.floorHeight-4.0;
     if (life<0.0) {
       remove();
@@ -335,32 +424,132 @@ class Blood extends Entity {
 class Projectile extends Entity {
   Entity owner;
   Vector3 dir;
+  String frames;
+  int animStep;
+  double animAccum = 0.0;
   
-  Projectile(String templateName, Level level, Vector3 pos, this.dir, this.owner) : super(level, pos, EntityBlockerType.NONE) {
+  Projectile(String templateName, this.frames, Level level, Vector3 pos, this.dir, this.owner) : super(level, pos, EntityBlockerType.NONE) {
     spriteTemplate = spriteTemplates[templateName];
     radius = 8.0;
     height = 8.0;
     rot = atan2(dir.x, dir.z);
+    animStep = 0;
+    animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    radius = 16.0;
   }
   
   HashSet<Sector> sectorsInRange = new HashSet<Sector>();
   void tick(double passedTime) {
+    int lastAnimStep = animStep;
+    animAccum+=passedTime*35.0/2.0;
+    animStep+=animAccum.floor();
+    animAccum-=animAccum.floor();
+    animStep = animStep%frames.length;
+    if (lastAnimStep!=animStep) {
+      animFrame = FRAME_NAMES.indexOf(frames.substring(animStep, animStep+1));
+    }
+
     sectorsInRange.clear();
     clipMove(dir,  passedTime, sectorsInRange);
-    sectorsInRange.add(level.bsp.findSector(pos.xz));
-    sectorsInRange.forEach((sector) {
+//    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
+    inSectors.forEach((sector) {
       if (sector.floorHeight>pos.y) collided = true;
       if (sector.ceilingHeight<pos.y+height) collided = true;
     });
     pos.y+=dir.y*passedTime;
     
     if (collided) {
-      remove();
+      hit();
     }
+  }
+  
+  void hit() {
+    remove();
   }
   
   void clipMotionEntity(Entity e) {
     if (e!=owner) super.clipMotionEntity(e);
+  }
+}
+
+class Missile extends Projectile {
+  Missile(Level level, Vector3 pos, Vector3 dir, Entity owner) : super("MISL", "A", level, pos, dir, owner) {
+    fullBright = true;
+  }
+  
+  void hit() {
+    Explosion e = new Explosion("MISL", "BCD", level, pos, rot)..fullBright = true;
+    level.entities.add(e);
+    playSound(pos, "BAREXP", uniqueId: e);
+    remove();
+  }
+}
+
+class Plasma extends Projectile {
+  Plasma(Level level, Vector3 pos, Vector3 dir, Entity owner) : super("PLSS", "AB", level, pos, dir, owner) {
+    fullBright = true;
+  }
+  
+  void hit() {
+    Explosion e = new Explosion("PLSE", "ABCDE", level, pos, rot)..fullBright = true;
+    level.entities.add(e);
+    
+    playSound(pos, "FIRXPL", uniqueId: e);
+    remove();
+  }
+}
+
+class BfgShot extends Projectile {
+  double orgRot;
+  double blowUpIn = 0.0;
+  BfgShot(Level level, Vector3 pos, Vector3 dir, Entity owner) : super("BFS1", "AB", level, pos, dir, owner) {
+    orgRot = owner.rot;
+    fullBright = true;
+  }
+
+  void tick(double passedTime) {
+    if (blowUpIn>0.0) {
+      blowUpIn-=passedTime;
+      if (blowUpIn<=0.0) {
+        int amount = 40;
+        for (int i=0; i<amount; i++) {
+          Vector3 shootPos = owner.pos+new Vector3(0.0, 32.0, 0.0);
+          double rot = orgRot-PI/4+PI/2*i/amount;
+          Vector3 dir = new Vector3(sin(rot), 0.0, cos(rot));
+  
+          HitResult scanResult = level.hitscan(shootPos, dir, true);
+          if (scanResult!=null && scanResult.entity!=null) {
+            double yAim = scanResult.entity.pos.y+scanResult.entity.height/2.0;
+            dir*=(scanResult.entity.pos-shootPos).length;
+            dir.y = yAim-shootPos.y;
+            dir.normalize();
+          }
+          
+          HitResult result = level.hitscan(shootPos, dir, false);
+          if (result!=null) {
+//            level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
+            if (result.entity!=null) {
+              if (result.entity is Monster) {
+                (result.entity as Monster).motion+=dir*100.0;
+              }
+              level.entities.add(new Explosion("BFE2", "ABCD", level, result.entity.pos+new Vector3(0.0, result.entity.height/2.0, 0.0), 0.0));
+            }
+          }
+        }
+        remove();
+      }
+    } else {
+      super.tick(passedTime);
+    }
+  }
+  
+  void hit() {
+    Explosion e = new Explosion("BFE1", "ABCDEF", level, pos, rot)..fullBright = true;
+    level.entities.add(e);
+
+    spriteTemplate = null;
+    playSound(pos, "RXPLOD", uniqueId: e);
+    blowUpIn = 12/35.0;
   }
 }
 
@@ -406,26 +595,9 @@ class Mob extends Entity {
     pos.y+=motion.y*(passedTime);
 
 
-    if (blockerType==EntityBlockerType.BLOCKING) {
-      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
-      if (blockCell!=newBlockCell) {
-        if (blockCell!=null) blockCell.blockers.remove(this);
-        blockCell = newBlockCell;
-        if (blockCell!=null) blockCell.blockers.add(this);
-      }
-    } else if (blockerType==EntityBlockerType.PICKUP) {
-      BlockCell newBlockCell = level.blockmap.getBlockCell(pos.x, pos.z);
-      if (blockCell!=newBlockCell) {
-        if (blockCell!=null) blockCell.pickups.remove(this);
-        blockCell = newBlockCell;
-        if (blockCell!=null) blockCell.pickups.add(this);
-      }
-    }
-
-
     double floorHeight = -10000000.0;
-    sectorsInRange.add(level.bsp.findSector(pos.xz));
-    sectorsInRange.forEach((sector) {
+//    sectorsInRange.add(level.bsp.findSector(pos.x, pos.z));
+    inSectors.forEach((sector) {
       if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
     });
     motion = (pos-oldPos)/passedTime;
@@ -440,9 +612,6 @@ class Mob extends Entity {
     }
     
     if (stepUp>32.0) stepUp = 32.0;
-
-    inSubSectors.clear();
-    level.bsp.findSubSectorsInRadius(pos.x, pos.z, radius*0.0, inSubSectors);
   }
   
 }
@@ -479,6 +648,51 @@ class Player extends Mob {
     if (slot==6) switchTo = bfg;
     nextWeapon = switchTo;
   }
+  
+  void use() {
+    double x0 = pos.x;
+    double y0 = pos.y;
+    List<HitResult> hits = level.bsp.getIntersectingSegs(pos, new Vector3(sin(rot), 0.0, cos(rot)));
+    double maxDist = 64.0;
+    for (int i=0; i<hits.length; i++) {
+      HitResult hr = hits[i];
+      double xd = hr.pos.x-pos.x;
+      double zd = hr.pos.z-pos.z;
+      if (xd*xd+zd*zd>maxDist*maxDist) break;
+      Wall wall = hits[i].segment.wall;
+      if (wall.data.type!=0) {
+        // only trigger from the front, and only if the trigger isn't in use
+        if (wall.rightSidedef == hits[i].segment.sidedef && wall.triggerUsable) {
+          LinedefTrigger trigger = linedefTriggers.triggers[wall.data.type];
+          if (trigger==null) {
+            print("NO LINDEFTRIGGER FOR ${wall.data.type}");
+          } else {
+            if (trigger.activator == LinedefTriggers.TOUCH) {
+              trigger.trigger(hits[i].segment.wall, hits[i].segment.sidedef==hits[i].segment.wall.rightSidedef);
+              return;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  void passWall(Wall wall) {
+    if (wall.data.type!=0) {
+      if (wall.triggerUsable) {
+        LinedefTrigger trigger = linedefTriggers.triggers[wall.data.type];
+        if (trigger==null) {
+          print("NO LINDEFTRIGGER FOR ${wall.data.type}");
+        } else {
+          if (trigger.activator == LinedefTriggers.WALK) {
+            trigger.trigger(wall, true);
+            return;
+          }
+        }
+      }
+    }
+  }
+  
   
   void move(double iX, double iY, double passedTime) {
     super.move(iX,  iY,  passedTime);

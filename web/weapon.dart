@@ -110,13 +110,22 @@ class Weapon {
   }
   
   Vector3 findAimDir(Vector3 pos, Vector3 dir) {
-    HitResult scanResult = level.hitscan(pos, dir, true);
-    if (scanResult!=null && scanResult.entity!=null) {
-      print("Aiming at ${scanResult.entity}");
-      double yAim = scanResult.entity.pos.y+scanResult.entity.height/2.0;
-      dir*=(scanResult.entity.pos-pos).length;
-      dir.y = yAim-pos.y;
-      dir.normalize();
+    // First check for entities
+    HitResult checkEnemyScan = level.hitscan(pos, dir, true);
+    if (checkEnemyScan!=null && checkEnemyScan.entity!=null) {
+      // Then check we can actually HIT that entity
+      Vector3 p = new Vector3.copy(checkEnemyScan.pos);
+      for (int i=0; i<8; i++) {
+        p.y = checkEnemyScan.entity.pos.y+checkEnemyScan.entity.height*i/7; 
+        HitResult scanResult = level.hitscan(pos, (p-pos).normalize(), false);
+        if (scanResult!=null && scanResult.entity!=null) {
+          double yAim = scanResult.entity.pos.y+scanResult.entity.height/2.0;
+          dir*=(scanResult.entity.pos-pos).length;
+          dir.y = yAim-pos.y;
+          dir.normalize();
+          return dir;
+        }
+      }
     }
     return dir;
   }
@@ -145,6 +154,29 @@ class Weapon {
     }
   }
   
+  bool punch(Vector3 pos, Vector3 dir, double maxDistance) {
+    HitResult result = level.hitscan(pos, dir.normalize(), false);
+    if (result!=null) {
+      if (result.pos.distanceToSquared(pos)>maxDistance*maxDistance) {
+        return false;
+      }
+      if (result.entity!=null) {
+        if (result.entity is Monster) {
+          (result.entity as Monster).motion+=dir*100.0;
+        }
+        if (result.entity.bleeds) 
+          level.entities.add(new Blood("BLUD", "ABC", level, result.pos, 0.0));
+        else 
+          level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
+        return true;
+      } else {
+        level.entities.add(new Puff("PUFF", "ABCD", level, result.pos, 0.0));
+        return true;
+      }
+    }
+    return false;
+  }
+
   void switchTo() {
   }
 }
@@ -162,7 +194,11 @@ class Fists extends Weapon {
   
   void update(bool pressed, bool held, double passedTime) {
     if (held && animation==null) {
-      playSound(null, "PUNCH", uniqueId: "weapon");
+      Vector3 shootPos = player.pos+new Vector3(0.0, 36.0, 0.0);
+      Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
+      if (punch(shootPos, dir, 64.0)) {
+        playSound(null, "PUNCH", uniqueId: "weapon");
+      }
       playAnimation(reloadAnimation);
     }
   }
@@ -181,7 +217,13 @@ class Chainsaw extends Weapon {
   
   void update(bool pressed, bool held, double passedTime) {
     if (held && animation==null) {
-      playSound(null, "SAWFUL", uniqueId: "weapon");
+      Vector3 shootPos = player.pos+new Vector3(0.0, 36.0, 0.0);
+      Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
+      if (punch(shootPos, dir, 64.0)) {
+        playSound(null, "SAWHIT", uniqueId: "weapon");
+      } else {
+        playSound(null, "SAWFUL", uniqueId: "weapon");
+      }
       playAnimation(reloadAnimation);
       idleTime = 0.0;
     } else {
@@ -301,16 +343,24 @@ class RocketLauncher extends Weapon {
   ]);
   
   RocketLauncher() : super("MISGA0");
+  double shootIn = 0.0;
   
   void update(bool pressed, bool held, double passedTime) {
+    if (shootIn>0.0) {
+      shootIn-=passedTime;
+      if (shootIn<=0.0) {
+        Vector3 shootPos = player.pos+new Vector3(0.0, 32.0, 0.0);
+        Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
+        dir = findAimDir(shootPos, dir);
+        Projectile p = new Missile(level, shootPos, dir*1000.0, player);
+        level.entities.add(p);
+        playSound(p.pos, "RLAUNC", uniqueId: p);
+        shootIn = 0.0;
+      }
+    }
     if (held && animation==null) {
-      Vector3 shootPos = player.pos+new Vector3(0.0, 32.0, 0.0);
-      Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
-      dir = findAimDir(shootPos, dir);
+      shootIn = 8.0/35.0;
 
-      Projectile p = new Projectile("MISL", level, shootPos, dir*1000.0, player);
-      level.entities.add(p);
-      playSound(p.pos, "RLAUNC");
 
       playAnimation(reloadAnimation);
     }
@@ -320,7 +370,7 @@ class RocketLauncher extends Weapon {
 class Plasmagun extends Weapon {
   static GunAnimation fireAnimation = new GunAnimation([
       new GunAnimationFrame(1, ["PLSFA0"]),
-      new GunAnimationFrame(1, ["PLSFB0"]),
+      new GunAnimationFrame(2, ["PLSFB0"]),
   ]);
 
   static GunAnimation reloadAnimation = new GunAnimation([
@@ -337,7 +387,7 @@ class Plasmagun extends Weapon {
       Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
       dir = findAimDir(shootPos, dir);
 
-      Projectile p = new Projectile("PLSS", level, shootPos, dir*1000.0, player);
+      Projectile p = new Plasma(level, shootPos, dir*1000.0, player);
       level.entities.add(p);
       playSound(p.pos, "PLASMA");
       
@@ -352,5 +402,32 @@ class Plasmagun extends Weapon {
 }
 
 class BFG extends Weapon {
-  BFG() : super("SHTGA0");
+  static GunAnimation reloadAnimation = new GunAnimation([
+      new GunAnimationFrame(20, ["BFGGA0"]),
+      new GunAnimationFrame(8, ["BFGGB0", "BFGFA0"]),
+      new GunAnimationFrame(4, ["BFGGB0", "BFGFB0"]),
+      new GunAnimationFrame(12, ["BFGGB0"]),
+  ]);
+  
+  BFG() : super("BFGGA0");
+  double shootIn = 0.0;
+  
+  void update(bool pressed, bool held, double passedTime) {
+    if (shootIn>0.0) {
+      shootIn-=passedTime;
+      if (shootIn<=0.0) {
+        Vector3 shootPos = player.pos+new Vector3(0.0, 32.0, 0.0);
+        Vector3 dir = new Vector3(sin(player.rot), 0.0, cos(player.rot));
+        dir = findAimDir(shootPos, dir);
+        Projectile p = new BfgShot(level, shootPos, dir*1000.0, player);
+        level.entities.add(p);
+        shootIn = 0.0;
+      }
+    }
+    if (held && animation==null) {
+      shootIn = 32.0/35.0;
+      playSound(player.pos, "BFG", uniqueId: "weapon");
+      playAnimation(reloadAnimation);
+    }
+  }    
 }

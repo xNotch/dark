@@ -12,7 +12,8 @@ class Shaders {
   Shader screenBlitShader = new Shader("screenblit");
   Shader screenTransferShader = new Shader("screentransfer");
   Shader skyShader = new Shader("sky");
-  Shader segNumShader = new Shader("segnum");
+  Shader segNormalShader = new Shader("segnormal");
+  Shader segDistanceShader = new Shader("segdist");
   
   Future loadAndCompileAll() {
     List<Future> allFutures = new List<Future>();

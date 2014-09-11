@@ -21,8 +21,8 @@ class BSP {
     root = new BSPNode(level, level.levelData.nodes.last);
   }
   
-  Sector findSector(Vector2 pos) {
-    return root.findSubSector(pos.x, pos.y).sector;
+  Sector findSector(double x, double y) {
+    return root.findSubSector(x, y).sector;
   }
   
   List<Segment> findSortedSegs(Matrix4 modelViewMatrix, Matrix4 perspectiveMatrix) {
@@ -42,6 +42,45 @@ class BSP {
 
   void findSubSectorsInRadius(double x, double y, double radius, List<SubSector> result) {
     BSPNode.findSubSectorsInRadius(root, x, y, radius, result);
+  }
+  
+  List<HitResult> getIntersectingSegs(Vector3 pos, Vector3 dir) {
+    List<HitResult> result = new List<HitResult>();
+    double x0 = pos.x;
+    double y0 = pos.z;
+    double closest = 1000000.0;
+    double x1 = pos.x+dir.x*closest;
+    double y1 = pos.y+dir.z*closest;
+    
+    double xn = dir.x;
+    double yn = dir.z;
+    
+    double xt = yn;
+    double yt = -xn;
+    
+    double dd = x0*xn+y0*yn;
+    double lenD = x0*xt+y0*yt;
+    
+    List<Segment> segs = new List<Segment>();
+    root.getPotentiallyIntersectingSegs(x0, y0, xn, yn, segs);
+    
+    for (int i=0; i<segs.length; i++) {
+      Segment s = segs[i];
+
+      double d0 = s.x0*xt+s.y0*yt-lenD;
+      double d1 = s.x1*xt+s.y1*yt-lenD;
+      
+      // First check that the segment intersects the ray
+      if (d0<0.0 && 0.0<d1) {
+        double len = d1-d0;
+        double p = (0.0-d0)/len;
+        double xHit = s.x0+(s.x1-s.x0)*p;
+        double yHit = s.y0+(s.y1-s.y0)*p;        
+        
+        result.add(new HitResult.seg(s)..pos=new Vector3(xHit, pos.y, yHit));
+      }
+    }
+    return result;
   }
   
   HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEntities) {
@@ -69,25 +108,25 @@ class BSP {
     
 //    bool hitAnything = false;
     double closestPossible = 0.0;
-    for (int i=0; i<segs.length; i++) {
-      Segment s = segs[i];
-
-      double d0 = s.x0*xt+s.y0*yt-lenD;
-      double d1 = s.x1*xt+s.y1*yt-lenD;
-      
-      // First check that the segment intersects the ray
-      if (d0<0.0 && 0.0<d1) {
-        double len = d1-d0;
-        double p = (0.0-d0)/len;
-        double xHit = s.x0+(s.x1-s.x0)*p;
-        double yHit = s.y0+(s.y1-s.y0)*p;        
+    if (!scanForEntities) {
+      for (int i=0; i<segs.length; i++) {
+        Segment s = segs[i];
+  
+        double d0 = s.x0*xt+s.y0*yt-lenD;
+        double d1 = s.x1*xt+s.y1*yt-lenD;
         
-        // Calculate distance to the ray/segment intersection
-        double hitDist = (xHit*xn+yHit*yn-dd);
-        
-        if (hitDist<0.0) continue;
-        
-        if (!scanForEntities) {
+        // First check that the segment intersects the ray
+        if (d0<0.0 && 0.0<d1) {
+          double len = d1-d0;
+          double p = (0.0-d0)/len;
+          double xHit = s.x0+(s.x1-s.x0)*p;
+          double yHit = s.y0+(s.y1-s.y0)*p;        
+          
+          // Calculate distance to the ray/segment intersection
+          double hitDist = (xHit*xn+yHit*yn-dd);
+          
+          if (hitDist<0.0) continue;
+          
           // Check if it hits the floor before hitting the segment
           if (dir.y<0.0 && s.sector.floorHeight<pos.y) {
             double dist = s.sector.floorHeight-pos.y;
@@ -109,39 +148,40 @@ class BSP {
               closest = p;
             }
           }
-        }
-        
-        // Update the closest possible floor/ceiling distance to the distance to this segment
-        if (closestPossible<hitDist) closestPossible = hitDist;
-        
-        // We hit the wall itself
-        if (hitDist>=0.0 && hitDist<closest) {
-          bool hit = false;
-          if (!s.wall.data.twoSided || s.backSector==null) {
-            hit = true;
-          } else if (s.backSector!=null) {
-            double yHitPos = pos.y+dir.y*hitDist;
-            if (scanForEntities) {
-            } else {
-              if (s.backSector.floorHeight>yHitPos) hit = true;
-              if (s.backSector.ceilingHeight<yHitPos) hit = true;
+          
+          // Update the closest possible floor/ceiling distance to the distance to this segment
+          if (closestPossible<hitDist) closestPossible = hitDist;
+          
+          // We hit the wall itself
+          if (hitDist>=0.0 && hitDist<closest) {
+            bool hit = false;
+            if (!s.wall.data.twoSided || s.backSector==null) {
+              hit = true;
+            } else if (s.backSector!=null) {
+              double yHitPos = pos.y+dir.y*hitDist;
+              if (scanForEntities) {
+              } else {
+                if (s.backSector.floorHeight>yHitPos) hit = true;
+                if (s.backSector.ceilingHeight<yHitPos) hit = true;
+              }
+            }
+            if (hit) {
+              double yHitPos = pos.y+dir.y*hitDist;
+              hitNormal = new Vector3(s.xn, 0.0, s.yn);
+              hitSegment = s;
+              closest = hitDist;
+              hitResult = new HitResult.seg(s);
             }
           }
-          if (hit) {
-            double yHitPos = pos.y+dir.y*hitDist;
-            hitNormal = new Vector3(s.xn, 0.0, s.yn);
-            hitSegment = s;
-            closest = hitDist;
-            hitResult = new HitResult.seg(s);
-          }
         }
+        if (hitResult!=null) break;
       }
-      if (hitResult!=null) break;
     }
     
     for (int i=0; i<level.entities.length; i++) {
       Entity e = level.entities[i];
-      if (e.blockerType != EntityBlockerType.BLOCKING || !e.shouldAimAt) continue;
+      if (e.blockerType != EntityBlockerType.BLOCKING) continue;
+      if (scanForEntities && !e.shouldAimAt) continue;
 
       // Distance to the entity along the ray
       double d = e.pos.x*xn+e.pos.z*yn-dd;
@@ -165,14 +205,17 @@ class BSP {
         if (yHit) {
           double widthBonus = 0.0;
           if (scanForEntities) {
-            widthBonus+=d*0.06;
+            widthBonus+=d*0.5;
           }
           // Sideways distance to the ray
           double sd = e.pos.x*xt+e.pos.z*yt-lenD;
           if (sd>-e.radius-widthBonus && sd<e.radius+widthBonus) {
-            closest = d-cos(asin(sd/e.radius))*e.radius;
-            hitNormal = -dir;
-            hitResult = new HitResult.ent(e);
+            double dist = d-cos(asin(sd/e.radius))*e.radius;
+            if (dist<closest) {
+              closest = dist; 
+              hitNormal = -dir;
+              hitResult = new HitResult.ent(e);
+            }
           }
         }
       }
@@ -273,7 +316,7 @@ class Culler {
   }
   
   bool rangeVisible(double x0, double x1) {
-    if (x1<clip0 || x0>clip1) return false;
+    if (x1<=clip0 || x0>=clip1) return false;
     
     for (int i=0; i<clipRangeCount; i++) {
       ClipRange cr = clipRanges[i];
@@ -283,11 +326,11 @@ class Culler {
   }
   
   void clipRegion(double x0, double x1) {
-    x0-=0.001;
-    x1+=0.001;
+    x0-=0.0001;
+    x1+=0.0001;
     for (int i=0; i<clipRangeCount; i++) {
       ClipRange cr = clipRanges[i];
-      if (cr.x0>=x1 || cr.x1<=x0) {
+      if (cr.x0>x1 || cr.x1<x0) {
         // It's not inside this range
       } else {
         // Expand to include the other one, and remove it
@@ -298,10 +341,11 @@ class Culler {
       }
     }
     if (x0>clip0 && x1<clip1) {
-      if (x1-x0>4.0/320) { // Only add a clip range if it's wider than these many original doom pixels
+      if (true || x1-x0>4.0/320) { // Only add a clip range if it's wider than these many original doom pixels
         if (clipRangeCount==clipRanges.length) {
           print("Adding cliprange");
           clipRanges.add(new ClipRange(x0, x1));
+          clipRangeCount++;
         }
         else clipRanges[clipRangeCount++].set(x0, x1);
       }
@@ -311,23 +355,11 @@ class Culler {
     }
   }
   
-  static void enumerateSegs(SubSector subSector, int id) {
-    subSector.sortedSubSectorId = id;
-    for (int i=0; i<subSector.segs.length; i++) {
-      subSector.segs[i].sortedSubSectorId = id;
-    }
-  }
-  
-  static const clipDist = 0.01;
+  static const clipDist = 8.00;
   void checkOccluders(SubSector subSector, List<Segment> result, int id) {
-    if (clip0>=clip1) {
-      enumerateSegs(subSector, id);
-      return;
-    }
     subSector.sortedSubSectorId = id;
     for (int i=0; i<subSector.segs.length; i++) {
       Segment seg = subSector.segs[i];
-      seg.sortedSubSectorId = id;
 
       double x0 = seg.x0-xc;
       double y0 = seg.y0-yc;
@@ -360,16 +392,17 @@ class Culler {
       double xp0 = x0r/y0r;
       double xp1 = x1r/y1r;
 
-      if (xp0>xp1) continue;
+      if (xp0>=xp1) continue;
       
       if (rangeVisible(xp0, xp1)) {
         bool shouldClip = false;
-        if (!seg.wall.data.twoSided) {
+        if (seg.backSector==null || !seg.wall.data.twoSided) {
           shouldClip = true;
         } else if (seg.backSector!=null) {
           if (seg.backSector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
           else if (seg.sector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
           else if (seg.sector.ceilingHeight<=seg.backSector.floorHeight) shouldClip = true;
+//          else if (seg.sector.floorHeight>=seg.backSector.ceilingHeight) shouldClip = true;
         }
         if (shouldClip) clipRegion(xp0, xp1);
         result.add(seg);
@@ -421,55 +454,24 @@ class BSPNode {
       rightSubSector = level.subSectors[node.rightChild&0x7fff];
     }
   }
- 
-  void enumerateSegsLeft(double x, double y) {
-    if (leftChild!=null) leftChild.enumerateSegs(x, y);
-    else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
-  }
-  
-  void enumerateSegsRight(double x, double y) {
-    if (rightChild!=null) rightChild.enumerateSegs(x, y);
-    else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
-  }
-  
-  void enumerateSegs(double x, double y) {
-    if (x*dx+y*dy>d) {
-      enumerateSegsLeft(x, y);
-      enumerateSegsRight(x, y);
-    } else {
-      enumerateSegsRight(x, y);
-      enumerateSegsLeft(x, y);
-    }
-  }
-  
-  
-  void findSortedSegsLeft(Culler culler, double x, double y, List<Segment> result) {
-    if (culler.isVisible(leftBounds)) {
-      if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
-      else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
-    } else {
-      if (leftChild!=null) leftChild.enumerateSegs(x, y);
-      else Culler.enumerateSegs(leftSubSector, _subSectorCount++);
-    }
-  }
-  
-  void findSortedSegsRight(Culler culler, double x, double y, List<Segment> result) {
-    if (culler.isVisible(rightBounds)) {
-      if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
-      else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
-    } else {
-      if (rightChild!=null) rightChild.enumerateSegs(x, y);
-      else Culler.enumerateSegs(rightSubSector, _subSectorCount++);
-    }
-  }
   
   void findSortedSegs(Culler culler, double x, double y,List<Segment> result) {
     if (x*dx+y*dy>d) {
-      findSortedSegsLeft(culler, x, y, result);
-      findSortedSegsRight(culler, x, y, result);
+      if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
+      else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
+      
+      if (culler.isVisible(rightBounds)) {
+        if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
+        else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
+      }
     } else {
-      findSortedSegsRight(culler, x, y, result);
-      findSortedSegsLeft(culler, x, y, result);
+      if (rightChild!=null) rightChild.findSortedSegs(culler, x, y, result);
+      else culler.checkOccluders(rightSubSector, result, _subSectorCount++);
+      
+      if (culler.isVisible(leftBounds)) {
+        if (leftChild!=null) leftChild.findSortedSegs(culler, x, y, result);
+        else culler.checkOccluders(leftSubSector, result, _subSectorCount++);
+      }
     }
   }
   

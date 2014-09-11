@@ -21,6 +21,7 @@ part "entity.dart";
 part "bsp.dart";
 part "level.dart";
 part "weapon.dart";
+part "linedeftriggers.dart";
 
 
 const TEXTURE_ATLAS_SIZE = 1024;
@@ -45,6 +46,7 @@ SkyRenderer skyRenderer;
 bool invulnerable = false;
 
 AudioContext audioContext;
+List<bool> lastFrameKeys = new List<bool>(256);
 List<bool> keys = new List<bool>(256);
 bool fireButton = false;
 
@@ -78,7 +80,7 @@ void startup() {
     return;
   }
 
-  for (int i=0; i<256; i++) keys[i] = false;
+  for (int i=0; i<256; i++) lastFrameKeys[i] = keys[i] = false;
 
   window.onKeyDown.listen((e) {
     if (!gameVisible) return;
@@ -176,7 +178,7 @@ void wadFileLoaded(WAD.WadFile wadFile) {
 
   resources = new GameResources(wadFile);
   resources.loadAll();
-  loadLevel("E1M7");
+  loadLevel("E1M1");
 }
 
 void loadLevel(String levelName) {
@@ -328,6 +330,7 @@ Player player;
 //double playerRot = 0.0;
 
 List<Framebuffer> indexColorBuffers = new List<Framebuffer>(3);
+Framebuffer segNormalBuffer;
 Framebuffer segDistanceBuffer;
 Framebuffer indexColorBuffer;
 
@@ -335,7 +338,7 @@ GL.Texture skyTexture;
 PannerNode pannerNode;
 AudioBufferSourceNode nodeHack;
 
-Map<String, SoundChannel> uniqueSoundChannels = new Map<String, SoundChannel>();
+Map<Object, SoundChannel> uniqueSoundChannels = new Map<Object, SoundChannel>();
 
 class SoundChannel {
   PannerNode pannerNode;
@@ -348,7 +351,14 @@ class SoundChannel {
   SoundChannel() {
   }
   
-  void play(Vector3 pos, String uniqueId, AudioBuffer buffer, double volume) {
+  static void stopSoundAtUniqueId(Object uniqueId) {
+    if (uniqueSoundChannels.containsKey(uniqueId)) {
+      uniqueSoundChannels[uniqueId].uniqueId = null;
+      uniqueSoundChannels[uniqueId].stop();
+    }
+  }
+
+  void play(Vector3 pos, Object uniqueId, AudioBuffer buffer, double volume) {
     if (uniqueId!=null) {
       if (uniqueSoundChannels.containsKey(uniqueId)) {
         uniqueSoundChannels[uniqueId].uniqueId = null;
@@ -362,8 +372,10 @@ class SoundChannel {
     if (pos!=null) {
       pannerNode = audioContext.createPanner();
       pannerNode.refDistance = 300.0;
-      pannerNode.rolloffFactor = 3.5;
-      pannerNode.distanceModel = "exponential";
+//      pannerNode.rolloffFactor = 3.5;
+//      pannerNode.distanceModel = "exponential";
+      pannerNode.distanceModel = "linear";
+      pannerNode.maxDistance = 1000.0;
       pannerNode.panningModel = "equalpower";
       pannerNode.connectNode(audioContext.destination);
     }
@@ -420,7 +432,11 @@ class SoundChannel {
 List<SoundChannel> soundChannels = new List<SoundChannel>();
 GameResources resources;
 
-void playSound(Vector3 pos, String soundName, {String uniqueId : null, double volume: 1.0 }) {
+void stopSoundAtUniqueId(Object uniqueId) {
+  SoundChannel.stopSoundAtUniqueId(uniqueId);
+}
+
+void playSound(Vector3 pos, String soundName, {Object uniqueId : null, double volume: 1.0 }) {
   if (pos!=null && pos.distanceToSquared(player.pos)>1200*1200) return;
   SoundChannel soundChannel = new SoundChannel();
   soundChannel.play(pos, uniqueId, resources.samples["DS$soundName"], volume);
@@ -442,6 +458,7 @@ void start(Level _level) {
     indexColorBuffers[i] = new Framebuffer(frameBufferRes, frameBufferRes);
   }
   segDistanceBuffer = new Framebuffer(frameBufferRes, frameBufferRes);
+  segNormalBuffer = new Framebuffer(frameBufferRes, frameBufferRes);
 
   printToConsole("Creating color lookup texture");
   Uint8List lookupTextureData = new Uint8List(256*256*4);
@@ -508,7 +525,6 @@ void start(Level _level) {
   pannerNode.distanceModel = "exponential";
   pannerNode.connectNode(audioContext.destination);
 
-  print("DOASJ");
 //  double time = 0.0;
   //new Timer.periodic(new Duration(milliseconds: 16), (t)=>render(time+=16.0/1000.0));
   requestAnimationFrame();
@@ -549,13 +565,14 @@ void updateGameLogic(double passedTime) {
   double iY = 0.0;
   double iX = 0.0;
   
-  if (keys[49]) player.requestWeaponSlot(0);
-  if (keys[50]) player.requestWeaponSlot(1);
-  if (keys[51]) player.requestWeaponSlot(2);
-  if (keys[52]) player.requestWeaponSlot(3);
-  if (keys[53]) player.requestWeaponSlot(4);
-  if (keys[54]) player.requestWeaponSlot(5);
-  if (keys[55]) player.requestWeaponSlot(6);
+  if (!lastFrameKeys[32] && keys[32]) player.use();
+  if (!lastFrameKeys[49] && keys[49]) player.requestWeaponSlot(0);
+  if (!lastFrameKeys[50] && keys[50]) player.requestWeaponSlot(1);
+  if (!lastFrameKeys[51] && keys[51]) player.requestWeaponSlot(2);
+  if (!lastFrameKeys[52] && keys[52]) player.requestWeaponSlot(3);
+  if (!lastFrameKeys[53] && keys[53]) player.requestWeaponSlot(4);
+  if (!lastFrameKeys[54] && keys[54]) player.requestWeaponSlot(5);
+  if (!lastFrameKeys[55] && keys[55]) player.requestWeaponSlot(6);
 
   if (keys[81] || keys[37]) iRot+=1.0;
   if (keys[69] || keys[39]) iRot-=1.0;
@@ -566,6 +583,7 @@ void updateGameLogic(double passedTime) {
   if (keys[87]) iY+=1.0;
   if (keys[83]) iY-=1.0;
   
+  level.tick(passedTime);
   
 //  player.rot-=iRot*passedTime*3;
   if (iRot==0.0) player.rotMotion = 0.0;
@@ -598,16 +616,46 @@ void renderGame() {
   Matrix4 invertedViewMatrix = new Matrix4.copy(viewMatrix)..invert();
   Vector3 cameraPos = invertedViewMatrix.transform3(new Vector3(0.0, 0.0, 0.0));
 
+
+  double xp = player.pos.x;
+  double yp = player.pos.z;
+  double xnp = sin(player.rot);
+  double ynp = cos(player.rot);
+  double dp = xp*xnp+yp*ynp; 
+
   List<Segment> visibleSegs = level.bsp.findSortedSegs(invertedViewMatrix, projectionMatrix);
-  visibleSegs.forEach((seg) => seg.renderWalls());
+  HashSet<Sector> visibleSectors = new HashSet<Sector>();
+  for (int i=0; i<visibleSegs.length; i++) {
+    Segment seg = visibleSegs[i];
+    double d0 = seg.x0*xnp+seg.y0*ynp-dp;
+    double d1 = seg.x1*xnp+seg.y1*ynp-dp;
+    if (d0<8.0) d0 = 8.0;
+    if (d1<8.0) d1 = 8.0;
+    double low = d0<d1?d0:d1;
+    double high = d0<d1?d1:d0;
+
+    double d = xp*seg.xn+yp*seg.yn-seg.d;
+    seg.sortDistance = d*d;
+    seg.lowDistance = low;
+    seg.highDistance = high;
+
+    visibleSectors.add(seg.sector);
+    seg.renderWalls();
+  }
+  
+  Set<Entity> visibleEntities = new Set<Entity>();
+  visibleSectors.forEach((sector)=>visibleEntities.addAll(sector.entities));
 
   renderers.floors.buildBackWallHackData(visibleSegs, cameraPos);
   
   gl.enable(GL.CULL_FACE);
   gl.enable(GL.DEPTH_TEST);
   gl.depthFunc(GL.ALWAYS);
+  gl.bindFramebuffer(GL.FRAMEBUFFER, segNormalBuffer.framebuffer);
+  renderers.floors.render(shaders.segNormalShader, renderers.floorTexture);
+  
   gl.bindFramebuffer(GL.FRAMEBUFFER, segDistanceBuffer.framebuffer);
-  renderers.floors.render(shaders.segNumShader, renderers.floorTexture);
+  renderers.floors.render(shaders.segDistanceShader, renderers.floorTexture);
   
   gl.bindFramebuffer(GL.FRAMEBUFFER, indexColorBuffers[1].framebuffer);
   renderers.floors.buildData(visibleSegs, cameraPos);
@@ -619,6 +667,7 @@ void renderGame() {
     walls.render();
     walls.clear();
   });
+  gl.depthMask(true);
 
 
   Matrix4 oldMatrix = projectionMatrix;
@@ -631,28 +680,28 @@ void renderGame() {
   gl.disable(GL.BLEND);
   projectionMatrix = oldMatrix;
 
-  level.entities.forEach((entity) {
+  visibleEntities.forEach((entity) {
     entity.addToDisplayList(player.rot);
   });
 
 
   gl.depthFunc(GL.ALWAYS);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, true);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
   });
   gl.colorMask(false, false, false, false);
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, true);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
   });
   gl.colorMask(true, true, true, true);
   gl.depthFunc(GL.LEQUAL);
   renderers.spriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
     sprites.clear();
   });
   gl.colorMask(false, false, false, false);
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, true);
   });
   gl.colorMask(true, true, true, true);
   
@@ -678,7 +727,7 @@ void renderGame() {
   projectionMatrix = oldProjection;
   
   renderers.transparentSpriteMaps.values.forEach((sprites) {
-    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture, false);
+    sprites.render(shaders.transparentSpriteShader, indexColorBuffers[1].texture, indexColorBuffers[1].texture, false);
     sprites.clear();
   });
 //  gl.disable(GL.BLEND);
@@ -712,7 +761,7 @@ void renderGui() {
   gl.disable(GL.CULL_FACE);
   gl.blendFunc(GL.SRC_ALPHA,  GL.ONE_MINUS_SRC_ALPHA);
   renderers.guiSprites.values.forEach((sprites) {
-    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, false);
+    sprites.render(shaders.spriteShader, segDistanceBuffer.texture, segNormalBuffer.texture, false);
     sprites.clear();
   });  
   guiSpriteCount = 0;
@@ -788,6 +837,8 @@ void render(double time) {
     soundChannels[i].update();
   }
   requestAnimationFrame();
+  for (int i=0; i<keys.length; i++)
+    lastFrameKeys[i] = keys[i];
 }
 
 void topLevelCatch(Function f) {

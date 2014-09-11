@@ -1,10 +1,12 @@
  precision mediump float;
 
-varying vec3 v_col;
+varying vec4 v_col;
 
 uniform float u_texAtlasSize;
 uniform sampler2D u_tex;
 
+#define M_PI 3.1415926535897932384626433832795
+
 void main() {
-    gl_FragColor = vec4(v_col, 1.0);
+  gl_FragColor = v_col;
 }

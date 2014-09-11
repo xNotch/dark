@@ -57,7 +57,13 @@ class Blockmap {
       }
     }
   }
+}
+
+class PerformLater {
+  double time;
+  Function toPerform;
   
+  PerformLater(this.time, this.toPerform);
 }
 
 class Level {
@@ -74,6 +80,8 @@ class Level {
   List<PlayerSpawn> deathmatchSpawns = new List<PlayerSpawn>();
   List<Entity> entities = new List<Entity>();
   Blockmap blockmap;
+  
+  HashMap<int, List<Sector>> sectorsWithTag = new HashMap<int, List<Sector>>();
 
   Level(this.levelData) {
     sectors = new List<Sector>(levelData.sectors.length);
@@ -84,12 +92,16 @@ class Level {
     
     for (int i=0; i<sectors.length; i++) {
       sectors[i] = new Sector(this, levelData.sectors[i]);
-    }
-    for (int i=0; i<walls.length; i++) {
-      walls[i] = new Wall(this, levelData.linedefs[i]);
+      if (!sectorsWithTag.containsKey(sectors[i].data.tag)) {
+        sectorsWithTag[sectors[i].data.tag] = new List<Sector>();
+      }
+      sectorsWithTag[sectors[i].data.tag].add(sectors[i]);
     }
     for (int i=0; i<sidedefs.length; i++) {
       sidedefs[i] = new Sidedef(this, levelData.sidedefs[i]);
+    }
+    for (int i=0; i<walls.length; i++) {
+      walls[i] = new Wall(this, levelData.linedefs[i]);
     }
     for (int i=0; i<segments.length; i++) {
       segments[i] = new Segment(this, levelData.segs[i]);
@@ -97,6 +109,10 @@ class Level {
     for (int i=0; i<subSectors.length; i++) {
       subSectors[i] = new SubSector(this, levelData.sSectors[i]);
     }
+    for (int i=0; i<sectors.length; i++) {
+      sectors[i].findNeighbors(segments);
+    }
+    
 
     blockmap = new Blockmap(levelData.blockmap);
     bsp = new BSP(this);
@@ -105,10 +121,21 @@ class Level {
       loadThing(levelData.things[i]);
     }
   }
+
+  List<PerformLater> toPerformLater = new List<PerformLater>();
+
+  void performLater(double time, Function toPerform) {
+    toPerformLater.add(new PerformLater(time, toPerform));
+  }
+  
+  
+  List<Sector> getSectorsWithTag(int tag) {
+    return sectorsWithTag.containsKey(tag)?sectorsWithTag[tag]:new List<Sector>();
+  }
   
   void loadThing(WAD.Thing thing) {
     Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
-    Sector sector = bsp.findSector(spritePos.xz);
+    Sector sector = bsp.findSector(spritePos.x, spritePos.z);
     spritePos.y = sector.floorHeight.toDouble();
     double rot = ((90-thing.angle-22)~/45)*PI*2/8.0;
     
@@ -249,6 +276,17 @@ class Level {
     }
   }
   
+  void tick(double passedTime) {
+    for (int i=0; i<sectors.length; i++) {
+      sectors[i].tick(passedTime);
+    }
+    for (int i=0; i<toPerformLater.length; i++) {
+      if ((toPerformLater[i].time-=passedTime)<=0.0) {
+        toPerformLater[i].toPerform();
+        toPerformLater.removeAt(i--);
+      }
+    }
+  }
   HitResult hitscan(Vector3 pos, Vector3 dir, bool scanForEnemies) {
     return bsp.hitscan(pos, dir, scanForEnemies);
   }
@@ -256,7 +294,6 @@ class Level {
 
 class Segment {
   WAD.Seg data;
-  int sortedSubSectorId;
   
   Vector2 startVertex, endVertex;
   double x0, y0;
@@ -268,6 +305,13 @@ class Segment {
   double offset;
   double length;
   double xn, yn;
+  double xt, yt;
+  double d;
+  double brightness;
+  double dir;
+  
+  double sortDistance;
+  double lowDistance, highDistance;
   
   Segment(Level level, this.data) {
     this.x0 = data.startVertex.x+0.0;
@@ -279,9 +323,24 @@ class Segment {
     endVertex = new Vector2(x1, y1);
     
     Vector2 tangent = (endVertex-startVertex).normalize();
+    xt = tangent.x;
+    yt = tangent.y;
 
     xn = tangent.y;
     yn = -tangent.x;
+    
+    d = x0*xn+y0*yn;
+    
+    dir = atan2(xn, yn);
+    
+    brightness = 1.0;
+    if (yn*yn>0.99*0.99) {
+      brightness = 0.9;      
+    }
+    if (xn*xn>0.99*0.99) {
+      brightness = 1.1;      
+    }
+//    if (brightness>1.0) brightness=2.0-brightness;
     
     
     offset = data.offset+0.0;
@@ -309,15 +368,22 @@ class Wall {
   Sector rightSector;
   
   Vector2 startVertex, endVertex;
+  Sidedef leftSidedef;
+  Sidedef rightSidedef;
 
   double x0, y0, x1, y1;
   double xn, yn, xt, yt;
+  double xc, yc;
   double d, sd;
   double length;
+  
+  bool triggerUsable = true;
   
   Wall(Level level, this.data) {
     if (data.leftSectorId!=-1) leftSector = level.sectors[data.leftSectorId];
     if (data.rightSectorId!=-1) rightSector = level.sectors[data.rightSectorId];
+    if (data.leftSidedefId!=-1) leftSidedef = level.sidedefs[data.leftSidedefId];
+    if (data.rightSidedefId!=-1) rightSidedef = level.sidedefs[data.rightSidedefId];
 
     startVertex = new Vector2(data.fromVertex.x+0.0, data.fromVertex.y+0.0);
     endVertex = new Vector2(data.toVertex.x+0.0, data.toVertex.y+0.0);
@@ -325,6 +391,10 @@ class Wall {
     y0 = startVertex.y;
     x1 = endVertex.x;
     y1 = endVertex.y;
+    
+    xc = (x0+x1)/2.0;
+    yc = (y0+y1)/2.0;
+    
     
     double xd = x1-x0;
     double yd = y1-y0;
@@ -340,6 +410,29 @@ class Wall {
 
     d = x0*xn+y0*yn;
     sd = x0*xt+y0*yt;    
+  }
+  
+  void triggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
+    Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
+    Sector sector = rightSide?wall.rightSector:wall.leftSector; 
+    bool changed = false;
+    if (s.lowerTexture.startsWith("SW1"))  {s.lowerTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
+    if (s.middleTexture.startsWith("SW1")) {s.middleTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
+    if (s.upperTexture.startsWith("SW1")) {s.upperTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;}
+    
+    if (changed) {
+      double yc = (sector.floorHeight+sector.ceilingHeight)/2.0;
+      Vector3 pos = new Vector3(wall.xc, yc, wall.yc);
+      playSound(pos, "SWTCHN", uniqueId: wall);
+      if (!trigger.once) level.performLater(35.0/35.0, ()=>untriggerSwitch(wall, rightSide, trigger));
+    }
+  }
+  
+  void untriggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
+    Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
+    if (s.lowerTexture.startsWith("SW2")) s.lowerTexture = "SW1${s.lowerTexture.substring(3)}"; 
+    if (s.middleTexture.startsWith("SW2")) s.middleTexture = "SW1${s.lowerTexture.substring(3)}"; 
+    if (s.upperTexture.startsWith("SW2")) s.upperTexture = "SW1${s.lowerTexture.substring(3)}"; 
   }
 }
 
@@ -364,13 +457,99 @@ class Sector {
   double floorHeight, ceilingHeight;
   String floorTexture, ceilingTexture;
   double lightLevel;
+  List<Entity> entities = new List<Entity>();
+  List<Sector> neighborSectors;
+  double originalLightLevel;
+  double darkestNeighbor;
+
+  double lightChangeAccum = 0.0;
+  int lightOffset = 0;
+
+  SectorEffect effect = null;
   
+  Vector3 centerPos;
+
   Sector(Level level, this.data) {
     floorHeight = data.floorHeight+0.0;
     ceilingHeight = data.ceilingHeight+0.0;
     floorTexture = data.floorTexture;
     ceilingTexture = data.ceilingTexture;
-    lightLevel = data.lightLevel/255.0;
+    originalLightLevel = lightLevel = data.lightLevel/255.0;
+    
+    lightOffset = random.nextInt(8);
+  }
+  
+  void findNeighbors(List<Segment> segments) {
+    HashSet<Sector> neighbors = new HashSet();
+    double x0 = 100000000000.0;
+    double x1 = -100000000000.0;
+    double y0 = 100000000000.0;
+    double y1 = -100000000000.0;
+    segments.forEach((segment) {
+      if (segment.sector==this) {
+        if (segment.x0<x0) x0 = segment.x0;
+        if (segment.y0<y0) y0 = segment.y0;
+        if (segment.x0>x1) x1 = segment.x0;
+        if (segment.y0>y1) y1 = segment.y0;
+        if (segment.backSector!=null) neighbors.add(segment.backSector);
+      }
+    });
+    neighborSectors = new List<Sector>.from(neighbors);
+    darkestNeighbor = -1.0;
+    neighborSectors.forEach((sector) {
+      if (darkestNeighbor<0.0 || sector.lightLevel<darkestNeighbor) {
+        darkestNeighbor = sector.lightLevel;
+      }
+    });
+    if (darkestNeighbor>=lightLevel) darkestNeighbor = 0.0;
+    centerPos = new Vector3((x1+x0)/2.0, floorHeight, (y0+y1)/2.0);
+  }
+  
+  void setEffect(SectorEffect effect) {
+    if (this.effect == null) {
+      this.effect = effect;
+      if (effect!=null) effect.start(this);
+    } else {
+      this.effect.replaceWithEffect(effect);
+    }
+  }
+
+  void tick(double passedTime) {
+    if (effect!=null) effect.tick(passedTime);
+    if (data.special==0x01) {
+      lightChangeAccum+=passedTime*35.0/4.0;
+      int ticks = 0;
+      ticks = lightChangeAccum.floor();
+      lightChangeAccum-=ticks;
+      if (ticks>0) {
+        lightLevel = random.nextInt(5)==0?darkestNeighbor:originalLightLevel;
+      }
+    }
+    if (data.special==0x08) {
+      lightChangeAccum+=passedTime*20.0/35.0;
+      lightChangeAccum-=lightChangeAccum.floorToDouble();
+      double t = lightChangeAccum*2.0;
+      if (t>1.0) t = 2.0-t;
+      lightLevel = darkestNeighbor+(originalLightLevel-darkestNeighbor)*t;
+    }
+    if (data.special==0x02 || data.special==0x03 || data.special==0x04 || data.special==0x0c || data.special==0x0d) {
+      lightChangeAccum+=passedTime*31.0/35.0;
+      if (data.special==0x02 || data.special==0x04 || data.special==0x0c) {
+        lightChangeAccum+=passedTime*31.0/35.0;
+      }
+      lightChangeAccum-=lightChangeAccum.floor();
+      int tick = ((lightChangeAccum*31.0).floor());
+      if (data.special<0x0c) tick+=lightOffset;
+      lightLevel = (tick%31)>4?darkestNeighbor:originalLightLevel;
+    }
+    // 0x04 hurt player 20% (+ light above)
+    // 0x05 hurt player 10%
+    // 0x07 hurt player 5%
+    // 0x09 secret
+    // 0x0a close after 30 seconds
+    // 0x0b hurt 20%, switch level if health is < 11%
+    // 0x0e open after 300 seconds
+    // 0x10 hurt player 20%
   }
 }
 

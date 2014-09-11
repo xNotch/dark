@@ -63,16 +63,14 @@ class Sprites {
     spriteCount = 0;
   }
   
-  void insertSprite(Sector sector, Vector3 p, int subSectorId, SpriteTemplateRot str) {
-    double ssid = subSectorId+0.0;
-    double br = sector.lightLevel;
+  void insertSprite(double br, Vector3 p, SpriteTemplateRot str) {
     if (invulnerable) br = 1.0;
     
     vertexData.setAll(spriteCount*FLOATS_PER_VERTEX*4, [
-        p.x, p.y, p.z, ssid, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
-        p.x, p.y, p.z, ssid, str.xOffs1, str.yOffs0, str.u1, str.v0, br,
-        p.x, p.y, p.z, ssid, str.xOffs1, str.yOffs1, str.u1, str.v1, br,
-        p.x, p.y, p.z, ssid, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
+        p.x, p.y, p.z, 0.0, str.xOffs0, str.yOffs0, str.u0, str.v0, br,
+        p.x, p.y, p.z, 0.0, str.xOffs1, str.yOffs0, str.u1, str.v0, br,
+        p.x, p.y, p.z, 0.0, str.xOffs1, str.yOffs1, str.u1, str.v1, br,
+        p.x, p.y, p.z, 0.0, str.xOffs0, str.yOffs1, str.u0, str.v1, br,
     ]);
     
     spriteCount++;
@@ -105,14 +103,17 @@ class Sprites {
   }
     
   
-  void render(Shader shader, GL.Texture backTexture, bool clipAgainstSegs) {
+  void render(Shader shader, GL.Texture segDistanceTexture, GL.Texture segNormalTexture, bool clipAgainstSegs) {
     if (spriteCount==0) return;
     shader.use();
 
-    shader.uniform1i("u_backTex", 1);
+    shader.uniform1i("u_distanceTex", 2);
+    shader.uniform1i("u_normalTex", 1);
     shader.uniform1i("u_tex", 0);
+    gl.activeTexture(GL.TEXTURE2);
+    gl.bindTexture(GL.TEXTURE_2D, segDistanceTexture);
     gl.activeTexture(GL.TEXTURE1);
-    gl.bindTexture(GL.TEXTURE_2D, backTexture);
+    gl.bindTexture(GL.TEXTURE_2D, segNormalTexture);
     gl.activeTexture(GL.TEXTURE0);
     gl.bindTexture(GL.TEXTURE_2D, texture);
     

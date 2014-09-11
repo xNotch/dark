@@ -75,7 +75,7 @@ class Floors {
       double tox = ss.x1;
       double toy = ss.y1;
 
-      double dd = visibleSegs[i].sortedSubSectorId+0.0;
+      double dd = 0.0;
       if (ss.backSector == null) {
         double xTexOffs = 0.0;
         double yTexOffs = 0.0;
@@ -217,7 +217,9 @@ class Floors {
     
     for (int i = visibleSegs.length - 1; i >= 0; i--) {
       Segment ss = visibleSegs[i];
-      double dd = ss.sortedSubSectorId+0.0;
+      double dd = ss.dir-player.rot;
+      double lowDist = ss.lowDistance;
+      double highDist = ss.highDistance;
 
       double orgFloor = ss.sector.floorHeight.toDouble();
       double orgCeiling = ss.sector.ceilingHeight.toDouble();
@@ -233,71 +235,71 @@ class Floors {
       double toy = ss.y1;
 
       if (ss.backSector == null || ss.backSector.floorHeight >= ss.backSector.ceilingHeight) {
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd, lowDist, highDist]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd, lowDist, highDist]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd, lowDist, highDist]);
 
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
-        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd, lowDist, highDist]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd, lowDist, highDist]);
+        vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd, lowDist, highDist]);
       } else {
         if (ss.backSector.floorHeight > ss.sector.floorHeight) {
           double backFloor = ss.backSector.floorHeight.toDouble();
 
           if (ss.backSector.floorHeight > pos.y) {
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backFloor, fromy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backFloor, fromy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd, lowDist, highDist]);
 
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backFloor, toy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd, lowDist, highDist]);
           }
         }
         if (ss.backSector.ceilingHeight < ss.sector.ceilingHeight) {
           double backCeiling = ss.backSector.ceilingHeight.toDouble();
 
           if (ss.backSector.ceilingHeight < pos.y) {
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy, dd, lowDist, highDist]);
 
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy, dd]);
-            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backCeiling, toy, dd]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, backCeiling, fromy, dd, lowDist, highDist]);
+            vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, backCeiling, toy, dd, lowDist, highDist]);
           }
         }
       }
       if (orgFloor < pos.y) {
         if (ss.backSector != null && ss.backSector.floorHeight < ss.sector.floorHeight) {
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor, fromy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor, fromy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd, lowDist, highDist]);
 
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor, toy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, floor, fromy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, floor, toy, dd, lowDist, highDist]);
         }
         if (false) { 
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor-floorDepth, toy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor-floorDepth, fromy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgFloor-floorDepth, pos.z, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgFloor-floorDepth, toy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgFloor-floorDepth, fromy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgFloor-floorDepth, pos.z, dd, lowDist, highDist]);
         }
       }
       if (orgCeiling > pos.y) {
         if (ss.backSector != null && ss.backSector.ceilingHeight > ss.sector.ceilingHeight) {
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd, lowDist, highDist]);
 
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, ceiling, toy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, ceiling, fromy, dd, lowDist, highDist]);
         }
         if (false) {
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy, dd]);
-          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgCeiling+floorDepth, pos.z, dd]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [fromx, orgCeiling, fromy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [tox, orgCeiling, toy, dd, lowDist, highDist]);
+          vertexData.setAll((pp++) * FLOATS_PER_VERTEX, [pos.x, orgCeiling+floorDepth, pos.z, dd, lowDist, highDist]);
         }
       }
     }
@@ -543,7 +545,7 @@ class WallRenderer {
       double texCoordxOffs = textureImage.xAtlasPos.toDouble();
       double texCoordyOffs = textureImage.yAtlasPos.toDouble();
       double texWidth = textureImage.width.toDouble();
-      double br = frontSector.lightLevel; //*seg.brightness; // TODO: Add this again
+      double br = frontSector.lightLevel*seg.brightness;
       if (invulnerable) br = 1.0;
   
       data.setAll(offset, [v1.x, ceiling.toDouble(), v1.y, texCoordx1, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, ceiling.toDouble(), v0.y, texCoordx0, texCoordy0, texCoordxOffs, texCoordyOffs, texWidth, br, v0.x, floor.toDouble(), v0.y, texCoordx0, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br, v1.x, floor.toDouble(), v1.y, texCoordx1, texCoordy1, texCoordxOffs, texCoordyOffs, texWidth, br,]);
