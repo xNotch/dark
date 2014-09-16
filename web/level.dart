@@ -495,13 +495,15 @@ class Sector {
       }
     });
     neighborSectors = new List<Sector>.from(neighbors);
-    darkestNeighbor = -1.0;
+    darkestNeighbor = lightLevel;
     neighborSectors.forEach((sector) {
-      if (darkestNeighbor<0.0 || sector.lightLevel<darkestNeighbor) {
+      if (sector.lightLevel<darkestNeighbor) {
         darkestNeighbor = sector.lightLevel;
       }
     });
-    if (darkestNeighbor>=lightLevel) darkestNeighbor = 0.0;
+    if (darkestNeighbor>=lightLevel) {
+      if (data.special!=0x08) darkestNeighbor = 0.0; // Pulsating lights should not change
+    }
     centerPos = new Vector3((x1+x0)/2.0, floorHeight, (y0+y1)/2.0);
   }
   
