@@ -601,11 +601,11 @@ class Mob extends Entity {
       if (sector.floorHeight>floorHeight) floorHeight=sector.floorHeight;
     });
     motion = (pos-oldPos)/passedTime;
-    if (pos.y<=floorHeight.toDouble()) {
-      if (oldPos.y<=floorHeight.toDouble()) {
+    if (pos.y<=floorHeight) {
+      if (oldPos.y<=floorHeight) {
         stepUp+=floorHeight-oldPos.y;
       }
-      pos.y = floorHeight.toDouble();
+      pos.y = floorHeight;
       motion.y = 0.0;
     } else {
       motion.y-=2000*passedTime;

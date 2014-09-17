@@ -136,7 +136,7 @@ class Level {
   void loadThing(WAD.Thing thing) {
     Vector3 spritePos = new Vector3(thing.x.toDouble(), 20.0, thing.y.toDouble());
     Sector sector = bsp.findSector(spritePos.x, spritePos.z);
-    spritePos.y = sector.floorHeight.toDouble();
+    spritePos.y = sector.floorHeight;
     double rot = ((90-thing.angle-22)~/45)*PI*2/8.0;
     
     switch (thing.type) { 

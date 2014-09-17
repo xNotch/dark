@@ -229,7 +229,7 @@ class LiftEffect extends SectorEffect {
   void start(Sector sector) {
     super.start(sector);
     startHeight = sector.floorHeight;
-    playSound(sector.centerPos, "PSTART");
+    playSound(sector.centerPos, "PSTART", uniqueId: sector);
   }
   
   bool lower(double passedTime) {
@@ -239,7 +239,23 @@ class LiftEffect extends SectorEffect {
         lowestNeighborFloor = sector.neighborSectors[i].floorHeight; 
     }
 
+    double orgHeight = sector.floorHeight;
     sector.floorHeight-=passedTime*35.0*4.0;
+    
+    double margin = 0.001;
+
+    // Maybe move entities on this elevator down..
+    sector.entities.forEach((entity){
+      if (entity.pos.y<=orgHeight+margin) {
+        double highest = sector.floorHeight;
+        entity.inSectors.forEach((s) {
+          if (s.floorHeight>highest) highest = s.floorHeight;
+        });
+        if (entity.pos.y>highest+margin) {
+          entity.pos.y=highest;
+        }
+      }
+    });
     
     if (sector.floorHeight<lowestNeighborFloor) {
       sector.floorHeight=lowestNeighborFloor;
@@ -249,10 +265,47 @@ class LiftEffect extends SectorEffect {
   }
   
   bool raise(double passedTime) {
+    double orgHeight = sector.floorHeight;
+
     sector.floorHeight+=passedTime*35.0*4.0;
+    
+    double maxHeight = sector.floorHeight;
+    
+    double margin = 0.001;
+    sector.entities.forEach((entity){
+      double lowestCeiling = sector.ceilingHeight;
+      entity.inSectors.forEach((s) {
+        if (s.ceilingHeight<lowestCeiling) lowestCeiling = s.ceilingHeight;
+      });
+      double highestPossibleEntityPos = lowestCeiling - entity.height;
+      if (maxHeight>highestPossibleEntityPos) maxHeight = highestPossibleEntityPos;
+    });
     
     if (sector.floorHeight>startHeight) {
       sector.floorHeight=startHeight;
+    }
+    
+    if (sector.floorHeight>maxHeight) {
+      // TODO: Hit the entities here?
+      phase = 0;
+      playSound(sector.centerPos, "PSTART", uniqueId: sector);
+      sector.floorHeight = maxHeight;
+    }
+    
+    // Maybe move entities on this elevator down..
+    sector.entities.forEach((entity){
+      if (entity.pos.y<=orgHeight+margin) {
+        double highest = sector.floorHeight;
+        entity.inSectors.forEach((s) {
+          if (s.floorHeight>highest) highest = s.floorHeight;
+        });
+        if (entity.pos.y<highest+margin) {
+          entity.pos.y=highest;
+        }
+      }
+    });
+    
+    if (sector.floorHeight>=startHeight) {
       return true;
     }
     return false;
@@ -264,19 +317,19 @@ class LiftEffect extends SectorEffect {
       if (lower(passedTime)) {
         phase = 1;
         waitTime = 0.0;
-        playSound(sector.centerPos, "PSTOP");
+        playSound(sector.centerPos, "PSTOP", uniqueId: sector);
       }
     } else if (phase==1) {
       waitTime+=passedTime;
       if (waitTime>3.0) {
         waitTime = 0.0;
         phase = 2;
-        playSound(sector.centerPos, "PSTART");
+        playSound(sector.centerPos, "PSTART", uniqueId: sector);
       }
     } else if (phase==2) {
       if (raise(passedTime)) {
         sector.endEffect();
-        playSound(sector.centerPos, "PSTOP");
+        playSound(sector.centerPos, "PSTOP", uniqueId: sector);
       }
     }
   }
@@ -377,8 +430,8 @@ class DoorOpenEffect extends DoorEffect {
 
   void start(Sector sector) {
     super.start(sector);
-    if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN");
-    if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN");
+    if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN", uniqueId: sector);
+    if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN", uniqueId: sector);
   }
 
   void tick(double passedTime) {
@@ -393,8 +446,8 @@ class DoorCloseEffect extends DoorEffect {
 
   void start(Sector sector) {
     super.start(sector);
-    if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DORCLS");
-    if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "DORCLS");
+    if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DORCLS", uniqueId: sector);
+    if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "DORCLS", uniqueId: sector);
   }
   
   void tick(double passedTime) {
@@ -412,8 +465,8 @@ class DoorOpenCloseEffect extends DoorEffect {
   
   void start(Sector sector) {
     super.start(sector);
-    if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN");
-    if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN");
+    if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN", uniqueId: sector);
+    if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN", uniqueId: sector);
   }
 
   void tick(double passedTime) {
@@ -427,7 +480,7 @@ class DoorOpenCloseEffect extends DoorEffect {
       if (waitTime>4.0) {
         waitTime = 0.0;
         phase = 2;
-        playSound(sector.centerPos, "DORCLS");
+        playSound(sector.centerPos, "DORCLS", uniqueId: sector);
       }
     } else if (phase==2) {
       if (closeDoor(passedTime)) {
@@ -459,7 +512,7 @@ class DoorCloseOpenEffect extends DoorEffect {
   
   void start(Sector sector) {
     super.start(sector);
-    playSound(sector.centerPos, "DORCLS");
+    playSound(sector.centerPos, "DORCLS", uniqueId: sector);
   }
 
   void tick(double passedTime) {
@@ -473,8 +526,8 @@ class DoorCloseOpenEffect extends DoorEffect {
       if (waitTime>30.0) {
         waitTime = 0.0;
         phase = 2;
-        if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN");
-        if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN");
+        if (speed==LinedefTriggers.SPEED_MED) playSound(sector.centerPos, "DOROPN", uniqueId: sector);
+        if (speed==LinedefTriggers.SPEED_TURBO) playSound(sector.centerPos, "BDOPN", uniqueId: sector);
       }
     } else if (phase==2) {
       if (openDoor(passedTime)) {
