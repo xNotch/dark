@@ -139,7 +139,21 @@ class Weapon {
       spread.y*=0.2;
       HitResult result = level.hitscan(pos, (dir+spread*spreadAmount).normalize(), false);
       if (result!=null) {
-        if (result.entity!=null) {
+        if (result.segment!=null) {
+          if (result.segment.wall.data.type!=0) {
+            if (result.segment.wall.triggerUsable) {
+              LinedefTrigger trigger = linedefTriggers.triggers[result.segment.wall.data.type];
+              if (trigger==null) {
+                print("NO LINDEFTRIGGER FOR ${result.segment.wall.data.type}");
+              } else {
+                if (trigger.activator == LinedefTriggers.BULLET) {
+                  trigger.trigger(result.segment.wall, true);
+                  return;
+                }
+              }
+            }
+          }
+        } else if (result.entity!=null) {
           if (result.entity is Monster) {
             (result.entity as Monster).motion+=dir*100.0;
           }
