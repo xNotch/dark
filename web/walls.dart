@@ -94,7 +94,7 @@ class Floors {
         if (ss.backSector.floorHeight > ss.sector.floorHeight) {
           double xTexOffs = 0.0;
           double yTexOffs = 0.0;
-          if (ss.backSector!=null && ss.backSector.floorTexture == "F_SKY1") {
+          if (ss.backSector!=null && ss.backSector.floorTexture.isSky) {
              xTexOffs = xSkyTexOffs;
              yTexOffs = ySkyTexOffs;
            }
@@ -115,11 +115,11 @@ class Floors {
         if (ss.backSector.ceilingHeight < ss.sector.ceilingHeight) {
           double xTexOffs = 0.0;
           double yTexOffs = 0.0;
-          if (ss.backSector!=null && ss.backSector.ceilingTexture == "F_SKY1") {
+          if (ss.backSector!=null && ss.backSector.ceilingTexture.isSky) {
             xTexOffs = xSkyTexOffs;
             yTexOffs = ySkyTexOffs;
           }
-          if (ss.backSector!=null && ss.backSector.ceilingTexture == "F_SKY1")
+          if (ss.backSector!=null && ss.backSector.ceilingTexture.isSky)
           {
           } else {
             double backCeiling = ss.backSector.ceilingHeight.toDouble();
@@ -137,10 +137,10 @@ class Floors {
         }
       }
       if (floor < pos.y) {
-        double xTexOffs = resources.flats[ss.sector.floorTexture].xAtlasPos.toDouble();
-        double yTexOffs = resources.flats[ss.sector.floorTexture].yAtlasPos.toDouble();
+        double xTexOffs = ss.sector.floorTexture.xAtlasPos;
+        double yTexOffs = ss.sector.floorTexture.yAtlasPos;
         double sbr = br;
-        if (ss.sector.floorTexture == "F_SKY1") {
+        if (ss.sector.floorTexture.isSky) {
           xTexOffs = xSkyTexOffs;
           yTexOffs = ySkyTexOffs;
           sbr = 1.0;
@@ -153,7 +153,7 @@ class Floors {
           pp+=3;
         }
       }
-      if (ss.sector.ceilingTexture == "F_SKY1") {
+      if (ss.sector.ceilingTexture.isSky) {
         double xTexOffs = xSkyTexOffs;
         double yTexOffs = ySkyTexOffs;
         double sbr = 1.0;
@@ -171,8 +171,8 @@ class Floors {
           pp+=6;
         }
       } else if (ceiling > pos.y) {
-        double xTexOffs = resources.flats[ss.sector.ceilingTexture].xAtlasPos.toDouble();
-        double yTexOffs = resources.flats[ss.sector.ceilingTexture].yAtlasPos.toDouble();
+        double xTexOffs = ss.sector.ceilingTexture.xAtlasPos;
+        double yTexOffs = ss.sector.ceilingTexture.yAtlasPos;
         double sbr = br;
         vertexData.setAll(pp * FLOATS_PER_VERTEX, [
             fromx, ceiling, fromy, dd, xTexOffs, yTexOffs, sbr,
@@ -454,15 +454,14 @@ class WallRenderer {
     Vector2 v0 = seg.startVertex;
     Vector2 v1 = seg.endVertex;
 
-    String textureName;
+    Image textureImage;
     GL.Texture texture;
 
-    if (type == WALL_TYPE_MIDDLE) textureName = sidedef.middleTexture;
-    if (type == WALL_TYPE_MIDDLE_TRANSPARENT) textureName = sidedef.middleTexture;
-    if (type == WALL_TYPE_UPPER) textureName = sidedef.upperTexture;
-    if (type == WALL_TYPE_LOWER) textureName = sidedef.lowerTexture;
+    if (type == WALL_TYPE_MIDDLE) textureImage = sidedef.middleTexture;
+    if (type == WALL_TYPE_MIDDLE_TRANSPARENT) textureImage = sidedef.middleTexture;
+    if (type == WALL_TYPE_UPPER) textureImage = sidedef.upperTexture;
+    if (type == WALL_TYPE_LOWER) textureImage = sidedef.lowerTexture;
 
-    Image textureImage = resources.wallTextures[textureName];
     if (textureImage != null) texture = textureImage.imageAtlas.texture;
     if (texture==null) return;
     
@@ -573,8 +572,8 @@ class WallRenderer {
     if (seg.backSector != null) {
       if (seg.sidedef.middleTexture != "-") WallRenderer.render(seg, WALL_TYPE_MIDDLE_TRANSPARENT);
 
-      if (seg.sidedef.upperTexture != "-" && seg.backSector.ceilingTexture != "F_SKY1") WallRenderer.render(seg, WALL_TYPE_UPPER);
-      if (seg.sidedef.lowerTexture != "-" && seg.backSector.floorTexture != "F_SKY1") WallRenderer.render(seg, WALL_TYPE_LOWER);
+      if (seg.sidedef.upperTexture != "-" && !seg.backSector.ceilingTexture.isSky) WallRenderer.render(seg, WALL_TYPE_UPPER);
+      if (seg.sidedef.lowerTexture != "-" && !seg.backSector.floorTexture.isSky) WallRenderer.render(seg, WALL_TYPE_LOWER);
     }
   }
 }

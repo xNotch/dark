@@ -111,10 +111,13 @@ class Image {
   
   Texture texture;
   ImageAtlas imageAtlas;
-  int xAtlasPos, yAtlasPos; 
+  double xAtlasPos, yAtlasPos; 
+  
+  bool isSky = false;
   
   Image.fromWadImage(WAD.Image image) {
     this.name = image.name;
+    if (name=="F_SKY1") isSky = true;
     width = image.width;
     height = image.height;
     xCenter = image.xCenter;
@@ -135,8 +138,8 @@ class Image {
   
   void render(ImageAtlas atlas, Uint8List pixels, int xOffset, int yOffset) {
     this.imageAtlas = atlas;
-    this.xAtlasPos = xOffset;
-    this.yAtlasPos = yOffset;
+    this.xAtlasPos = xOffset.toDouble();
+    this.yAtlasPos = yOffset.toDouble();
     for (int y=0; y<height; y++) {
       int start = (xOffset+(yOffset+y)*atlas.width)*4;
       int end = start+width*4;

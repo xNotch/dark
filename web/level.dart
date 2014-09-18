@@ -415,10 +415,7 @@ class Wall {
   void triggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
     Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
     Sector sector = rightSide?wall.rightSector:wall.leftSector; 
-    bool changed = false;
-    if (s.lowerTexture!=null && s.lowerTexture.length>3 && s.lowerTexture.startsWith("SW1"))  {s.lowerTexture = "SW2${s.lowerTexture.substring(3)}"; changed = true;} 
-    if (s.middleTexture!=null && s.middleTexture.length>3 && s.middleTexture.startsWith("SW1")) {s.middleTexture = "SW2${s.middleTexture.substring(3)}"; changed = true;} 
-    if (s.upperTexture!=null && s.upperTexture.length>3 && s.upperTexture.startsWith("SW1")) {s.upperTexture = "SW2${s.upperTexture.substring(3)}"; changed = true;}
+    bool changed = s.setSwitchTextures(true);
     
     if (changed) {
       double yc = (sector.floorHeight+sector.ceilingHeight)/2.0;
@@ -430,24 +427,49 @@ class Wall {
   
   void untriggerSwitch(Wall wall, bool rightSide, LinedefTrigger trigger) {
     Sidedef s = rightSide?wall.rightSidedef:wall.leftSidedef;
-    if (s.lowerTexture!=null && s.lowerTexture.length>3 && s.lowerTexture.startsWith("SW2")) s.lowerTexture = "SW1${s.lowerTexture.substring(3)}"; 
-    if (s.middleTexture!=null && s.middleTexture.length>3 && s.middleTexture.startsWith("SW2")) s.middleTexture = "SW1${s.middleTexture.substring(3)}"; 
-    if (s.upperTexture!=null && s.upperTexture.length>3 && s.upperTexture.startsWith("SW2")) s.upperTexture = "SW1${s.upperTexture.substring(3)}"; 
+    s.setSwitchTextures(false);
   }
 }
 
 class Sidedef {
   WAD.Sidedef data;
   
-  String middleTexture, upperTexture, lowerTexture;
+  Image middleTexture, upperTexture, lowerTexture;
   double xTextureOffs, yTextureOffs;
   
   Sidedef(Level level, this.data) {
-    middleTexture = data.middleTexture; 
-    upperTexture = data.upperTexture; 
-    lowerTexture = data.lowerTexture; 
+    middleTexture = resources.wallTextures.containsKey(data.middleTexture)?resources.wallTextures[data.middleTexture]:null; 
+    upperTexture = resources.wallTextures.containsKey(data.upperTexture)?resources.wallTextures[data.upperTexture]:null;
+    lowerTexture = resources.wallTextures.containsKey(data.lowerTexture)?resources.wallTextures[data.lowerTexture]:null;
     xTextureOffs = data.xTextureOffs+0.0;
     yTextureOffs = data.yTextureOffs+0.0;
+  }
+  
+  bool setSwitchTextures(bool on) {
+    bool changed = false;
+    String lowerTextureName = getSwitchTextureName(lowerTexture, on);
+    String middleTextureName = getSwitchTextureName(middleTexture, on);
+    String upperTextureName = getSwitchTextureName(upperTexture, on);
+    if (lowerTextureName!=null) { 
+      lowerTexture = resources.wallTextures.containsKey(lowerTextureName)?resources.wallTextures[lowerTextureName]:null;
+      changed = true;
+    }
+    if (middleTextureName!=null) { 
+      middleTexture = resources.wallTextures.containsKey(middleTextureName)?resources.wallTextures[middleTextureName]:null;
+      changed = true;
+    }
+    if (upperTextureName!=null) { 
+      upperTexture = resources.wallTextures.containsKey(upperTextureName)?resources.wallTextures[upperTextureName]:null;
+      changed = true;
+    }
+    return changed;
+  }
+  
+  String getSwitchTextureName(Image image, bool on) {
+    if (image == null) return null;
+    if (on && image.name.length>3 && image.name.startsWith("SW1"))  return "SW2${image.name.substring(3)}";
+    if (!on && image.name.length>3 && image.name.startsWith("SW2"))  return "SW1${image.name.substring(3)}";
+    return null;
   }
 }
 
@@ -455,7 +477,7 @@ class Sector {
   WAD.Sector data;
   
   double floorHeight, ceilingHeight;
-  String floorTexture, ceilingTexture;
+  Image floorTexture, ceilingTexture;
   double lightLevel;
   List<Entity> entities = new List<Entity>();
   List<Sector> neighborSectors;
@@ -472,8 +494,8 @@ class Sector {
   Sector(Level level, this.data) {
     floorHeight = data.floorHeight+0.0;
     ceilingHeight = data.ceilingHeight+0.0;
-    floorTexture = data.floorTexture;
-    ceilingTexture = data.ceilingTexture;
+    floorTexture = resources.flats[data.floorTexture];
+    ceilingTexture = resources.flats[data.ceilingTexture];
     originalLightLevel = lightLevel = data.lightLevel/255.0;
     
     lightOffset = random.nextInt(8);
