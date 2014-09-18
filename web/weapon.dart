@@ -153,7 +153,9 @@ class Weapon {
               }
             }
           }
-        } else if (result.entity!=null) {
+        }
+        
+        if (result.entity!=null) {
           if (result.entity is Monster) {
             (result.entity as Monster).motion+=dir*100.0;
           }
