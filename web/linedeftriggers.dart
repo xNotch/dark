@@ -102,6 +102,34 @@ class LinedefTriggers {
     triggers[120] = new LiftTrigger(SPEED_TURBO)..activatedBy(WALK);
     triggers[123] = new LiftTrigger(SPEED_TURBO)..activatedBy(TOUCH);
     
+    
+    // Floors
+    triggers[119] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(WALK)..setOnce();
+    triggers[128] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(WALK);
+    triggers[18] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(TOUCH)..setOnce();
+    triggers[69] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(TOUCH);
+    
+    triggers[22] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(WALK)..setOnce()..setTransferProperties()..setSectorUntriggerable();
+    triggers[95] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(WALK)..setTransferProperties()..setSectorUntriggerable();
+    triggers[20] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(TOUCH)..setOnce()..setTransferProperties()..setSectorUntriggerable();
+    triggers[68] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(TOUCH)..setTransferProperties()..setSectorUntriggerable();
+    triggers[47] = new FloorRaiseNextHigherTrigger(SPEED_SLOW)..activatedBy(BULLET)..setOnce()..setTransferProperties()..setSectorUntriggerable();
+    
+    triggers[5] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 0.0)..activatedBy(WALK)..setOnce();
+    triggers[91] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 0.0)..activatedBy(WALK);
+    triggers[101] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 0.0)..activatedBy(TOUCH)..setOnce();
+    triggers[64] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 0.0)..activatedBy(TOUCH);
+    triggers[24] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 0.0)..activatedBy(BULLET)..setOnce();
+    
+    triggers[130] = new FloorRaiseNextHigherTrigger(SPEED_TURBO)..activatedBy(WALK)..setOnce();
+    triggers[131] = new FloorRaiseNextHigherTrigger(SPEED_TURBO)..activatedBy(TOUCH)..setOnce();
+    triggers[129] = new FloorRaiseNextHigherTrigger(SPEED_TURBO)..activatedBy(WALK);
+    triggers[132] = new FloorRaiseNextHigherTrigger(SPEED_TURBO)..activatedBy(TOUCH);
+
+    triggers[56] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 8.0)..activatedBy(WALK)..setOnce()..setSectorUntriggerable()..setCrush();
+    triggers[94] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 8.0)..activatedBy(WALK)..setSectorUntriggerable()..setCrush();
+    triggers[55] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 8.0)..activatedBy(TOUCH)..setOnce()..setCrush();
+    triggers[65] = new FloorRaiseLowestCeilingTrigger(SPEED_SLOW, 8.0)..activatedBy(TOUCH)..setCrush();
   }
 }
 
@@ -109,6 +137,8 @@ class LinedefTrigger {
   int activator;
   bool monsterActivatable = false;
   bool once = false;
+  bool makesSectorUntriggerable = false;
+  bool crush = false;
   
   void trigger(Wall wall, bool rightSide) {
     if (once) {
@@ -116,7 +146,12 @@ class LinedefTrigger {
     }
     bool triggered = false;
     level.getSectorsWithTag(wall.data.tag).forEach((sector) {
+      if (sector.onlyTriggerableBy!=null && sector.onlyTriggerableBy!=this) return;
+      
       if (sector.effect==null) {
+        if (makesSectorUntriggerable) {
+          sector.onlyTriggerableBy = this;
+        }
         triggerOnSector(sector, wall, rightSide);
         triggered = true;
       }
@@ -125,6 +160,14 @@ class LinedefTrigger {
     if (triggered) {
       wall.triggerSwitch(wall, rightSide, this);
     }
+  }
+  
+  void setCrush() {
+    crush = true;
+  }
+  
+  void setSectorUntriggerable() {
+    makesSectorUntriggerable = true;
   }
   
   void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
@@ -198,6 +241,33 @@ class LiftTrigger extends LinedefTrigger {
     sector.setEffect(new LiftEffect(speed));
   }
 }
+
+class FloorRaiseTrigger extends LinedefTrigger {
+  int speed;
+  bool transferProperties = false;
+  
+  FloorRaiseTrigger(this.speed);
+  
+  void setTransferProperties() {
+    this.transferProperties = true;
+  }
+  
+  void triggerOnSector(Sector sector, Wall wall, bool rightSide) {
+    sector.effect = new FloorRaiseEffect(this);
+  }
+}
+
+class FloorRaiseNextHigherTrigger extends FloorRaiseTrigger {
+  FloorRaiseNextHigherTrigger(int speed) : super(speed);
+}
+
+class FloorRaiseLowestCeilingTrigger extends FloorRaiseTrigger {
+  double margin = 0.0;
+  
+  FloorRaiseLowestCeilingTrigger(int speed, this.margin) : super(speed);
+}
+
+
 
 
 

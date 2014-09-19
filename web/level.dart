@@ -488,8 +488,8 @@ class Sector {
   int lightOffset = 0;
 
   SectorEffect effect = null;
-  
   Vector3 centerPos;
+  LinedefTrigger onlyTriggerableBy = null;
 
   Sector(Level level, this.data) {
     floorHeight = data.floorHeight+0.0;
